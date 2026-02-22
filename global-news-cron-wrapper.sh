@@ -28,9 +28,11 @@ else
     SMTP_PASS="${SMTP_PASS:-}"
 fi
 
-# 日志函数
+# 日志函数 — writes to both stdout (captured by cron) and daily log file
 log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" | tee -a "$LOG_FILE"
+    local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"
+    echo "$msg"
+    echo "$msg" >> "$LOG_FILE"
 }
 
 # 错误处理
@@ -54,18 +56,11 @@ check_config() {
     log "✅ 配置检查完毕"
 }
 
-# 检查新闻源可访问性
-check_sources() {
-    log "🔍 检查新闻源可访问性..."
-    python3 "$PYTHON_SCRIPT" check 2>&1 | tee -a "$LOG_FILE" | grep -E "✅|❌" || true
-    log "✅ 新闻源检查完毕"
-}
-
 # 执行推送（控制台模式）
 run_console_mode() {
     log "📻 运行控制台模式..."
-    python3 "$PYTHON_SCRIPT" console 2>&1 | tee -a "$LOG_FILE" || {
-        log "❌ 控制台模式执行失败 (exit=${PIPESTATUS[0]})"
+    python3 "$PYTHON_SCRIPT" console >> "$LOG_FILE" 2>&1 || {
+        log "❌ 控制台模式执行失败 (exit=$?)"
         return 1
     }
     log "✅ 控制台模式完毕"
@@ -88,8 +83,8 @@ run_email_mode() {
     export SMTP_USER
     export SMTP_PASS
     
-    python3 "$PYTHON_SCRIPT" email "$MAIL_TO" 2>&1 | tee -a "$LOG_FILE" || {
-        log "❌ 邮件发送失败 (exit=${PIPESTATUS[0]})"
+    python3 "$PYTHON_SCRIPT" email "$MAIL_TO" >> "$LOG_FILE" 2>&1 || {
+        log "❌ 邮件发送失败 (exit=$?)"
         return 1
     }
     log "✅ 邮件模式完毕"
@@ -103,9 +98,10 @@ show_usage() {
 选项:
     console         运行控制台模式（显示新闻到标准输出）
     email          运行邮件模式（发送邮件）
-    check          仅检查新闻源可访问性
-    full           完整运行（检查+控制台+邮件）
+    full           完整运行（控制台+邮件）
     help           显示此帮助信息
+
+注: 源健康检查已由 rss-health-check.py 独立处理（每6小时自动运行）
 
 配置:
     设置环境变量或在 ~/.stock-monitor.env 中配置:
@@ -119,9 +115,6 @@ show_usage() {
 示例:
     # 仅显示新闻
     $0 console
-
-    # 检查新闻源
-    $0 check
 
     # 发送邮件（需要配置SMTP凭证）
     $0 email
@@ -149,13 +142,8 @@ main() {
             check_config
             run_email_mode
             ;;
-        check)
-            check_config
-            check_sources
-            ;;
         full)
             check_config
-            check_sources
             run_console_mode
             run_email_mode
             ;;

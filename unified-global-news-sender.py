@@ -583,46 +583,12 @@ class UnifiedNewsSender:
         print("\n" + "=" * 70)
         print(f"⏰ 更新时间: {self.beijing_time}")
     
-    def check_sources(self):
-        """检查所有新闻源的可访问性"""
-        print("🔍 检查新闻源可访问性...\n")
-        ok_count = 0
-        fail_count = 0
-        all_sources = []
-
-        for src in self.config.get("news_sources", {}).get("sina_api", []):
-            all_sources.append(("API", src["name"], src["url"]))
-        for src in self.config.get("news_sources", {}).get("rss_feeds", []):
-            all_sources.append(("RSS", src["name"], src["url"]))
-
-        for src_type, name, url in all_sources:
-            try:
-                req = urllib.request.Request(url, headers=HEADERS)
-                with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as r:
-                    data = r.read()
-                    if len(data) > 0:
-                        print(f"  ✅ [{src_type}] {name} - {len(data)} bytes")
-                        ok_count += 1
-                    else:
-                        print(f"  ❌ [{src_type}] {name} - 空响应")
-                        fail_count += 1
-            except Exception as e:
-                print(f"  ❌ [{src_type}] {name} - {e}")
-                fail_count += 1
-
-        print(f"\n📊 结果: {ok_count} 成功, {fail_count} 失败, 共 {ok_count + fail_count} 个源")
-        return fail_count == 0
-
     def run(self, output_mode="console", recipient_email=None):
         """运行完整流程"""
         print(f"\n🚀 启动统一全球新闻推送系统")
         print(f"时间: {self.beijing_time}")
         print(f"时段: {self.period_info[0]}")
         print("=" * 70 + "\n")
-
-        # 检查模式 — 不抓取新闻，只测试源可达性
-        if output_mode == "check":
-            return self.check_sources()
 
         # 抓取新闻
         self.fetch_all_news()
