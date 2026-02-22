@@ -41,7 +41,7 @@ def _parse_date_flexible(date_str):
     except Exception:
         pass
     # Try non-standard: "2026-02-22 15:00:00  +0800" (36氪 style — extra spaces before tz)
-    cleaned = re.sub(r'\s+([+-]\d{4})$', r' \1', s)
+    cleaned = re.sub(r'\s*([+-]\d{4})$', r' \1', s)
     if cleaned != s:
         try:
             return datetime.fromisoformat(cleaned)
@@ -108,10 +108,13 @@ class UnifiedNewsSender:
         """加载配置文件"""
         try:
             with open(self.config_file, 'r', encoding='utf-8') as f:
-                return json.load(f)
+                config = json.load(f)
+            if "news_sources" not in config:
+                raise ValueError("missing 'news_sources' key")
+            return config
         except Exception as e:
-            print(f"❌ 配置文件加载失败: {e}")
-            return {"news_sources": {"sina_api": [], "rss_feeds": []}}
+            print(f"❌ 配置文件加载失败: {e}", file=sys.stderr)
+            raise SystemExit(f"Cannot proceed without valid config: {self.config_file}")
     
     @staticmethod
     def fetch_json(url):

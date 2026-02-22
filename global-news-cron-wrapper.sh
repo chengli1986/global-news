@@ -2,14 +2,14 @@
 # 全球新闻定时推送封装脚本
 # 用于cron定时执行和邮件推送
 
-set -e
+set -eo pipefail
 
 # 获取脚本所在目录
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
 # 配置
-LOG_DIR="./logs"
+LOG_DIR="$SCRIPT_DIR/logs"
 CONFIG_FILE="news-sources-config.json"
 PYTHON_SCRIPT="unified-global-news-sender.py"
 
@@ -64,7 +64,10 @@ check_sources() {
 # 执行推送（控制台模式）
 run_console_mode() {
     log "📻 运行控制台模式..."
-    python3 "$PYTHON_SCRIPT" console 2>&1 | tee -a "$LOG_FILE"
+    python3 "$PYTHON_SCRIPT" console 2>&1 | tee -a "$LOG_FILE" || {
+        log "❌ 控制台模式执行失败 (exit=${PIPESTATUS[0]})"
+        return 1
+    }
     log "✅ 控制台模式完毕"
 }
 
@@ -85,7 +88,10 @@ run_email_mode() {
     export SMTP_USER
     export SMTP_PASS
     
-    python3 "$PYTHON_SCRIPT" email "$MAIL_TO" 2>&1 | tee -a "$LOG_FILE"
+    python3 "$PYTHON_SCRIPT" email "$MAIL_TO" 2>&1 | tee -a "$LOG_FILE" || {
+        log "❌ 邮件发送失败 (exit=${PIPESTATUS[0]})"
+        return 1
+    }
     log "✅ 邮件模式完毕"
 }
 

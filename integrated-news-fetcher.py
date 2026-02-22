@@ -10,6 +10,7 @@ import urllib.error
 import json
 import xml.etree.ElementTree as ET
 import sys
+import os
 import time
 from datetime import datetime
 
@@ -224,7 +225,7 @@ def main():
     else:
         action = "fetch"
     
-    config_file = "news-sources-config.json"
+    config_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), "news-sources-config.json")
     
     if action == "check":
         # 检查所有新闻源的可访问性
