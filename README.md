@@ -26,7 +26,6 @@ Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
 | `global-news-cron-wrapper.sh` | Cron wrapper — manages logging, config validation, environment setup, and error handling |
 | `news-sources-config.json` | Central config for all news sources with per-source name, URL, type, keywords, article limit, and max age |
 | `rss-health-check.py` | Health monitor — checks all 33 sources in parallel, tracks consecutive failures, auto-swaps to fallback URLs after 3 failures, sends email alerts |
-| `integrated-news-fetcher.py` | Diagnostic tool — tests all configured sources for reachability and reports status |
 
 ## RSS Health Monitor
 
