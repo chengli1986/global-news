@@ -627,6 +627,11 @@ class UnifiedNewsSender:
         # 抓取新闻
         self.fetch_all_news()
 
+        # 零文章保护 — 全部源失败时不发送空邮件
+        if self._total_article_count() == 0:
+            print("⚠️  所有源返回0篇文章，跳过发送（可能网络故障）", file=sys.stderr)
+            return False
+
         # 输出模式
         if output_mode == "console":
             self.output_console()

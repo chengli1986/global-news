@@ -15,6 +15,9 @@ import sys
 import os
 import time
 import re
+import subprocess
+import tempfile
+import base64
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
@@ -90,7 +93,8 @@ def load_config():
 
 
 def swap_url_in_config(old_url, new_url):
-    """Replace a URL in the config file via text substitution, preserving formatting."""
+    """Replace a URL in the config file via text substitution, preserving formatting.
+    Uses atomic write (temp file + rename) to prevent corruption."""
     with open(CONFIG_FILE, "r", encoding="utf-8") as f:
         text = f.read()
     # JSON-escape the URLs for safe matching
@@ -99,8 +103,15 @@ def swap_url_in_config(old_url, new_url):
     if old_json not in text:
         return False
     text = text.replace(old_json, new_json, 1)
-    with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-        f.write(text)
+    # Atomic write: write to temp file in same directory, then rename
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(CONFIG_FILE), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp_path, CONFIG_FILE)
+    except Exception:
+        os.unlink(tmp_path)
+        raise
     return True
 
 
@@ -274,8 +285,9 @@ def run_checks():
             except Exception as e:
                 results[name] = {"ok": False, "error": f"exception: {e}", "article_count": 0, "newest_age_hours": None}
 
-    # Update state & handle failures
-    swapped = []  # [(name, old_url, new_url)]
+    # Update state & handle failures/recoveries
+    swapped = []   # [(name, old_url, new_url)]
+    reverted = []  # [(name, fallback_url, original_url)]
     for name, res in results.items():
         entry = state.get(name, {"consecutive_fails": 0, "last_check": None, "last_error": None, "swapped_from": None})
 
@@ -289,22 +301,33 @@ def run_checks():
         entry["last_check"] = now_bjt
         state[name] = entry
 
-        # Auto-swap at threshold
-        if entry["consecutive_fails"] >= FAIL_THRESHOLD and name in FALLBACK_URLS:
+        # Auto-swap at threshold (only if not already swapped)
+        if not res["ok"] and entry["consecutive_fails"] >= FAIL_THRESHOLD and name in FALLBACK_URLS:
             if entry.get("swapped_from") is not None:
-                # Already swapped before — don't swap again
                 continue
-
             fallback_url = FALLBACK_URLS[name]
             old_url = _get_current_url(config, name)
             if old_url and swap_url_in_config(old_url, fallback_url):
                 entry["swapped_from"] = old_url
                 swapped.append((name, old_url, fallback_url))
 
+        # Auto-revert: if source is healthy AND was previously swapped, try reverting
+        # We probe the original URL to see if it's back before reverting
+        if res["ok"] and entry.get("swapped_from"):
+            original_url = entry["swapped_from"]
+            current_url = _get_current_url(config, name)
+            if current_url and current_url != original_url:
+                # Probe the original URL before reverting
+                _, probe = check_source(name, original_url, "rss", DEFAULT_MAX_AGE_HOURS)
+                if probe["ok"]:
+                    if swap_url_in_config(current_url, original_url):
+                        reverted.append((name, current_url, original_url))
+                        entry["swapped_from"] = None
+
     # Save updated state
     save_state(state)
 
-    return results, state, swapped
+    return results, state, swapped, reverted
 
 
 def _get_current_url(config, source_name):
@@ -321,7 +344,7 @@ def _get_current_url(config, source_name):
 # Reporting
 # ============================================================
 
-def format_console_report(results, state, swapped):
+def format_console_report(results, state, swapped, reverted):
     """Plain text report for console/cron log."""
     now_bjt = datetime.now(BJT).strftime("%Y-%m-%d %H:%M BJT")
     lines = [f"RSS 健康检查报告 - {now_bjt}", ""]
@@ -371,22 +394,19 @@ def format_console_report(results, state, swapped):
         for name, old, new in swapped:
             lines.append(f"  {name}: {old} → {new}")
 
+    if reverted:
+        lines.append("")
+        lines.append("↩️  自动恢复:")
+        for name, fallback, original in reverted:
+            lines.append(f"  {name}: {fallback} → {original} (原始URL已恢复)")
+
     lines.append("")
     lines.append(f"状态文件: {STATE_FILE}")
     return "\n".join(lines)
 
 
-def format_email_body(results, state, swapped):
-    """Plain text email body."""
-    return format_console_report(results, state, swapped)
-
-
 def send_alert_email(body):
     """Send alert email via curl SMTP (same pattern as aws-health-monitor.sh)."""
-    import subprocess
-    import tempfile
-    import base64
-
     env = load_env(ENV_FILE)
     mail_to = env.get("MAIL_TO", "")
     smtp_user = env.get("SMTP_USER", "")
@@ -452,17 +472,16 @@ def main():
     print(f"   状态文件: {STATE_FILE}")
     print()
 
-    results, state, swapped = run_checks()
-    report = format_console_report(results, state, swapped)
+    results, state, swapped, reverted = run_checks()
+    report = format_console_report(results, state, swapped, reverted)
     print(report)
 
     has_problems = any(not r["ok"] for r in results.values())
-    has_swaps = len(swapped) > 0
+    has_changes = len(swapped) > 0 or len(reverted) > 0
 
-    if send_email and (has_problems or has_swaps):
+    if send_email and (has_problems or has_changes):
         print()
-        body = format_email_body(results, state, swapped)
-        send_alert_email(body)
+        send_alert_email(report)
     elif send_email:
         print("\n✅ 全部健康，无需发送告警邮件")
 
