@@ -14,12 +14,15 @@ import sys
 import os
 import time
 import smtplib
-from datetime import datetime, timezone
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from datetime import datetime, timezone, timedelta
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import parsedate_to_datetime
 import re
+
+BJT = timezone(timedelta(hours=8))
 
 FETCH_TIMEOUT = 10
 SMTP_TIMEOUT = 30
@@ -66,35 +69,12 @@ class UnifiedNewsSender:
     @staticmethod
     def get_beijing_time():
         """获取北京时间"""
-        import subprocess
-        try:
-            result = subprocess.run(
-                ["date", "+%Y年%m月%d日 %H:%M"],
-                env={**os.environ, "TZ": "Asia/Shanghai"},
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            return result.stdout.strip()
-        except Exception:
-            return datetime.now().strftime("%Y年%m月%d日 %H:%M")
+        return datetime.now(BJT).strftime("%Y年%m月%d日 %H:%M")
     
     @staticmethod
     def get_period_info():
         """根据时间段返回时期信息"""
-        import subprocess
-        try:
-            result = subprocess.run(
-                ["date", "+%H"],
-                env={**os.environ, "TZ": "Asia/Shanghai"},
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            hour = int(result.stdout.strip())
-        except Exception:
-            hour = datetime.now().hour
-        
+        hour = datetime.now(BJT).hour
         if hour in [0, 1]:
             return ("🌙 深夜档", "美洲市场收盘 | 全球要闻回顾")
         elif hour in [8, 9]:
@@ -226,32 +206,36 @@ class UnifiedNewsSender:
             return []
     
     def fetch_all_news(self):
-        """抓取所有新闻"""
+        """抓取所有新闻（并行）"""
         print("🔄 正在抓取新闻...")
 
-        # 处理新浪API源
-        if "sina_api" in self.config["news_sources"]:
-            for source in self.config["news_sources"]["sina_api"]:
-                name = source.get("name", "Unknown")
-                url = source.get("url", "")
-                keywords = source.get("keywords", [])
-                limit = source.get("limit", 5)
-                max_age = source.get("max_age_hours", 72)
+        # Build list of (name, fetcher_callable) tasks
+        tasks = []
+        for source in self.config["news_sources"].get("sina_api", []):
+            name = source.get("name", "Unknown")
+            url = source.get("url", "")
+            keywords = source.get("keywords", [])
+            limit = source.get("limit", 5)
+            max_age = source.get("max_age_hours", 72)
+            tasks.append((name, lambda u=url, k=keywords, l=limit, m=max_age: self.fetch_sina_news(u, k, l, m)))
 
-                news = self.fetch_sina_news(url, keywords, limit, max_age)
-                self.news_data[name] = news
+        for source in self.config["news_sources"].get("rss_feeds", []):
+            name = source.get("name", "Unknown")
+            url = source.get("url", "")
+            keywords = source.get("keywords", [])
+            limit = source.get("limit", 5)
+            max_age = source.get("max_age_hours", 72)
+            tasks.append((name, lambda u=url, k=keywords, l=limit, m=max_age: self.fetch_rss_news(u, k, l, m)))
 
-        # 处理RSS源
-        if "rss_feeds" in self.config["news_sources"]:
-            for source in self.config["news_sources"]["rss_feeds"]:
-                name = source.get("name", "Unknown")
-                url = source.get("url", "")
-                keywords = source.get("keywords", [])
-                limit = source.get("limit", 5)
-                max_age = source.get("max_age_hours", 72)
-
-                news = self.fetch_rss_news(url, keywords, limit, max_age)
-                self.news_data[name] = news
+        # Fetch all sources in parallel
+        with ThreadPoolExecutor(max_workers=10) as pool:
+            futures = {pool.submit(fn): name for name, fn in tasks}
+            for future in as_completed(futures):
+                name = futures[future]
+                try:
+                    self.news_data[name] = future.result()
+                except Exception:
+                    self.news_data[name] = []
 
         print(f"✅ 成功抓取 {sum(len(v) for v in self.news_data.values())} 条新闻\n")
     
@@ -529,7 +513,6 @@ class UnifiedNewsSender:
             msg["Subject"] = Header(subject, "utf-8")
             msg["From"] = sender_email
             msg["To"] = recipient_email
-            msg["MIME-Version"] = "1.0"
             
             # 添加HTML内容
             html_part = MIMEText(html_content, "html", "utf-8")
@@ -647,15 +630,14 @@ class UnifiedNewsSender:
         # 输出模式
         if output_mode == "console":
             self.output_console()
+            return True
         elif output_mode == "html":
-            html = self.generate_html()
-            print("\n生成的HTML邮件内容已准备好（未发送）")
-            return html
+            print(self.generate_html())
+            return True
         elif output_mode == "email":
             if not recipient_email:
-                print("❌ 错误: 邮件模式需要指定recipient_email")
+                print("❌ 错误: 邮件模式需要指定recipient_email", file=sys.stderr)
                 return False
-
             self.output_console()
             return self.send_email(recipient_email)
 
@@ -670,9 +652,11 @@ def main():
     else:
         mode = sys.argv[1]
         recipient = sys.argv[2] if len(sys.argv) > 2 else None
-    
+
     sender = UnifiedNewsSender()
-    sender.run(output_mode=mode, recipient_email=recipient)
+    success = sender.run(output_mode=mode, recipient_email=recipient)
+    if not success:
+        sys.exit(1)
 
 
 if __name__ == "__main__":
