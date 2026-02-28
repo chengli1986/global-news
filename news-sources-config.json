@@ -55,7 +55,7 @@
       {"name": "Economist Science",  "url": "https://www.economist.com/science-and-technology/rss.xml",      "keywords": [], "limit": 2, "max_age_hours": 168},
 
       {"name": "CBC Business",      "url": "https://www.cbc.ca/webfeed/rss/rss-business",                                     "keywords": [], "limit": 3, "max_age_hours": 96},
-      {"name": "Globe & Mail",      "url": "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/business/",         "keywords": [], "limit": 3}
+      {"name": "Globe & Mail",      "url": "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/business/",         "keywords": [], "limit": 3, "max_age_hours": 96}
     ]
   }
 }

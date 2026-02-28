@@ -38,14 +38,14 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 # Fallback URLs (RSSHub mirrors for sources with known alternatives)
 # ============================================================
 FALLBACK_URLS = {
-    "虎嗅":     "https://rsshub.app/huxiu/article",
-    "IT之家":   "https://rsshub.app/ithome",
-    "36氪":     "https://rsshub.app/36kr/news",
-    "少数派":   "https://rsshub.app/sspai/matrix",
-    "钛媒体":   "https://rsshub.app/tmtpost/recommend",
-    "界面新闻": "https://rsshub.app/jiemian/list/4",
-    "Solidot":  "https://rsshub.app/solidot",
-    "南方周末": "https://rsshub.app/infzm/2",
+    "虎嗅":     "https://rsshub.rssforever.com/huxiu/article",
+    "IT之家":   "https://rsshub.rssforever.com/ithome",
+    "36氪":     "https://rsshub.rssforever.com/36kr/news",
+    "少数派":   "https://rsshub.rssforever.com/sspai/matrix",
+    "钛媒体":   "https://rsshub.rssforever.com/tmtpost/recommend",
+    "界面新闻": "https://rsshub.rssforever.com/jiemian/list/4",
+    "Solidot":  "https://rsshub.rssforever.com/solidot",
+    "南方周末": "https://rsshub.rssforever.com/infzm/2",
 }
 
 
