@@ -22,7 +22,7 @@ Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
 
 | Script | Description |
 |--------|-------------|
-| `unified-global-news-sender.py` | Core engine — parallel fetches from all sources via ThreadPoolExecutor, generates newspaper-style HTML email, sends via SMTP |
+| `unified-global-news-sender.py` | Core engine — parallel fetches from all sources via ThreadPoolExecutor, generates newspaper-style HTML email with per-article timestamps, sends via SMTP |
 | `global-news-cron-wrapper.sh` | Cron wrapper — manages logging, config validation, environment setup, and error handling |
 | `news-sources-config.json` | Central config for all news sources with per-source name, URL, type, keywords, article limit, and max age |
 | `rss-health-check.py` | Health monitor — checks all 33 sources in parallel, tracks consecutive failures, auto-swaps to fallback URLs after 3 failures, sends email alerts |
@@ -73,6 +73,15 @@ python3 rss-health-check.py --email
 **Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, 日经中文
 
 **English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg, SCMP, CNA, FT, Hacker News, Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail
+
+## Article Timestamps
+
+Each news item displays its publication time and relative age alongside the source:
+
+- **HTML email**: `via BBC World · 03/01 14:30 (2h ago)`
+- **Console output**: `via BBC World [03/01 14:30]`
+
+Timestamps are shown in Beijing Time (BJT). Relative age displays as minutes, hours, or days (e.g., `3m ago`, `5h ago`, `2d ago`). Publication dates are parsed from RSS `pubDate`/`published`/`updated` fields and Sina API `ctime` unix timestamps.
 
 ## Time Slots
 

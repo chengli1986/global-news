@@ -14,6 +14,8 @@
 - Auto-swap state: `logs/rss-health.json` tracks failure counts — do NOT delete
 - rsshub.app returns 403 from this EC2 — all rsshub feeds use rsshub.rssforever.com
 - pubDate parsing: dual-format fallback — `parsedate_to_datetime` then `fromisoformat` with `Z→+00:00`
+- Article data pipeline: fetchers return `(title, url, pub_dt)` 3-tuples → region collection builds `(title, url, src, pub_dt)` 4-tuples
+- Timestamps display as `via Source · MM/DD HH:MM (Xh ago)` in HTML, `[MM/DD HH:MM]` in console
 - Some feeds embed HTML in `<title>` — strip with `re.sub(r'<[^>]+>', '', text)`
 - Weekend staleness expected: CBC/Globe (72-96h gap), weekly publishers (168h)
 
