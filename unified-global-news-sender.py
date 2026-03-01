@@ -118,7 +118,7 @@ class UnifiedNewsSender:
     
     @staticmethod
     def fetch_sina_news(url, keywords, limit=5, max_age_hours=72):
-        """从新浪API获取新闻，返回 [(title, url), ...]"""
+        """从新浪API获取新闻，返回 [(title, url, pub_dt), ...]"""
         data = UnifiedNewsSender.fetch_json(url)
         if not data or "result" not in data or "data" not in data["result"]:
             return []
@@ -128,11 +128,14 @@ class UnifiedNewsSender:
         results = []
         for item in data["result"]["data"]:
             # Freshness check: skip articles older than max_age_hours
+            pub_dt = None
             ctime = item.get("ctime", "")
             if ctime:
                 try:
-                    if now - int(ctime) > cutoff:
+                    ctime_int = int(ctime)
+                    if now - ctime_int > cutoff:
                         continue
+                    pub_dt = datetime.fromtimestamp(ctime_int, tz=timezone.utc)
                 except (ValueError, TypeError):
                     pass  # Can't parse ctime, include the article
 
@@ -143,9 +146,9 @@ class UnifiedNewsSender:
 
             if keywords:
                 if any(kw in title for kw in keywords):
-                    results.append((title, link))
+                    results.append((title, link, pub_dt))
             else:
-                results.append((title, link))
+                results.append((title, link, pub_dt))
 
             if len(results) >= limit:
                 break
@@ -154,7 +157,7 @@ class UnifiedNewsSender:
     
     @staticmethod
     def fetch_rss_news(url, keywords=None, limit=5, max_age_hours=72):
-        """从RSS源获取新闻，返回 [(title, url), ...]"""
+        """从RSS源获取新闻，返回 [(title, url, pub_dt), ...]"""
         text = UnifiedNewsSender.fetch_text(url)
         if not text:
             return []
@@ -171,6 +174,7 @@ class UnifiedNewsSender:
             results = []
             for item in items[:limit * 3]:
                 # Freshness check: parse pubDate (RSS) or published/updated (Atom)
+                pub_dt = None
                 pub_date_str = (item.findtext("pubDate")
                                 or item.findtext(f"{atom_ns}published")
                                 or item.findtext(f"{atom_ns}updated")
@@ -194,9 +198,9 @@ class UnifiedNewsSender:
 
                 if keywords:
                     if any(kw in title for kw in keywords):
-                        results.append((title, link))
+                        results.append((title, link, pub_dt))
                 else:
-                    results.append((title, link))
+                    results.append((title, link, pub_dt))
 
                 if len(results) >= limit:
                     break
@@ -362,8 +366,13 @@ class UnifiedNewsSender:
             for src in source_names:
                 if src in self.news_data:
                     for item in self.news_data[src]:
-                        title, url = item if isinstance(item, tuple) else (item, "")
-                        region_articles.append((title, url, src))
+                        if isinstance(item, tuple) and len(item) >= 3:
+                            title, url, pub_dt = item[0], item[1], item[2]
+                        elif isinstance(item, tuple):
+                            title, url, pub_dt = item[0], item[1], None
+                        else:
+                            title, url, pub_dt = item, "", None
+                        region_articles.append((title, url, src, pub_dt))
 
             # Region header
             html += f"""
@@ -384,7 +393,7 @@ class UnifiedNewsSender:
                 html += '<tr><td style="padding:8px 30px 0 30px;">\n'
                 html += '  <table width="100%" cellpadding="0" cellspacing="0" border="0">\n'
 
-                for idx, (title, url, src) in enumerate(region_articles):
+                for idx, (title, url, src, pub_dt) in enumerate(region_articles):
                     title_esc = self._esc(title)
                     border_style = f"border-bottom:1px solid {C_RULE_LT};" if idx < len(region_articles) - 1 else ""
 
@@ -393,13 +402,34 @@ class UnifiedNewsSender:
                     else:
                         title_html = title_esc
 
+                    # Format publish time as relative age + BJT time
+                    time_html = ""
+                    if pub_dt is not None:
+                        try:
+                            now_utc = datetime.now(timezone.utc)
+                            delta = now_utc - pub_dt.astimezone(timezone.utc)
+                            hours = int(delta.total_seconds() // 3600)
+                            minutes = int(delta.total_seconds() // 60)
+                            if hours >= 24:
+                                age = f"{delta.days}d ago"
+                            elif hours >= 1:
+                                age = f"{hours}h ago"
+                            elif minutes >= 1:
+                                age = f"{minutes}m ago"
+                            else:
+                                age = "just now"
+                            bjt_str = pub_dt.astimezone(BJT).strftime("%m/%d %H:%M")
+                            time_html = f' &middot; {bjt_str} ({age})'
+                        except Exception:
+                            pass
+
                     html += f"""    <tr>
       <td style="padding:10px 0;{border_style}vertical-align:top;">
         <div style="font-size:15px;font-family:{FONT};color:{C_INK};line-height:1.6;">
           {title_html}
         </div>
         <div style="font-size:11px;font-family:{FONT_SANS};color:{C_SRC};margin-top:3px;">
-          via {self._esc(src)}
+          via {self._esc(src)}{time_html}
         </div>
       </td>
     </tr>
@@ -435,25 +465,51 @@ class UnifiedNewsSender:
             all_other = []
             for src, articles in ungrouped.items():
                 for item in articles:
-                    title, url = item if isinstance(item, tuple) else (item, "")
-                    all_other.append((title, url, src))
+                    if isinstance(item, tuple) and len(item) >= 3:
+                        title, url, pub_dt = item[0], item[1], item[2]
+                    elif isinstance(item, tuple):
+                        title, url, pub_dt = item[0], item[1], None
+                    else:
+                        title, url, pub_dt = item, "", None
+                    all_other.append((title, url, src, pub_dt))
 
             html += '<tr><td style="padding:8px 30px 0 30px;">\n'
             html += '  <table width="100%" cellpadding="0" cellspacing="0" border="0">\n'
-            for idx, (title, url, src) in enumerate(all_other):
+            for idx, (title, url, src, pub_dt) in enumerate(all_other):
                 title_esc = self._esc(title)
                 border_style = f"border-bottom:1px solid {C_RULE_LT};" if idx < len(all_other) - 1 else ""
                 if url:
                     title_html = f'<a href="{self._esc(url)}" style="color:{C_LINK};text-decoration:none;border-bottom:1px solid {C_RULE_LT};" target="_blank">{title_esc}</a>'
                 else:
                     title_html = title_esc
+
+                time_html = ""
+                if pub_dt is not None:
+                    try:
+                        now_utc = datetime.now(timezone.utc)
+                        delta = now_utc - pub_dt.astimezone(timezone.utc)
+                        hours = int(delta.total_seconds() // 3600)
+                        minutes = int(delta.total_seconds() // 60)
+                        if hours >= 24:
+                            age = f"{delta.days}d ago"
+                        elif hours >= 1:
+                            age = f"{hours}h ago"
+                        elif minutes >= 1:
+                            age = f"{minutes}m ago"
+                        else:
+                            age = "just now"
+                        bjt_str = pub_dt.astimezone(BJT).strftime("%m/%d %H:%M")
+                        time_html = f' &middot; {bjt_str} ({age})'
+                    except Exception:
+                        pass
+
                 html += f"""    <tr>
       <td style="padding:10px 0;{border_style}vertical-align:top;">
         <div style="font-size:15px;font-family:{FONT};color:{C_INK};line-height:1.6;">
           {title_html}
         </div>
         <div style="font-size:11px;font-family:{FONT_SANS};color:{C_SRC};margin-top:3px;">
-          via {self._esc(src)}
+          via {self._esc(src)}{time_html}
         </div>
       </td>
     </tr>
@@ -541,21 +597,32 @@ class UnifiedNewsSender:
             for src in source_names:
                 if src in self.news_data:
                     for item in self.news_data[src]:
-                        title, url = item if isinstance(item, tuple) else (item, "")
-                        region_articles.append((title, url, src))
+                        if isinstance(item, tuple) and len(item) >= 3:
+                            title, url, pub_dt = item[0], item[1], item[2]
+                        elif isinstance(item, tuple):
+                            title, url, pub_dt = item[0], item[1], None
+                        else:
+                            title, url, pub_dt = item, "", None
+                        region_articles.append((title, url, src, pub_dt))
 
             print(f"\n{'━' * 70}")
             print(f"  {region_title}")
             print(f"{'━' * 70}")
 
             if region_articles:
-                for i, (title, url, src) in enumerate(region_articles, 1):
+                for i, (title, url, src, pub_dt) in enumerate(region_articles, 1):
+                    time_str = ""
+                    if pub_dt is not None:
+                        try:
+                            time_str = f" [{pub_dt.astimezone(BJT).strftime('%m/%d %H:%M')}]"
+                        except Exception:
+                            pass
                     if url:
                         print(f"  {i}. {title}")
                         print(f"     {url}")
-                        print(f"     via {src}")
+                        print(f"     via {src}{time_str}")
                     else:
-                        print(f"  {i}. {title}  (via {src})")
+                        print(f"  {i}. {title}  (via {src}{time_str})")
             else:
                 print("  (暂无新闻)")
 
@@ -571,13 +638,24 @@ class UnifiedNewsSender:
             idx = 1
             for src, articles in ungrouped.items():
                 for item in articles:
-                    title, url = item if isinstance(item, tuple) else (item, "")
+                    if isinstance(item, tuple) and len(item) >= 3:
+                        title, url, pub_dt = item[0], item[1], item[2]
+                    elif isinstance(item, tuple):
+                        title, url, pub_dt = item[0], item[1], None
+                    else:
+                        title, url, pub_dt = item, "", None
+                    time_str = ""
+                    if pub_dt is not None:
+                        try:
+                            time_str = f" [{pub_dt.astimezone(BJT).strftime('%m/%d %H:%M')}]"
+                        except Exception:
+                            pass
                     if url:
                         print(f"  {idx}. {title}")
                         print(f"     {url}")
-                        print(f"     via {src}")
+                        print(f"     via {src}{time_str}")
                     else:
-                        print(f"  {idx}. {title}  (via {src})")
+                        print(f"  {idx}. {title}  (via {src}){time_str}")
                     idx += 1
 
         print("\n" + "=" * 70)
