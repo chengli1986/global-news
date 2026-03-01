@@ -102,6 +102,7 @@ Each delivery is tagged by Beijing time:
   SMTP_USER=your@email.com
   SMTP_PASS=your_app_password
   MAIL_TO=recipient@email.com
+  NEWS_MAIL_TO=user1@email.com,user2@email.com   # optional, falls back to MAIL_TO
   ```
 
 ## Cron Schedule
