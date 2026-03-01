@@ -104,3 +104,11 @@ Each delivery is tagged by Beijing time:
 # RSS health check: every 6h at :12, offset from other monitors
 12 0,6,12,18 * * * cd ~/.openclaw/workspace && python3 rss-health-check.py --email >> ~/logs/rss-health-cron.log 2>&1
 ```
+
+## Development
+
+This repo includes a `.claude/CLAUDE.md` with repo-specific context for [Claude Code](https://claude.ai/claude-code) — stdlib-only constraint, config source of truth, RSS failover mechanics, and pubDate parsing quirks. Claude Code agents automatically load this context when working in the repo.
+
+## License
+
+MIT
