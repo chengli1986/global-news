@@ -78,12 +78,13 @@ run_email_mode() {
         return 0
     fi
     
-    log "📧 运行邮件模式，发送到: $MAIL_TO"
-    
+    local recipients="${NEWS_MAIL_TO:-$MAIL_TO}"
+    log "📧 运行邮件模式，发送到: $recipients"
+
     export SMTP_USER
     export SMTP_PASS
-    
-    python3 "$PYTHON_SCRIPT" email "$MAIL_TO" >> "$LOG_FILE" 2>&1 || {
+
+    python3 "$PYTHON_SCRIPT" email "$recipients" >> "$LOG_FILE" 2>&1 || {
         log "❌ 邮件发送失败 (exit=$?)"
         return 1
     }

@@ -568,19 +568,21 @@ class UnifiedNewsSender:
             msg = MIMEMultipart("alternative")
             msg["Subject"] = Header(subject, "utf-8")
             msg["From"] = sender_email
-            msg["To"] = recipient_email
-            
+            # 支持逗号分隔的多收件人
+            recipients = [r.strip() for r in recipient_email.split(",") if r.strip()]
+            msg["To"] = ", ".join(recipients)
+
             # 添加HTML内容
             html_part = MIMEText(html_content, "html", "utf-8")
             msg.attach(html_part)
-            
+
             # 连接SMTP服务器并发送
             print(f"📧 正在连接SMTP服务器 {smtp_server}:{smtp_port}...")
             with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=SMTP_TIMEOUT) as server:
                 server.login(sender_email, sender_password)
-                server.sendmail(sender_email, recipient_email, msg.as_string())
-            
-            print(f"✅ 邮件已成功发送至 {recipient_email}")
+                server.sendmail(sender_email, recipients, msg.as_string())
+
+            print(f"✅ 邮件已成功发送至 {', '.join(recipients)}")
             return True
         
         except Exception as e:
