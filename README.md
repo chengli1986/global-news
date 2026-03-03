@@ -47,14 +47,14 @@ Sources with fallbacks (RSSHub mirrors):
 
 | Source | Fallback |
 |--------|----------|
-| 虎嗅 | rsshub.app/huxiu/article |
-| IT之家 | rsshub.app/ithome |
-| 36氪 | rsshub.app/36kr/news |
-| 少数派 | rsshub.app/sspai/matrix |
-| 钛媒体 | rsshub.app/tmtpost/recommend |
-| 界面新闻 | rsshub.app/jiemian/list/4 |
-| Solidot | rsshub.app/solidot |
-| 南方周末 | rsshub.app/infzm/2 |
+| 虎嗅 | rsshub.rssforever.com/huxiu/article |
+| IT之家 | rsshub.rssforever.com/ithome |
+| 36氪 | rsshub.rssforever.com/36kr/news |
+| 少数派 | rsshub.rssforever.com/sspai/matrix |
+| 钛媒体 | rsshub.rssforever.com/tmtpost/recommend |
+| 界面新闻 | rsshub.rssforever.com/jiemian/list/4 |
+| Solidot | rsshub.rssforever.com/solidot |
+| 南方周末 | rsshub.rssforever.com/infzm/2 |
 
 Sources without fallbacks (BBC, NYT, Economist, Bloomberg, etc.) trigger alert-only — no auto-swap.
 
