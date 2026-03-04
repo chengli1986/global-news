@@ -571,6 +571,10 @@ class UnifiedNewsSender:
             # 支持逗号分隔的多收件人
             recipients = [r.strip() for r in recipient_email.split(",") if r.strip()]
             msg["To"] = ", ".join(recipients)
+            # BCC from env var (comma-separated)
+            bcc_raw = os.getenv("NEWS_MAIL_BCC", "")
+            bcc_list = [r.strip() for r in bcc_raw.split(",") if r.strip()]
+            all_recipients = recipients + bcc_list
 
             # 添加HTML内容
             html_part = MIMEText(html_content, "html", "utf-8")
@@ -580,7 +584,7 @@ class UnifiedNewsSender:
             print(f"📧 正在连接SMTP服务器 {smtp_server}:{smtp_port}...")
             with smtplib.SMTP_SSL(smtp_server, smtp_port, timeout=SMTP_TIMEOUT) as server:
                 server.login(sender_email, sender_password)
-                server.sendmail(sender_email, recipients, msg.as_string())
+                server.sendmail(sender_email, all_recipients, msg.as_string())
 
             print(f"✅ 邮件已成功发送至 {', '.join(recipients)}")
             return True
