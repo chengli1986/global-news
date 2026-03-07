@@ -103,7 +103,12 @@ Each delivery is tagged by Beijing time:
   SMTP_PASS=your_app_password
   MAIL_TO=recipient@email.com
   NEWS_MAIL_TO=user1@email.com,user2@email.com   # optional, falls back to MAIL_TO
+  NEWS_MAIL_BCC=bcc@email.com                    # optional, BCC recipients
   ```
+
+Current recipients (3 TO + 1 BCC):
+- `ch_w10@outlook.com`, `sunying1588@163.com`, `liuzhiwen@shenyuanele.com`
+- BCC: `tangwanshan@outlook.com`
 
 ## Cron Schedule
 
