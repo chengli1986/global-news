@@ -22,7 +22,7 @@ Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
 
 | Script | Description |
 |--------|-------------|
-| `unified-global-news-sender.py` | Core engine — parallel fetches from all sources via ThreadPoolExecutor, generates newspaper-style HTML email with per-article timestamps, sends via SMTP. Uses stdlib `html.escape()` for all title/text escaping (includes apostrophe handling via `quote=False` default) |
+| `unified-global-news-sender.py` | Core engine — parallel fetches from all sources via ThreadPoolExecutor, generates newspaper-style HTML email with per-article timestamps, sends via SMTP. Uses stdlib `html.escape()` with `quote=False` for title/text escaping (escapes `&<>` but leaves quotes and apostrophes as-is for email client compatibility) |
 | `global-news-cron-wrapper.sh` | Cron wrapper — manages logging, config validation, environment setup, and error handling |
 | `news-sources-config.json` | Central config for all news sources with per-source name, URL, type, keywords, article limit, and max age |
 | `rss-health-check.py` | Health monitor — checks all 33 sources in parallel, tracks consecutive failures, auto-swaps to fallback URLs after 3 failures, sends email alerts |

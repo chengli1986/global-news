@@ -282,7 +282,7 @@ class UnifiedNewsSender:
     @staticmethod
     def _esc(text):
         """Escape HTML entities in text."""
-        return html.escape(text, quote=True)
+        return html.escape(text, quote=False)
 
     def generate_html(self):
         """生成报纸风格HTML邮件"""
