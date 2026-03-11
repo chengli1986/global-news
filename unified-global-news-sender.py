@@ -21,6 +21,7 @@ from email.mime.multipart import MIMEMultipart
 from email.header import Header
 from email.utils import parsedate_to_datetime
 import re
+import html
 
 BJT = timezone(timedelta(hours=8))
 
@@ -281,7 +282,7 @@ class UnifiedNewsSender:
     @staticmethod
     def _esc(text):
         """Escape HTML entities in text."""
-        return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
+        return html.escape(text, quote=True)
 
     def generate_html(self):
         """生成报纸风格HTML邮件"""
