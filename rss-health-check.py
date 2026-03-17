@@ -27,7 +27,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 LOGS_DIR = os.path.join(SCRIPT_DIR, "logs")
 STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")
-ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
+ENV_FILE = os.path.expanduser("~/.smtp.env")
 
 FETCH_TIMEOUT = 10
 FAIL_THRESHOLD = 3  # consecutive failures before auto-swap
@@ -439,7 +439,7 @@ def send_alert_email(body):
             [
                 "curl", "--silent", "--ssl-reqd",
                 "--max-time", "30",
-                "--url", "smtps://smtp.163.com:465",
+                "--url", f"smtps://{env.get('SMTP_SERVER', 'smtp.163.com')}:{env.get('SMTP_PORT', '465')}",
                 "--user", f"{smtp_user}:{smtp_pass}",
                 "--mail-from", smtp_user,
                 "--mail-rcpt", mail_to,
