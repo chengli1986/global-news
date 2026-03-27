@@ -196,7 +196,10 @@ def main() -> None:
     threshold = tuning.get("dedup_similarity_threshold", 0.55)
 
     # Collect fixture paths
-    if args.fixture:
+    if args.fixture == "latest":
+        fixtures_dir = SCRIPT_DIR / "fixtures"
+        fixture_paths = sorted(fixtures_dir.glob("*.json"))[-1:] if fixtures_dir.is_dir() else []
+    elif args.fixture:
         fixture_paths = [Path(args.fixture)]
     else:
         fixtures_dir = SCRIPT_DIR / "fixtures"

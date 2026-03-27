@@ -1,1 +1,2 @@
 commit_hash	quality	status	description
+c6acd6f	0.8207	BASELINE	initial tuning (112 fetched, 111 after dedup, 60 selected, balance=0.44 is main gap)
