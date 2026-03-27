@@ -1,0 +1,26 @@
+{
+  "dedup_similarity_threshold": 0.55,
+  "max_total_articles": 60,
+  "target_article_count": 60,
+  "freshness_weight": 0.30,
+  "source_tiers": {
+    "premium": ["FT", "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science", "Bloomberg", "NYT Business", "NYT Technology"],
+    "standard": ["BBC World", "BBC Business", "BBC Technology", "CNBC", "TechCrunch", "36氪", "SCMP", "Hacker News", "界面新闻", "纽约时报中文", "BBC中文"],
+    "commodity": ["中国科技/AI", "中国财经要闻", "虎嗅", "IT之家", "少数派", "Solidot", "钛媒体", "南方周末", "日经中文", "CNA", "Ars Technica", "The Verge", "CBC Business", "Globe & Mail"]
+  },
+  "tier_boost": {
+    "premium": 1.5,
+    "standard": 1.0,
+    "commodity": 0.8
+  },
+  "region_quotas": {
+    "AI & 科技前沿 TECH & AI":       {"min": 5, "max": 15},
+    "全球财经 GLOBAL FINANCE":        {"min": 4, "max": 12},
+    "全球政治 GLOBAL POLITICS":       {"min": 3, "max": 10},
+    "中国要闻 CHINA":                 {"min": 3, "max": 10},
+    "美国 & 欧洲 US & EUROPE":       {"min": 2, "max": 8},
+    "亚太要闻 ASIA-PACIFIC":          {"min": 2, "max": 8},
+    "加拿大 CANADA":                  {"min": 2, "max": 6},
+    "经济学人 THE ECONOMIST":         {"min": 2, "max": 8}
+  }
+}
