@@ -55,11 +55,13 @@ def rank_and_select(articles: list[dict], tuning: dict, now: datetime | None = N
     max_total = tuning.get("max_total_articles", 60)
     region_quotas = tuning.get("region_quotas", {})
     region_fill: dict[str, int] = {}
-    scored = sorted(articles, key=lambda a: _rank_score(a, tuning, region_fill, now), reverse=True)
+    remaining = list(articles)
     selected: list[dict] = []
-    for article in scored:
+    while remaining:
         if len(selected) >= max_total:
             break
+        article = max(remaining, key=lambda a: _rank_score(a, tuning, region_fill, now))
+        remaining.remove(article)
         region = article.get("region", "")
         quota = region_quotas.get(region, {"min": 0, "max": 100})
         current = region_fill.get(region, 0)
@@ -73,7 +75,7 @@ def rank_and_select(articles: list[dict], tuning: dict, now: datetime | None = N
         current = region_fill.get(region, 0)
         if current >= quota["min"]:
             continue
-        candidates = [a for a in scored if a.get("region") == region and id(a) not in selected_set]
+        candidates = [a for a in remaining if a.get("region") == region and id(a) not in selected_set]
         needed = quota["min"] - current
         for article in candidates[:needed]:
             selected.append(article)
