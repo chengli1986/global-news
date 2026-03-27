@@ -352,7 +352,6 @@ class UnifiedNewsSender:
     def generate_html(self):
         """生成报纸风格HTML邮件"""
         period, period_desc = self.period_info
-        total = self._total_article_count()
 
         # -- Style constants --
         C_PAPER   = "#faf8f3"
@@ -413,7 +412,7 @@ class UnifiedNewsSender:
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;">
     <tr>
       <td style="font-size:11px;font-family:{FONT_SANS};color:{C_MUTED};text-align:center;letter-spacing:1px;">
-        共 {total} 条要闻 &middot; 综合 Economist / BBC / NYT / Bloomberg / SCMP / 新浪 / 澎湃 等 {len(self.news_data)} 个源
+        共 __ARTICLE_COUNT__ 条要闻 &middot; 综合 Economist / BBC / NYT / Bloomberg / SCMP / 新浪 / 澎湃 等 {len(self.news_data)} 个源
       </td>
     </tr>
   </table>
@@ -615,6 +614,9 @@ class UnifiedNewsSender:
 </body>
 </html>
 """
+        # Replace article count placeholder with actual count after pipeline
+        actual_total = sum(len(arts) for _, arts in all_region_articles)
+        html = html.replace("__ARTICLE_COUNT__", str(actual_total))
         return html
     
     def send_email(self, recipient_email, smtp_server="smtp.163.com", smtp_port=465,
