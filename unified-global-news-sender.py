@@ -23,6 +23,13 @@ from email.utils import parsedate_to_datetime
 import re
 import html
 
+# Digest pipeline (dedup + rank + quota) — optional, degrades gracefully
+try:
+    from digest_pipeline import deduplicate, rank_and_select
+    _HAS_PIPELINE = True
+except ImportError:
+    _HAS_PIPELINE = False
+
 BJT = timezone(timedelta(hours=8))
 
 FETCH_TIMEOUT = 10
@@ -279,6 +286,60 @@ class UnifiedNewsSender:
     def _total_article_count(self):
         return sum(len(v) for v in self.news_data.values())
 
+    def _save_fixture(self):
+        """Save current fetch results as a fixture for autoresearch evaluation."""
+        fixture_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+        os.makedirs(fixture_dir, exist_ok=True)
+        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        fixture_path = os.path.join(fixture_dir, f"{date_str}.json")
+        if os.path.exists(fixture_path):
+            return  # one per day
+        snapshot = {"date": datetime.now(timezone.utc).isoformat(), "sources": {}}
+        for source_name, articles in self.news_data.items():
+            snapshot["sources"][source_name] = [
+                {"title": t, "url": u, "pub_dt": d.isoformat() if d else None}
+                for t, u, d in articles
+            ]
+        try:
+            with open(fixture_path, "w") as f:
+                json.dump(snapshot, f, ensure_ascii=False)
+        except Exception:
+            pass  # non-critical
+
+    def _apply_pipeline(self, all_region_articles):
+        """Apply dedup + rank + quota pipeline if digest-tuning.json exists."""
+        if not _HAS_PIPELINE:
+            return all_region_articles
+        tuning_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "digest-tuning.json")
+        if not os.path.exists(tuning_path):
+            return all_region_articles
+        with open(tuning_path) as f:
+            tuning = json.load(f)
+        # Flatten with region tags
+        flat = []
+        for region_title, articles in all_region_articles:
+            # Strip emoji prefix for matching tuning region keys
+            region_key = region_title
+            for char in region_title:
+                if char.isalnum() or char in ' &':
+                    region_key = region_title[region_title.index(char):]
+                    break
+            region_key = region_key.strip()
+            for title, url, src, pub_dt in articles:
+                flat.append({"title": title, "url": url, "source": src, "pub_dt": pub_dt, "region": region_key, "region_title": region_title})
+        if not flat:
+            return all_region_articles
+        deduped = deduplicate(flat, tuning.get("dedup_similarity_threshold", 0.55))
+        selected = rank_and_select(deduped, tuning)
+        # Rebuild region groups preserving original order
+        rebuilt = {}
+        for article in selected:
+            rt = article["region_title"]
+            if rt not in rebuilt:
+                rebuilt[rt] = []
+            rebuilt[rt].append((article["title"], article["url"], article["source"], article["pub_dt"]))
+        return [(rt, rebuilt[rt]) for rt, _ in all_region_articles if rt in rebuilt]
+
     @staticmethod
     def _esc(text):
         """Escape HTML entities in text."""
@@ -360,9 +421,9 @@ class UnifiedNewsSender:
 <!-- === CONTENT === -->
 """
 
-        # Iterate over region groups
+        # Pass 1: collect all articles grouped by region
+        all_region_articles = []
         for region_title, source_names in self.REGION_GROUPS:
-            # Collect all articles for this region
             region_articles = []
             for src in source_names:
                 if src in self.news_data:
@@ -374,7 +435,13 @@ class UnifiedNewsSender:
                         else:
                             title, url, pub_dt = item, "", None
                         region_articles.append((title, url, src, pub_dt))
+            all_region_articles.append((region_title, region_articles))
 
+        # Apply digest pipeline (dedup + rank + quota) if available
+        all_region_articles = self._apply_pipeline(all_region_articles)
+
+        # Pass 2: render HTML from pipeline output
+        for region_title, region_articles in all_region_articles:
             # Region header
             html += f"""
 <tr><td style="padding:25px 30px 0 30px;">
@@ -599,6 +666,8 @@ class UnifiedNewsSender:
         print("\n📰 新闻内容：")
         print("=" * 70)
 
+        # Pass 1: collect all articles grouped by region
+        all_region_articles = []
         for region_title, source_names in self.REGION_GROUPS:
             region_articles = []
             for src in source_names:
@@ -611,7 +680,13 @@ class UnifiedNewsSender:
                         else:
                             title, url, pub_dt = item, "", None
                         region_articles.append((title, url, src, pub_dt))
+            all_region_articles.append((region_title, region_articles))
 
+        # Apply digest pipeline (dedup + rank + quota) if available
+        all_region_articles = self._apply_pipeline(all_region_articles)
+
+        # Pass 2: render console output
+        for region_title, region_articles in all_region_articles:
             print(f"\n{'━' * 70}")
             print(f"  {region_title}")
             print(f"{'━' * 70}")
@@ -677,6 +752,7 @@ class UnifiedNewsSender:
 
         # 抓取新闻
         self.fetch_all_news()
+        self._save_fixture()
 
         # 零文章保护 — 全部源失败时不发送空邮件
         if self._total_article_count() == 0:
