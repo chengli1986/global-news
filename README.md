@@ -120,6 +120,34 @@ Current recipients (3 TO + 1 BCC):
 12 0,6,12,18 * * * cd ~/.openclaw/workspace && python3 rss-health-check.py --email >> ~/logs/rss-health-cron.log 2>&1
 ```
 
+## AutoResearch — Digest Quality Pipeline
+
+An automated experimentation system (Phase B) that tunes news digest quality through fixture-based replay and scoring.
+
+### Components
+
+| Script | Description |
+|--------|-------------|
+| `digest_pipeline.py` | Dedup (Jaccard bigram similarity >0.5), keyword ranking, region-based quotas |
+| `evaluate_digest.py` | Replays fixture snapshots, scores on 5 dimensions (coverage, relevance, freshness, diversity, dedup) |
+| `digest-tuning.json` | Tuning parameters — weights, thresholds, quota allocations |
+| `scripts/wrapper-autoresearch-news.sh` | Cron wrapper for automated experiments (Tue/Thu/Sat 21:00 BJT) |
+| `autoresearch/program.md` | Experiment program and hypothesis tracking |
+| `autoresearch/results.tsv` | Experiment results log |
+
+### How it works
+
+1. **Fixture capture**: `tests/YYYY-MM-DD.json` snapshots of raw fetched articles
+2. **Pipeline replay**: `digest_pipeline.py` processes fixtures with current tuning params
+3. **Quality scoring**: `evaluate_digest.py` measures 5 dimensions, produces composite score
+4. **Baseline**: 0.8207 (measured 2026-03-27)
+
+### Tests
+
+```bash
+python3 -m pytest tests/ -q   # 9 tests
+```
+
 ## Development
 
 This repo includes a `.claude/CLAUDE.md` with repo-specific context for [Claude Code](https://claude.ai/claude-code) — stdlib-only constraint, config source of truth, RSS failover mechanics, and pubDate parsing quirks. Claude Code agents automatically load this context when working in the repo.
