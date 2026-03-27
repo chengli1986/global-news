@@ -42,7 +42,9 @@ PROMPT="$(cat "$PROGRAM_MD")
 "
 
 # 20-minute timeout + 30s grace
-timeout --kill-after=30 1200 claude -p --model sonnet "$PROMPT" 2>&1
+# Use full path to avoid cron picking up stale /usr/bin/claude
+CLAUDE_BIN="${CLAUDE_BIN:-/home/ubuntu/.npm-global/bin/claude}"
+timeout --kill-after=30 1200 "$CLAUDE_BIN" -p --model sonnet "$PROMPT" 2>&1
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 124 ]; then
