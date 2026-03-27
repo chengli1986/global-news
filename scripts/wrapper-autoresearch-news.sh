@@ -33,7 +33,9 @@ if [ ! -f "$PROGRAM_MD" ]; then
     exit 1
 fi
 
-PROMPT="$(cat "$PROGRAM_MD")
+PROMPT="IMPORTANT: Skip daily log recap and session start routines. Go straight to the task below.
+
+$(cat "$PROGRAM_MD")
 
 ## Session constraints (added by wrapper)
 - You have a MAXIMUM of 20 minutes for this session
