@@ -39,10 +39,12 @@
       {"name": "TechCrunch",     "url": "https://techcrunch.com/feed/",                       "keywords": [], "limit": 4},
       {"name": "CNBC",           "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "keywords": [], "limit": 3},
       {"name": "Bloomberg",      "url": "https://feeds.bloomberg.com/markets/news.rss",      "keywords": [], "limit": 3},
+      {"name": "Bloomberg Econ", "url": "https://feeds.bloomberg.com/economics/news.rss",   "keywords": [], "limit": 2},
+      {"name": "Bloomberg Biz",  "url": "https://feeds.bloomberg.com/businessweek/news.rss", "keywords": [], "limit": 2},
+      {"name": "Bloomberg Politics", "url": "https://feeds.bloomberg.com/politics/news.rss", "keywords": [], "limit": 2},
       {"name": "SCMP",           "url": "https://www.scmp.com/rss/91/feed",                  "keywords": [], "limit": 3},
       {"name": "CNA",            "url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml", "keywords": [], "limit": 3},
       {"name": "FT",             "url": "https://www.ft.com/?format=rss",                    "keywords": [], "limit": 3},
-      {"name": "Hacker News",    "url": "https://hnrss.org/newest?points=100",               "keywords": [], "limit": 4},
       {"name": "Ars Technica",   "url": "https://feeds.arstechnica.com/arstechnica/index",          "keywords": [], "limit": 3},
       {"name": "The Verge",      "url": "https://www.theverge.com/rss/index.xml",            "keywords": [], "limit": 3},
 
@@ -56,6 +58,9 @@
 
       {"name": "CBC Business",      "url": "https://www.cbc.ca/webfeed/rss/rss-business",                                     "keywords": [], "limit": 3, "max_age_hours": 96},
       {"name": "Globe & Mail",      "url": "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/business/",         "keywords": [], "limit": 3, "max_age_hours": 96}
+    ],
+    "hn_api": [
+      {"name": "Hacker News", "limit": 4, "min_score": 100, "max_age_hours": 72}
     ]
   }
 }

@@ -165,6 +165,43 @@ class UnifiedNewsSender:
         return results
     
     @staticmethod
+    def fetch_hn_news(limit=4, min_score=100, max_age_hours=72):
+        """从 Hacker News Firebase API 获取高分帖子，返回 [(title, url, pub_dt), ...]
+        比 RSS 更结构化：按 score 排序，只取高质量帖子。"""
+        try:
+            top_ids = UnifiedNewsSender.fetch_json("https://hacker-news.firebaseio.com/v0/topstories.json")
+            if not top_ids:
+                return []
+
+            now_ts = time.time()
+            cutoff = max_age_hours * 3600
+            results = []
+            # Fetch more than needed to filter by score and age
+            for item_id in top_ids[:limit * 4]:
+                item = UnifiedNewsSender.fetch_json(f"https://hacker-news.firebaseio.com/v0/item/{item_id}.json")
+                if not item or item.get("dead") or item.get("deleted"):
+                    continue
+                score = item.get("score", 0)
+                if score < min_score:
+                    continue
+                ts = item.get("time", 0)
+                if ts and now_ts - ts > cutoff:
+                    continue
+                title = item.get("title", "").strip()
+                if not title:
+                    continue
+                url = item.get("url", f"https://news.ycombinator.com/item?id={item_id}")
+                pub_dt = datetime.fromtimestamp(ts, tz=timezone.utc) if ts else None
+                # Append score to title for visibility: "Title (142 pts)"
+                results.append((f"{title} ({score} pts)", url, pub_dt))
+                if len(results) >= limit:
+                    break
+
+            return results
+        except Exception:
+            return []
+
+    @staticmethod
     def fetch_rss_news(url, keywords=None, limit=5, max_age_hours=72):
         """从RSS源获取新闻，返回 [(title, url, pub_dt), ...]"""
         text = UnifiedNewsSender.fetch_text(url)
@@ -240,6 +277,13 @@ class UnifiedNewsSender:
             max_age = source.get("max_age_hours", 72)
             tasks.append((name, lambda u=url, k=keywords, l=limit, m=max_age: self.fetch_rss_news(u, k, l, m)))
 
+        for source in self.config["news_sources"].get("hn_api", []):
+            name = source.get("name", "Hacker News")
+            limit = source.get("limit", 4)
+            min_score = source.get("min_score", 100)
+            max_age = source.get("max_age_hours", 72)
+            tasks.append((name, lambda l=limit, s=min_score, m=max_age: self.fetch_hn_news(l, s, m)))
+
         # Fetch all sources in parallel
         with ThreadPoolExecutor(max_workers=10) as pool:
             futures = {pool.submit(fn): name for name, fn in tasks}
@@ -261,11 +305,11 @@ class UnifiedNewsSender:
         ]),
         ("💰 全球财经 GLOBAL FINANCE", [
             "中国财经要闻",
-            "CNBC", "Bloomberg", "BBC Business", "FT",
+            "CNBC", "Bloomberg", "Bloomberg Econ", "Bloomberg Biz", "BBC Business", "FT",
         ]),
         ("🏛 全球政治 GLOBAL POLITICS", [
             "纽约时报中文", "BBC中文",
-            "BBC World", "SCMP",
+            "BBC World", "SCMP", "Bloomberg Politics",
         ]),
         ("🇨🇳 中国要闻 CHINA", [
             "界面新闻", "南方周末",
