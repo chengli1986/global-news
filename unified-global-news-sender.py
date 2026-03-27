@@ -71,6 +71,7 @@ class UnifiedNewsSender:
         self.config_file = config_file
         self.config = self.load_config()
         self.news_data = {}
+        self._use_pipeline = False  # off by default, enable with --pipeline
         self.beijing_time = self.get_beijing_time()
         self.period_info = self.get_period_info()
     
@@ -308,7 +309,7 @@ class UnifiedNewsSender:
 
     def _apply_pipeline(self, all_region_articles):
         """Apply dedup + rank + quota pipeline if digest-tuning.json exists."""
-        if not _HAS_PIPELINE:
+        if not self._use_pipeline or not _HAS_PIPELINE:
             return all_region_articles
         tuning_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "digest-tuning.json")
         if not os.path.exists(tuning_path):
@@ -778,14 +779,14 @@ class UnifiedNewsSender:
 
 def main():
     """主函数"""
-    if len(sys.argv) < 2:
-        mode = "console"
-        recipient = None
-    else:
-        mode = sys.argv[1]
-        recipient = sys.argv[2] if len(sys.argv) > 2 else None
+    args = [a for a in sys.argv[1:] if not a.startswith("--")]
+    flags = [a for a in sys.argv[1:] if a.startswith("--")]
+    mode = args[0] if args else "console"
+    recipient = args[1] if len(args) > 1 else None
 
     sender = UnifiedNewsSender()
+    if "--pipeline" in flags:
+        sender._use_pipeline = True
     success = sender.run(output_mode=mode, recipient_email=recipient)
     if not success:
         sys.exit(1)
