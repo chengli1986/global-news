@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 33 sources (RSS feeds + Sina Finance APIs) and delivers HTML email reports three times daily, with periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 36 sources (33 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API) and delivers HTML email reports three times daily, with periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,9 +8,10 @@ Automated global news digest system that fetches from 33 sources (RSS feeds + Si
 Cron (3x daily: 00:00, 08:00, 16:00 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (33 sources)
+           ├── news-sources-config.json (36 sources)
            ├── Sina Finance JSON API (2 sources)
-           └── RSS/Atom feeds (31 sources)
+           ├── HN Firebase API (1 source, structured data with scores)
+           └── RSS/Atom feeds (33 sources)
 
 Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
  └── rss-health-check.py
@@ -25,7 +26,7 @@ Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
 | `unified-global-news-sender.py` | Core engine — parallel fetches from all sources via ThreadPoolExecutor, generates newspaper-style HTML email with per-article timestamps, sends via SMTP. Uses stdlib `html.escape()` with `quote=False` for title/text escaping (escapes `&<>` but leaves quotes and apostrophes as-is for email client compatibility) |
 | `global-news-cron-wrapper.sh` | Cron wrapper — manages logging, config validation, environment setup, and error handling |
 | `news-sources-config.json` | Central config for all news sources with per-source name, URL, type, keywords, article limit, and max age |
-| `rss-health-check.py` | Health monitor — checks all 33 sources in parallel, tracks consecutive failures, auto-swaps to fallback URLs after 3 failures, sends email alerts |
+| `rss-health-check.py` | Health monitor — checks RSS sources in parallel, tracks consecutive failures, auto-swaps to fallback URLs after 3 failures, sends email alerts |
 
 ## RSS Health Monitor
 
@@ -68,11 +69,11 @@ python3 rss-health-check.py
 python3 rss-health-check.py --email
 ```
 
-## News Sources (33)
+## News Sources (36)
 
 **Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, 日经中文
 
-**English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg, SCMP, CNA, FT, Hacker News, Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail
+**English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg (Economics, Businessweek, Politics), SCMP, CNA, FT, Hacker News (Firebase API), Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail
 
 ## Article Timestamps
 
