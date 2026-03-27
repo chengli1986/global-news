@@ -288,13 +288,14 @@ class UnifiedNewsSender:
         return sum(len(v) for v in self.news_data.values())
 
     def _save_fixture(self):
-        """Save current fetch results as a fixture for autoresearch evaluation."""
+        """Save current fetch results as a fixture for autoresearch evaluation.
+        Saves one per send (3x/day) using YYYY-MM-DD-HH filename for time-of-day variety."""
         fixture_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
         os.makedirs(fixture_dir, exist_ok=True)
-        date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        fixture_path = os.path.join(fixture_dir, f"{date_str}.json")
+        date_hour_str = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H")
+        fixture_path = os.path.join(fixture_dir, f"{date_hour_str}.json")
         if os.path.exists(fixture_path):
-            return  # one per day
+            return  # already saved for this hour
         snapshot = {"date": datetime.now(timezone.utc).isoformat(), "sources": {}}
         for source_name, articles in self.news_data.items():
             snapshot["sources"][source_name] = [
