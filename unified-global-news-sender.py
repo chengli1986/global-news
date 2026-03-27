@@ -453,7 +453,7 @@ class UnifiedNewsSender:
     <tr><td style="border-top:2px solid {C_RULE};height:1px;font-size:0;line-height:0;">&nbsp;</td></tr>
   </table>
   <div style="font-size:18px;font-weight:700;font-family:{FONT};letter-spacing:3px;color:{C_INK};margin-top:12px;margin-bottom:2px;">
-    {region_title}
+    {region_title} <span style="font-size:12px;font-weight:400;color:{C_MUTED};letter-spacing:0;">({len(region_articles)})</span>
   </div>
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px;">
     <tr><td style="border-top:1px solid {C_RULE_LT};height:1px;font-size:0;line-height:0;">&nbsp;</td></tr>
@@ -693,7 +693,7 @@ class UnifiedNewsSender:
         # Pass 2: render console output
         for region_title, region_articles in all_region_articles:
             print(f"\n{'━' * 70}")
-            print(f"  {region_title}")
+            print(f"  {region_title} ({len(region_articles)})")
             print(f"{'━' * 70}")
 
             if region_articles:
