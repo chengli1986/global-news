@@ -332,13 +332,16 @@ class UnifiedNewsSender:
             return all_region_articles
         deduped = deduplicate(flat, tuning.get("dedup_similarity_threshold", 0.55))
         selected = rank_and_select(deduped, tuning)
-        # Rebuild region groups preserving original order
+        # Rebuild region groups preserving original order, Chinese articles first
         rebuilt = {}
         for article in selected:
             rt = article["region_title"]
             if rt not in rebuilt:
                 rebuilt[rt] = []
             rebuilt[rt].append((article["title"], article["url"], article["source"], article["pub_dt"]))
+        # Sort each region: Chinese-titled articles first, then English
+        for rt in rebuilt:
+            rebuilt[rt].sort(key=lambda a: (0 if any('\u4e00' <= c <= '\u9fff' for c in a[0]) else 1))
         return [(rt, rebuilt[rt]) for rt, _ in all_region_articles if rt in rebuilt]
 
     @staticmethod
@@ -630,7 +633,8 @@ class UnifiedNewsSender:
         
         try:
             period, _ = self.period_info
-            subject = f"🌍 全球要闻简报 - {period} - {self.beijing_time}"
+            preview_tag = "【预览版·autoresearch】" if self._use_pipeline else ""
+            subject = f"🌍 {preview_tag}全球要闻简报 - {period} - {self.beijing_time}"
             html_content = self.generate_html()
             
             # 创建邮件
