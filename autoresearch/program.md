@@ -1,0 +1,45 @@
+# News Digest Autoresearch: Quality Optimization
+
+## Goal
+Maximize the **quality** of the news digest — a composite of freshness, uniqueness,
+coverage, balance, and density. Higher quality = better signal-to-noise ratio.
+
+## The ONE file you can edit
+`~/.openclaw/workspace/digest-tuning.json` — all tunable parameters.
+
+## The metric
+Run: `cd ~/.openclaw/workspace && python3 evaluate_digest.py`
+Read the last line of output: `quality: 0.XXXX`
+Higher is better.
+
+## Rules
+1. **NEVER edit** any file except `digest-tuning.json`
+2. **NEVER edit** evaluate_digest.py, digest_pipeline.py, or the sender
+3. Before EACH experiment: `cd ~/global-news && git add -A && git commit -m "experiment: <description>"`
+4. Run the evaluate command and read the quality score
+5. If quality **improved**: keep the commit, log to results.tsv
+6. If quality **worsened or stayed the same**: `git reset --hard HEAD~1`
+7. Log EVERY experiment to `autoresearch/results.tsv` (even failures)
+8. **NEVER STOP** — keep running experiments until told to stop
+
+## results.tsv format
+Append one line per experiment (tab-separated):
+```
+commit_hash	quality	status	description
+```
+
+## Experiment ideas (try in this order)
+1. Adjust dedup_similarity_threshold (0.4 → 0.7 range)
+2. Rebalance region quota min/max
+3. Change freshness_weight (0.15 → 0.45)
+4. Promote/demote sources between tiers
+5. Adjust tier_boost ratios
+6. Change max_total_articles (40 → 80)
+7. Targeted region quota adjustments based on coverage gaps
+
+## Constraints
+- digest-tuning.json must remain valid JSON
+- All 33 sources must appear in exactly one tier
+- Region quota min must be >= 1, max must be > min
+- dedup_similarity_threshold must be in [0.3, 0.9]
+- max_total_articles must be in [30, 100]
