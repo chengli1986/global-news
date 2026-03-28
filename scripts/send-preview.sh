@@ -76,12 +76,12 @@ if not rows:
 
 # Find baseline and best
 baseline = next((r for r in rows if r["status"] == "BASELINE"), rows[0])
-keeps = [r for r in rows if r["status"] == "KEEP"]
+keeps = [r for r in rows if r["status"] == "KEPT"]
 best = max(keeps, key=lambda r: float(r["quality"])) if keeps else baseline
 latest = rows[-1]
 total_experiments = len(rows)
 keep_count = len(keeps)
-discard_count = sum(1 for r in rows if r["status"] == "DISCARD")
+discard_count = sum(1 for r in rows if r["status"] == "REVERTED")
 
 try:
     baseline_q = float(baseline["quality"])
@@ -123,7 +123,7 @@ html = f"""<!DOCTYPE html>
     </tr>"""
 
 for r in reversed(rows):
-    color = "#3fb950" if r["status"] == "KEEP" else ("#d29922" if r["status"] == "DISCARD" else "#58a6ff")
+    color = "#3fb950" if r["status"] == "KEPT" else ("#d29922" if r["status"] == "REVERTED" else "#58a6ff")
     html += f"""
     <tr>
       <td style="padding:4px 6px;border-bottom:1px solid #eee;font-family:monospace;">{r['commit'][:7]}</td>
