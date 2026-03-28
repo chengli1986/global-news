@@ -36,6 +36,9 @@ FETCH_TIMEOUT = 10
 SMTP_TIMEOUT = 30
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+def _is_english_source(name: str) -> bool:
+    return not any('\u4e00' <= c <= '\u9fff' for c in name)
+
 def _parse_date_flexible(date_str):
     """Parse date string supporting RFC 2822, ISO 8601, and common non-standard formats."""
     s = date_str.strip()
@@ -71,6 +74,7 @@ class UnifiedNewsSender:
         self.config_file = config_file
         self.config = self.load_config()
         self.news_data = {}
+        self._openai_key = os.getenv("OPENAI_API_KEY", "")
         self._use_pipeline = False  # off by default, enable with --pipeline
         self.beijing_time = self.get_beijing_time()
         self.period_info = self.get_period_info()
@@ -295,7 +299,106 @@ class UnifiedNewsSender:
                     self.news_data[name] = []
 
         print(f"✅ 成功抓取 {sum(len(v) for v in self.news_data.values())} 条新闻\n")
-    
+
+    def translate_titles(self):
+        """Translate English news titles to simplified Chinese via GPT-4.1-mini.
+        Converts all news_data entries from 3-tuples to 4-tuples:
+          English sources: (translated_title, url, pub_dt, original_title)
+          Chinese sources: (title, url, pub_dt, None)
+        Graceful fallback: on API failure, keeps original titles with None as orig."""
+        # Collect English titles that need translation
+        eng_titles = []  # (source_name, index, title)
+        for source_name, articles in self.news_data.items():
+            if _is_english_source(source_name):
+                for idx, item in enumerate(articles):
+                    title = item[0] if isinstance(item, tuple) else item
+                    eng_titles.append((source_name, idx, title))
+
+        # Convert all entries to 4-tuples first (Chinese sources get None as orig_title)
+        for source_name in self.news_data:
+            new_articles = []
+            for item in self.news_data[source_name]:
+                if isinstance(item, tuple) and len(item) >= 3:
+                    new_articles.append((item[0], item[1], item[2], None))
+                elif isinstance(item, tuple):
+                    new_articles.append((item[0], item[1], None, None))
+                else:
+                    new_articles.append((item, "", None, None))
+            self.news_data[source_name] = new_articles
+
+        if not eng_titles:
+            print("ℹ️  No English titles to translate")
+            return
+
+        if not self._openai_key:
+            print("⚠️  OPENAI_API_KEY not set, skipping title translation")
+            return
+
+        print(f"🔄 Translating {len(eng_titles)} English titles via GPT-4.1-mini...")
+
+        # Build the prompt
+        titles_for_api = [t[2] for t in eng_titles]
+        prompt = (
+            "Translate the following English news titles to simplified Chinese. "
+            "Return a JSON array of translated strings, one per input title, in the same order. "
+            "Keep proper nouns (company names, person names, place names) in their commonly used Chinese form. "
+            "Be concise and natural, matching Chinese news headline style.\n\n"
+            "Titles:\n" + json.dumps(titles_for_api, ensure_ascii=False)
+        )
+
+        payload = json.dumps({
+            "model": "gpt-4.1-mini",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.3,
+            "response_format": {"type": "json_object"},
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self._openai_key}",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+            content = result["choices"][0]["message"]["content"]
+            parsed = json.loads(content)
+            # Accept either a plain array or {"translations": [...]} or any key with array value
+            if isinstance(parsed, list):
+                translations = parsed
+            elif isinstance(parsed, dict):
+                # Find the first array value
+                translations = None
+                for v in parsed.values():
+                    if isinstance(v, list):
+                        translations = v
+                        break
+                if translations is None:
+                    raise ValueError("API response JSON has no array value")
+            else:
+                raise ValueError(f"Unexpected API response type: {type(parsed)}")
+
+            if len(translations) != len(eng_titles):
+                print(f"⚠️  Translation count mismatch: got {len(translations)}, expected {len(eng_titles)}. Using partial.")
+
+            # Apply translations
+            applied = 0
+            for i, (source_name, idx, orig_title) in enumerate(eng_titles):
+                if i < len(translations) and translations[i]:
+                    old = self.news_data[source_name][idx]
+                    self.news_data[source_name][idx] = (translations[i], old[1], old[2], orig_title)
+                    applied += 1
+
+            print(f"✅ Translated {applied}/{len(eng_titles)} English titles to Chinese")
+
+        except Exception as e:
+            print(f"⚠️  Title translation failed ({e}), keeping original English titles")
+
     # Region grouping: source name → (region_key, display_source_label)
     REGION_GROUPS = [
         ("🤖 AI & 科技前沿 TECH & AI", [
@@ -343,8 +446,13 @@ class UnifiedNewsSender:
         snapshot = {"date": datetime.now(timezone.utc).isoformat(), "sources": {}}
         for source_name, articles in self.news_data.items():
             snapshot["sources"][source_name] = [
-                {"title": t, "url": u, "pub_dt": d.isoformat() if d else None}
-                for t, u, d in articles
+                {
+                    "title": item[0],
+                    "url": item[1],
+                    "pub_dt": item[2].isoformat() if len(item) > 2 and item[2] else None,
+                    **({"orig_title": item[3]} if len(item) > 3 and item[3] else {}),
+                }
+                for item in articles
             ]
         try:
             with open(fixture_path, "w") as f:
@@ -371,8 +479,10 @@ class UnifiedNewsSender:
                     region_key = region_title[region_title.index(char):]
                     break
             region_key = region_key.strip()
-            for title, url, src, pub_dt in articles:
-                flat.append({"title": title, "url": url, "source": src, "pub_dt": pub_dt, "region": region_key, "region_title": region_title})
+            for art in articles:
+                title, url, src, pub_dt = art[0], art[1], art[2], art[3]
+                orig_title = art[4] if len(art) > 4 else None
+                flat.append({"title": title, "url": url, "source": src, "pub_dt": pub_dt, "orig_title": orig_title, "region": region_key, "region_title": region_title})
         if not flat:
             return all_region_articles
         deduped = deduplicate(flat, tuning.get("dedup_similarity_threshold", 0.55))
@@ -383,7 +493,7 @@ class UnifiedNewsSender:
             rt = article["region_title"]
             if rt not in rebuilt:
                 rebuilt[rt] = []
-            rebuilt[rt].append((article["title"], article["url"], article["source"], article["pub_dt"]))
+            rebuilt[rt].append((article["title"], article["url"], article["source"], article["pub_dt"], article.get("orig_title")))
         # Sort each region: Chinese-titled articles first, then English
         for rt in rebuilt:
             rebuilt[rt].sort(key=lambda a: (0 if any('\u4e00' <= c <= '\u9fff' for c in a[0]) else 1))
@@ -476,13 +586,15 @@ class UnifiedNewsSender:
             for src in source_names:
                 if src in self.news_data:
                     for item in self.news_data[src]:
-                        if isinstance(item, tuple) and len(item) >= 3:
-                            title, url, pub_dt = item[0], item[1], item[2]
+                        if isinstance(item, tuple) and len(item) >= 4:
+                            title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
+                        elif isinstance(item, tuple) and len(item) >= 3:
+                            title, url, pub_dt, orig_title = item[0], item[1], item[2], None
                         elif isinstance(item, tuple):
-                            title, url, pub_dt = item[0], item[1], None
+                            title, url, pub_dt, orig_title = item[0], item[1], None, None
                         else:
-                            title, url, pub_dt = item, "", None
-                        region_articles.append((title, url, src, pub_dt))
+                            title, url, pub_dt, orig_title = item, "", None, None
+                        region_articles.append((title, url, src, pub_dt, orig_title))
             all_region_articles.append((region_title, region_articles))
 
         # Apply digest pipeline (dedup + rank + quota) if available
@@ -509,7 +621,9 @@ class UnifiedNewsSender:
                 html += '<tr><td style="padding:8px 30px 0 30px;">\n'
                 html += '  <table width="100%" cellpadding="0" cellspacing="0" border="0">\n'
 
-                for idx, (title, url, src, pub_dt) in enumerate(region_articles):
+                for idx, art in enumerate(region_articles):
+                    title, url, src, pub_dt = art[0], art[1], art[2], art[3]
+                    orig_title = art[4] if len(art) > 4 else None
                     title_esc = self._esc(title)
                     border_style = f"border-bottom:1px solid {C_RULE_LT};" if idx < len(region_articles) - 1 else ""
 
@@ -539,11 +653,15 @@ class UnifiedNewsSender:
                         except Exception:
                             pass
 
+                    orig_title_html = ""
+                    if orig_title:
+                        orig_title_html = f'\n        <div style="font-size:12px;font-family:{FONT_SANS};color:{C_MUTED};margin-top:2px;font-style:italic;">{self._esc(orig_title)}</div>'
+
                     html += f"""    <tr>
       <td style="padding:10px 0;{border_style}vertical-align:top;">
         <div style="font-size:15px;font-family:{FONT};color:{C_INK};line-height:1.6;">
           {title_html}
-        </div>
+        </div>{orig_title_html}
         <div style="font-size:11px;font-family:{FONT_SANS};color:{C_SRC};margin-top:3px;">
           via {self._esc(src)}{time_html}
         </div>
@@ -581,17 +699,19 @@ class UnifiedNewsSender:
             all_other = []
             for src, articles in ungrouped.items():
                 for item in articles:
-                    if isinstance(item, tuple) and len(item) >= 3:
-                        title, url, pub_dt = item[0], item[1], item[2]
+                    if isinstance(item, tuple) and len(item) >= 4:
+                        title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
+                    elif isinstance(item, tuple) and len(item) >= 3:
+                        title, url, pub_dt, orig_title = item[0], item[1], item[2], None
                     elif isinstance(item, tuple):
-                        title, url, pub_dt = item[0], item[1], None
+                        title, url, pub_dt, orig_title = item[0], item[1], None, None
                     else:
-                        title, url, pub_dt = item, "", None
-                    all_other.append((title, url, src, pub_dt))
+                        title, url, pub_dt, orig_title = item, "", None, None
+                    all_other.append((title, url, src, pub_dt, orig_title))
 
             html += '<tr><td style="padding:8px 30px 0 30px;">\n'
             html += '  <table width="100%" cellpadding="0" cellspacing="0" border="0">\n'
-            for idx, (title, url, src, pub_dt) in enumerate(all_other):
+            for idx, (title, url, src, pub_dt, orig_title) in enumerate(all_other):
                 title_esc = self._esc(title)
                 border_style = f"border-bottom:1px solid {C_RULE_LT};" if idx < len(all_other) - 1 else ""
                 if url:
@@ -619,11 +739,15 @@ class UnifiedNewsSender:
                     except Exception:
                         pass
 
+                orig_title_html_other = ""
+                if orig_title:
+                    orig_title_html_other = f'\n        <div style="font-size:12px;font-family:{FONT_SANS};color:{C_MUTED};margin-top:2px;font-style:italic;">{self._esc(orig_title)}</div>'
+
                 html += f"""    <tr>
       <td style="padding:10px 0;{border_style}vertical-align:top;">
         <div style="font-size:15px;font-family:{FONT};color:{C_INK};line-height:1.6;">
           {title_html}
-        </div>
+        </div>{orig_title_html_other}
         <div style="font-size:11px;font-family:{FONT_SANS};color:{C_SRC};margin-top:3px;">
           via {self._esc(src)}{time_html}
         </div>
@@ -725,13 +849,15 @@ class UnifiedNewsSender:
             for src in source_names:
                 if src in self.news_data:
                     for item in self.news_data[src]:
-                        if isinstance(item, tuple) and len(item) >= 3:
-                            title, url, pub_dt = item[0], item[1], item[2]
+                        if isinstance(item, tuple) and len(item) >= 4:
+                            title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
+                        elif isinstance(item, tuple) and len(item) >= 3:
+                            title, url, pub_dt, orig_title = item[0], item[1], item[2], None
                         elif isinstance(item, tuple):
-                            title, url, pub_dt = item[0], item[1], None
+                            title, url, pub_dt, orig_title = item[0], item[1], None, None
                         else:
-                            title, url, pub_dt = item, "", None
-                        region_articles.append((title, url, src, pub_dt))
+                            title, url, pub_dt, orig_title = item, "", None, None
+                        region_articles.append((title, url, src, pub_dt, orig_title))
             all_region_articles.append((region_title, region_articles))
 
         # Apply digest pipeline (dedup + rank + quota) if available
@@ -744,7 +870,9 @@ class UnifiedNewsSender:
             print(f"{'━' * 70}")
 
             if region_articles:
-                for i, (title, url, src, pub_dt) in enumerate(region_articles, 1):
+                for i, art in enumerate(region_articles, 1):
+                    title, url, src, pub_dt = art[0], art[1], art[2], art[3]
+                    orig_title = art[4] if len(art) > 4 else None
                     time_str = ""
                     if pub_dt is not None:
                         try:
@@ -753,10 +881,14 @@ class UnifiedNewsSender:
                             pass
                     if url:
                         print(f"  {i}. {title}")
+                        if orig_title:
+                            print(f"     ({orig_title})")
                         print(f"     {url}")
                         print(f"     via {src}{time_str}")
                     else:
                         print(f"  {i}. {title}  (via {src}{time_str})")
+                        if orig_title:
+                            print(f"     ({orig_title})")
             else:
                 print("  (暂无新闻)")
 
@@ -772,12 +904,14 @@ class UnifiedNewsSender:
             idx = 1
             for src, articles in ungrouped.items():
                 for item in articles:
-                    if isinstance(item, tuple) and len(item) >= 3:
-                        title, url, pub_dt = item[0], item[1], item[2]
+                    if isinstance(item, tuple) and len(item) >= 4:
+                        title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
+                    elif isinstance(item, tuple) and len(item) >= 3:
+                        title, url, pub_dt, orig_title = item[0], item[1], item[2], None
                     elif isinstance(item, tuple):
-                        title, url, pub_dt = item[0], item[1], None
+                        title, url, pub_dt, orig_title = item[0], item[1], None, None
                     else:
-                        title, url, pub_dt = item, "", None
+                        title, url, pub_dt, orig_title = item, "", None, None
                     time_str = ""
                     if pub_dt is not None:
                         try:
@@ -786,10 +920,14 @@ class UnifiedNewsSender:
                             pass
                     if url:
                         print(f"  {idx}. {title}")
+                        if orig_title:
+                            print(f"     ({orig_title})")
                         print(f"     {url}")
                         print(f"     via {src}{time_str}")
                     else:
                         print(f"  {idx}. {title}  (via {src}){time_str}")
+                        if orig_title:
+                            print(f"     ({orig_title})")
                     idx += 1
 
         print("\n" + "=" * 70)
@@ -804,6 +942,7 @@ class UnifiedNewsSender:
 
         # 抓取新闻
         self.fetch_all_news()
+        self.translate_titles()
         self._save_fixture()
 
         # 零文章保护 — 全部源失败时不发送空邮件
