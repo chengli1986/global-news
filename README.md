@@ -75,6 +75,14 @@ python3 rss-health-check.py --email
 
 **English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg (Economics, Businessweek, Politics), SCMP, CNA, FT, Hacker News (Firebase API), Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail
 
+## English Title Translation
+
+English news titles are batch-translated to Chinese using GPT-4.1-mini (approximately 70 titles per send). The translated Chinese title is displayed as the primary headline, with the original English title shown as an italic subtitle below it.
+
+## Cross-Send Deduplication
+
+Articles are tracked across the three daily sends via `logs/sent-today-YYYY-MM-DD.json`. Previously sent articles are filtered out to avoid repetition. Premium sources (Economist, FT, Bloomberg, NYT) can resurface after a 4-hour cooldown period.
+
 ## Article Timestamps
 
 Each news item displays its publication time and relative age alongside the source:
@@ -132,7 +140,7 @@ An automated experimentation system (Phase B) that tunes news digest quality thr
 | `digest_pipeline.py` | Dedup (Jaccard bigram similarity >0.5), keyword ranking, region-based quotas |
 | `evaluate_digest.py` | Replays fixture snapshots, scores on 5 dimensions (coverage, relevance, freshness, diversity, dedup) |
 | `digest-tuning.json` | Tuning parameters — weights, thresholds, quota allocations |
-| `scripts/wrapper-autoresearch-news.sh` | Cron wrapper for automated experiments (Tue/Thu/Sat 21:00 BJT) |
+| `scripts/wrapper-autoresearch-news.sh` | Cron wrapper for automated experiments (daily 21:00 BJT) |
 | `autoresearch/program.md` | Experiment program and hypothesis tracking |
 | `autoresearch/results.tsv` | Experiment results log |
 
@@ -141,7 +149,7 @@ An automated experimentation system (Phase B) that tunes news digest quality thr
 1. **Fixture capture**: `tests/YYYY-MM-DD.json` snapshots of raw fetched articles
 2. **Pipeline replay**: `digest_pipeline.py` processes fixtures with current tuning params
 3. **Quality scoring**: `evaluate_digest.py` measures 5 dimensions, produces composite score
-4. **Baseline**: 0.8207 (measured 2026-03-27)
+4. **Current score**: 0.8407 (from baseline 0.8207, measured 2026-03-28)
 
 ### Tests
 
