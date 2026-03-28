@@ -431,6 +431,102 @@ class UnifiedNewsSender:
         ]),
     ]
 
+    def _sent_today_path(self) -> str:
+        """Path to today's sent-article log. Cleans up files >2 days old."""
+        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        date_str = datetime.now(BJT).strftime("%Y-%m-%d")
+        # Cleanup old files
+        try:
+            for f in os.listdir(log_dir):
+                if f.startswith("sent-today-") and f.endswith(".json") and f != f"sent-today-{date_str}.json":
+                    os.remove(os.path.join(log_dir, f))
+        except OSError:
+            pass
+        return os.path.join(log_dir, f"sent-today-{date_str}.json")
+
+    def _load_sent_today(self) -> list:
+        """Load previously-sent articles from today's log."""
+        path = self._sent_today_path()
+        if not os.path.exists(path):
+            return []
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except (json.JSONDecodeError, OSError):
+            return []
+
+    def _save_sent_today(self, articles: list):
+        """Append sent articles to today's log."""
+        existing = self._load_sent_today()
+        existing.extend(articles)
+        try:
+            with open(self._sent_today_path(), "w", encoding="utf-8") as f:
+                json.dump(existing, f, ensure_ascii=False)
+        except OSError as e:
+            print(f"⚠️  保存发送记录失败: {e}")
+
+    def _cross_send_dedup(self, all_region_articles):
+        """Remove articles already sent today, unless premium and >4h since last send."""
+        sent_today = self._load_sent_today()
+        if not sent_today:
+            return all_region_articles
+
+        sent_urls = {item["url"] for item in sent_today if item.get("url")}
+        sent_titles = [item["title"] for item in sent_today]
+
+        # Find last send time
+        last_send_time = None
+        if sent_today:
+            try:
+                last_send_time = datetime.fromisoformat(sent_today[-1].get("send_time", ""))
+            except (ValueError, TypeError):
+                pass
+
+        # Load premium sources from tuning config
+        tuning_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "digest-tuning.json")
+        premium_sources = set()
+        if os.path.exists(tuning_path):
+            try:
+                with open(tuning_path) as f:
+                    tuning = json.load(f)
+                premium_sources = set(tuning.get("source_tiers", {}).get("premium", []))
+            except Exception:
+                pass
+
+        now = datetime.now(timezone.utc)
+        hours_since_last = (now - last_send_time).total_seconds() / 3600 if last_send_time else 0
+
+        from digest_pipeline import jaccard_similarity
+
+        filtered = []
+        removed_count = 0
+        for region_title, articles in all_region_articles:
+            kept = []
+            for article in articles:
+                title = article[0]
+                url = article[1]
+                src = article[2]
+
+                already_sent = False
+                if url and url in sent_urls:
+                    already_sent = True
+                elif any(jaccard_similarity(title, st) > 0.55 for st in sent_titles):
+                    already_sent = True
+
+                if already_sent:
+                    if src in premium_sources and hours_since_last >= 4:
+                        kept.append(article)
+                    else:
+                        removed_count += 1
+                else:
+                    kept.append(article)
+            filtered.append((region_title, kept))
+
+        if removed_count > 0:
+            print(f"🔄 跨时段去重: 移除 {removed_count} 条已发送文章")
+        return filtered
+
     def _total_article_count(self):
         return sum(len(v) for v in self.news_data.values())
 
@@ -599,6 +695,19 @@ class UnifiedNewsSender:
 
         # Apply digest pipeline (dedup + rank + quota) if available
         all_region_articles = self._apply_pipeline(all_region_articles)
+
+        # Cross-send dedup: remove articles already sent in earlier time slots today
+        all_region_articles = self._cross_send_dedup(all_region_articles)
+
+        # Record final article list for post-send logging
+        self._last_sent_articles = []
+        for region_title, articles in all_region_articles:
+            for article in articles:
+                self._last_sent_articles.append({
+                    "title": article[0],
+                    "url": article[1],
+                    "source": article[2],
+                })
 
         # Pass 2: render HTML from pipeline output
         for region_title, region_articles in all_region_articles:
@@ -831,6 +940,13 @@ class UnifiedNewsSender:
                 server.sendmail(sender_email, all_recipients, msg.as_string())
 
             print(f"✅ 邮件已成功发送至 {', '.join(recipients)}")
+
+            # Record sent articles for cross-send dedup
+            send_time = datetime.now(timezone.utc).isoformat()
+            for record in getattr(self, '_last_sent_articles', []):
+                record["send_time"] = send_time
+            self._save_sent_today(getattr(self, '_last_sent_articles', []))
+
             return True
         
         except Exception as e:
