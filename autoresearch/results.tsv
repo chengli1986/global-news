@@ -4,3 +4,4 @@ acc099d	0.8258	KEPT	expand US/Europe max 6->10, Canada max 4->8, APAC max 8->10 
 a4d09a9	0.8254	REVERTED	reduce AI max 15->11 (balance up but density down, net negative)
 ad68818	0.7968	REVERTED	increase freshness_weight 0.30->0.40 (no effect on evaluation)
 2f71663	0.8301	KEPT	reduce max_total/target 80->67 to match actual selection, density 0.84->1.0
+d81514e	0.8407	REVERTED	increase freshness_weight 0.30->0.50 (no effect, region caps binding)
