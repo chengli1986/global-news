@@ -2,3 +2,4 @@ commit_hash	quality	status	description
 c6acd6f	0.8207	BASELINE	initial tuning (112 fetched, 111 after dedup, 60 selected, balance=0.44 is main gap)
 acc099d	0.8258	KEPT	expand US/Europe max 6->10, Canada max 4->8, APAC max 8->10 (balance 0.44->0.57)
 a4d09a9	0.8254	REVERTED	reduce AI max 15->11 (balance up but density down, net negative)
+ad68818	0.7968	REVERTED	increase freshness_weight 0.30->0.40 (no effect on evaluation)
