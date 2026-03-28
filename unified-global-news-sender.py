@@ -436,11 +436,14 @@ class UnifiedNewsSender:
         log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
         os.makedirs(log_dir, exist_ok=True)
         date_str = datetime.now(BJT).strftime("%Y-%m-%d")
-        # Cleanup old files
+        # Cleanup files >2 days old
+        cutoff = (datetime.now(BJT) - timedelta(days=2)).strftime("%Y-%m-%d")
         try:
             for f in os.listdir(log_dir):
-                if f.startswith("sent-today-") and f.endswith(".json") and f != f"sent-today-{date_str}.json":
-                    os.remove(os.path.join(log_dir, f))
+                if f.startswith("sent-today-") and f.endswith(".json"):
+                    file_date = f[len("sent-today-"):-len(".json")]
+                    if file_date < cutoff:
+                        os.remove(os.path.join(log_dir, f))
         except OSError:
             pass
         return os.path.join(log_dir, f"sent-today-{date_str}.json")
@@ -495,7 +498,7 @@ class UnifiedNewsSender:
                 pass
 
         now = datetime.now(timezone.utc)
-        hours_since_last = (now - last_send_time).total_seconds() / 3600 if last_send_time else 0
+        hours_since_last = (now - last_send_time).total_seconds() / 3600 if last_send_time else float('inf')
 
         from digest_pipeline import jaccard_similarity
 
