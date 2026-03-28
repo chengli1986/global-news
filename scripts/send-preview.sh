@@ -13,6 +13,8 @@ if [ -f ~/.stock-monitor.env ]; then
     source ~/.stock-monitor.env
     export SMTP_USER SMTP_PASS
 fi
+[ -f ~/.secrets.env ] && source ~/.secrets.env
+export OPENAI_API_KEY
 
 RECIPIENT="ch_w10@outlook.com"
 RESULTS_TSV="$REPO_DIR/autoresearch/results.tsv"
