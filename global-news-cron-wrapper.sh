@@ -83,8 +83,11 @@ run_email_mode() {
 
     export SMTP_USER
     export SMTP_PASS
+    # Load API keys for title translation
+    [ -f ~/.secrets.env ] && source ~/.secrets.env
+    export OPENAI_API_KEY
 
-    python3 "$PYTHON_SCRIPT" email "$recipients" >> "$LOG_FILE" 2>&1 || {
+    python3 "$PYTHON_SCRIPT" email "$recipients" --pipeline >> "$LOG_FILE" 2>&1 || {
         log "❌ 邮件发送失败 (exit=$?)"
         return 1
     }
