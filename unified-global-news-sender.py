@@ -684,12 +684,14 @@ class UnifiedNewsSender:
         if _HAS_PIPELINE:
             from digest_pipeline import jaccard_similarity
         else:
-            # Fallback: simple substring check when pipeline unavailable
+            # Fallback: bigram Jaccard when pipeline unavailable
             def jaccard_similarity(a, b):
-                sa, sb = set(a), set(b)
-                inter = sa & sb
-                union = sa | sb
-                return len(inter) / len(union) if union else 0.0
+                a, b = a.lower().strip(), b.lower().strip()
+                sa = {a[i:i+2] for i in range(len(a) - 1)} if len(a) >= 2 else {a}
+                sb = {b[i:i+2] for i in range(len(b) - 1)} if len(b) >= 2 else {b}
+                if not sa or not sb:
+                    return 0.0
+                return len(sa & sb) / len(sa | sb)
 
         filtered = []
         removed_count = 0
