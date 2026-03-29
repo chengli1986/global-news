@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 36 sources (33 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API) and delivers HTML email reports three times daily, with periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 40 sources (37 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API) and delivers HTML email reports three times daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,7 +8,7 @@ Automated global news digest system that fetches from 36 sources (33 RSS feeds +
 Cron (3x daily: 00:00, 08:00, 16:00 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (36 sources)
+           ├── news-sources-config.json (40 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
            └── RSS/Atom feeds (33 sources)
@@ -69,15 +69,19 @@ python3 rss-health-check.py
 python3 rss-health-check.py --email
 ```
 
-## News Sources (36)
+## News Sources (40)
 
-**Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, 日经中文
+**Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, 日经中文, RTHK中文
 
-**English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg (Economics, Businessweek, Politics), SCMP, CNA, FT, Hacker News (Firebase API), Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail
+**English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg (Economics, Businessweek, Politics), SCMP, SCMP Hong Kong, CNA, FT, Hacker News (Firebase API), Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail, HKFP, Straits Times
 
 ## English Title Translation
 
 English news titles are batch-translated to Chinese using GPT-4.1-mini (approximately 70 titles per send). The translated Chinese title is displayed as the primary headline, with the original English title shown as an italic subtitle below it.
+
+## LLM-Based Article Classification
+
+Articles from mixed-content sources are classified into correct sections using GPT-4.1-mini. The `classify_articles()` method sends all article titles (except locked sources: Canada, Economist) in a single API call, receiving a numbered JSON dict mapping each article to one of five categories: `tech`, `finance`, `politics`, `china`, `asia`. Falls back to keyword-based reclassification if the API call fails.
 
 ## Cross-Send Deduplication
 
