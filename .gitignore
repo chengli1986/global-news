@@ -5,4 +5,3 @@ __pycache__/
 *.log
 logs/
 todo.db
-fixtures/*.json
