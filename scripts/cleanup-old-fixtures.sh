@@ -34,9 +34,13 @@ for f in "$FIXTURES_DIR"/*.json; do
     fi
 
     if [[ "$FILE_DATE" < "$CUTOFF_DATE" ]]; then
-        echo "$LOG_PREFIX REMOVE: $BASENAME (older than $KEEP_DAYS days)"
-        git rm -q "$f" 2>/dev/null || rm "$f"
-        REMOVED=$((REMOVED + 1))
+        if git ls-files --error-unmatch "$f" &>/dev/null; then
+            git rm -q "$f"
+            echo "$LOG_PREFIX REMOVE: $BASENAME (git rm)"
+            REMOVED=$((REMOVED + 1))
+        else
+            echo "$LOG_PREFIX SKIP: $BASENAME (not tracked by git)"
+        fi
     fi
 done
 
