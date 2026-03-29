@@ -10,3 +10,4 @@ f510fc3	0.8407	KEPT	align target 67->60 to match new caps (density 0.89->1.0, ne
 97a19e0	0.8407	REVERTED	lower dedup threshold 0.55->0.45 (uniqueness already 1.0)
 fa2e1b4	0.8407	REVERTED	flatten tier boost premium 1.5->1.3 commodity 0.7->0.85 (region caps binding)
 d81514e	0.8407	REVERTED	increase freshness_weight 0.30->0.50 (region caps binding)
+ee9812d	0.8103	KEPT	raise APAC/Canada min 2->4: fixture 8 balance 0.41->0.53 (+0.0005 avg)
