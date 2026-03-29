@@ -420,6 +420,7 @@ class UnifiedNewsSender:
         ]),
         ("🌏 亚太要闻 ASIA-PACIFIC", [
             "日经中文", "CNA",
+            "SCMP Hong Kong", "RTHK中文", "HKFP", "Straits Times",
         ]),
         ("🇨🇦 加拿大 CANADA", [
             "CBC Business", "Globe & Mail",
@@ -429,8 +430,22 @@ class UnifiedNewsSender:
         ]),
     ]
 
-    # Keywords for reclassifying articles from mixed-content Chinese sources
-    # (e.g., 界面新闻 publishes both domestic and international news)
+    # Sources locked to their sections — skip LLM classification
+    _LOCKED_SOURCES = {
+        "CBC Business", "Globe & Mail",
+        "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science",
+    }
+
+    # LLM category label → region title mapping
+    _CATEGORY_TO_REGION = {
+        "tech":     "🤖 AI & 科技前沿 TECH & AI",
+        "finance":  "💰 全球财经 GLOBAL FINANCE",
+        "politics": "🏛 全球政治 GLOBAL POLITICS",
+        "china":    "🇨🇳 中国要闻 CHINA",
+        "asia":     "🌏 亚太要闻 ASIA-PACIFIC",
+    }
+
+    # Keyword fallback when LLM classification unavailable
     _INTL_KEYWORDS = (
         "美国", "美军", "美方", "美联储", "白宫", "五角大楼", "华盛顿",
         "伊朗", "以色列", "以军", "巴勒斯坦", "哈马斯", "真主党", "中东",
@@ -442,27 +457,137 @@ class UnifiedNewsSender:
         "霍尔木兹", "德黑兰", "莫斯科", "基辅",
         "洛杉矶", "纽约", "伦敦", "巴黎", "柏林", "东京",
     )
-    # Sources that need title-based reclassification
-    _MIXED_SOURCES = {"界面新闻"}
 
-    @classmethod
-    def _reclassify_article(cls, title: str, source: str) -> str | None:
-        """Return target region for a mixed-source article, or None to keep original."""
-        if source not in cls._MIXED_SOURCES:
-            return None
-        if any(kw in title for kw in cls._INTL_KEYWORDS):
-            return "🏛 全球政治 GLOBAL POLITICS"
-        return None  # keep in original region (中国要闻)
+    def classify_articles(self):
+        """Classify articles from mixed-content sources into correct sections via GPT-4.1-mini.
+        Stores results in self._classifications: {(source, idx): region_title_or_None}.
+        Graceful fallback: on API failure, falls back to keyword-based reclassification."""
+        self._classifications = {}  # (source, idx) -> target region or None
+
+        to_classify = []  # (source, idx, title)
+        for src, articles in self.news_data.items():
+            if src in self._LOCKED_SOURCES:
+                continue
+            for idx, item in enumerate(articles):
+                title = item[0] if isinstance(item, tuple) else item
+                to_classify.append((src, idx, title))
+
+        if not to_classify:
+            return
+
+        if not self._openai_key:
+            print("⚠️  OPENAI_API_KEY not set, skipping article classification")
+            return
+
+        print(f"🏷️  Classifying {len(to_classify)} articles from mixed sources via GPT-4.1-mini...")
+
+        # Build numbered title list for reliable index mapping
+        numbered_titles = "\n".join(f"{i+1}. {t[2]}" for i, t in enumerate(to_classify))
+        prompt = (
+            "Classify each numbered news title into exactly one category. "
+            "Titles may be in Chinese or English.\n"
+            "Return a JSON object mapping each number (as string key) to its category label.\n"
+            f'Example format: {{"1": "tech", "2": "finance", "3": "politics"}}\n\n'
+            "Categories:\n"
+            "- \"tech\": technology, AI, software, hardware, gadgets, apps, startups, digital products, science\n"
+            "- \"finance\": business, markets, companies, earnings, IPO, real estate, economy, trade\n"
+            "- \"politics\": politics, military, diplomacy, international relations, geopolitics, war, protests, government policy\n"
+            "- \"china\": China domestic society, culture, education, lifestyle, social issues (NOT tech/finance/politics)\n"
+            "- \"asia\": Hong Kong, Singapore, Japan, Korea, Southeast Asia, Asia-Pacific regional news\n\n"
+            "Rules:\n"
+            "- Military operations, wars, airstrikes, missile attacks → \"politics\" always\n"
+            "- Protests, rallies, diplomatic summits → \"politics\" always\n"
+            "- Articles about war's economic impact (oil prices, gold, supply chains) where the PRIMARY topic is the war/geopolitics → \"politics\"\n"
+            "- Company earnings, stock market, business strategy → \"finance\"\n"
+            "- An article about an AI product or tech company innovation → \"tech\"\n"
+            "- A non-tech company's organizational restructuring or business operations → \"finance\"\n\n"
+            f"Titles ({len(to_classify)} total):\n{numbered_titles}"
+        )
+
+        payload = json.dumps({
+            "model": "gpt-4.1-mini",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+        }).encode("utf-8")
+
+        req = urllib.request.Request(
+            "https://api.openai.com/v1/chat/completions",
+            data=payload,
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {self._openai_key}",
+            },
+            method="POST",
+        )
+
+        try:
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                result = json.loads(resp.read().decode("utf-8"))
+            content = result["choices"][0]["message"]["content"]
+            parsed = json.loads(content)
+
+            # Convert response to {int_index: label} mapping
+            label_map = {}  # 0-based index -> category label
+            if isinstance(parsed, dict):
+                for k, v in parsed.items():
+                    # Handle nested {"classifications": {"1": "tech", ...}} or flat {"1": "tech", ...}
+                    if isinstance(v, dict):
+                        for kk, vv in v.items():
+                            try:
+                                label_map[int(kk) - 1] = vv
+                            except (ValueError, TypeError):
+                                pass
+                    elif isinstance(v, str):
+                        try:
+                            label_map[int(k) - 1] = v
+                        except (ValueError, TypeError):
+                            pass
+            elif isinstance(parsed, list):
+                # Fallback: if LLM returns array anyway
+                for i, v in enumerate(parsed):
+                    if isinstance(v, str):
+                        label_map[i] = v
+
+            reclassified_count = 0
+            classified_count = 0
+            for i, (src, idx, title) in enumerate(to_classify):
+                label = label_map.get(i)
+                if label and label in self._CATEGORY_TO_REGION:
+                    target_region = self._CATEGORY_TO_REGION[label]
+                    self._classifications[(src, idx)] = target_region
+                    classified_count += 1
+                    for region_title, source_names in self.REGION_GROUPS:
+                        if src in source_names and target_region != region_title:
+                            reclassified_count += 1
+                            break
+
+            print(f"✅ Classified {classified_count}/{len(to_classify)} articles, {reclassified_count} reclassified to different sections")
+
+        except Exception as e:
+            print(f"⚠️  Article classification failed ({e}), falling back to keyword-based routing")
+
+    def _reclassify_article(self, title: str, source: str, source_idx: int) -> str | None:
+        """Return target region for an article, or None to keep in original region.
+        Uses LLM classification if available, falls back to keyword matching."""
+        # LLM classification (set by classify_articles())
+        if hasattr(self, '_classifications') and (source, source_idx) in self._classifications:
+            return self._classifications[(source, source_idx)]
+        # Keyword fallback for non-locked sources
+        if source not in self._LOCKED_SOURCES:
+            if any(kw in title for kw in self._INTL_KEYWORDS):
+                return "🏛 全球政治 GLOBAL POLITICS"
+        return None
 
     def _collect_region_articles(self):
-        """Collect articles grouped by region, with reclassification for mixed sources."""
+        """Collect articles grouped by region, with LLM-based reclassification."""
         all_region_articles = []
         reclassified = []  # (target_region, article_tuple)
         for region_title, source_names in self.REGION_GROUPS:
             region_articles = []
             for src in source_names:
                 if src in self.news_data:
-                    for item in self.news_data[src]:
+                    for idx, item in enumerate(self.news_data[src]):
                         if isinstance(item, tuple) and len(item) >= 4:
                             title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
                         elif isinstance(item, tuple) and len(item) >= 3:
@@ -472,8 +597,7 @@ class UnifiedNewsSender:
                         else:
                             title, url, pub_dt, orig_title = item, "", None, None
                         art = (title, url, src, pub_dt, orig_title)
-                        # Check if this article should be reclassified
-                        target = self._reclassify_article(title, src)
+                        target = self._reclassify_article(title, src, idx)
                         if target and target != region_title:
                             reclassified.append((target, art))
                         else:
@@ -1099,6 +1223,7 @@ class UnifiedNewsSender:
         # 抓取新闻
         self.fetch_all_news()
         self.translate_titles()
+        self.classify_articles()
         self._save_fixture()
 
         # 零文章保护 — 全部源失败时不发送空邮件

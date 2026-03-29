@@ -32,6 +32,10 @@
       {"name": "纽约时报中文","url": "https://feedx.net/rss/nytimes.xml",            "keywords": [], "limit": 3, "max_age_hours": 168},
       {"name": "BBC中文",    "url": "https://feedx.net/rss/bbc.xml",                "keywords": [], "limit": 3},
       {"name": "日经中文",   "url": "https://feedx.net/rss/nikkei.xml",             "keywords": [], "limit": 3},
+      {"name": "SCMP Hong Kong", "url": "https://www.scmp.com/rss/2/feed",                   "keywords": [], "limit": 3},
+      {"name": "RTHK中文",       "url": "https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml", "keywords": [], "limit": 3},
+      {"name": "HKFP",           "url": "https://hongkongfp.com/feed/",                      "keywords": [], "limit": 3},
+      {"name": "Straits Times",  "url": "https://www.straitstimes.com/news/singapore/rss.xml", "keywords": [], "limit": 3},
 
       {"name": "BBC World",      "url": "https://feeds.bbci.co.uk/news/world/rss.xml",       "keywords": [], "limit": 4},
       {"name": "BBC Business",   "url": "https://feeds.bbci.co.uk/news/business/rss.xml",    "keywords": [], "limit": 3},
