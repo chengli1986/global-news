@@ -409,6 +409,7 @@ class UnifiedNewsSender:
         ("💰 全球财经 GLOBAL FINANCE", [
             "中国财经要闻",
             "CNBC", "Bloomberg", "Bloomberg Econ", "Bloomberg Biz", "BBC Business", "FT",
+            "NYT Business",
         ]),
         ("🏛 全球政治 GLOBAL POLITICS", [
             "纽约时报中文", "BBC中文",
@@ -416,9 +417,6 @@ class UnifiedNewsSender:
         ]),
         ("🇨🇳 中国要闻 CHINA", [
             "界面新闻", "南方周末",
-        ]),
-        ("🇺🇸🇪🇺 美国 & 欧洲 US & EUROPE", [
-            "NYT Business",
         ]),
         ("🌏 亚太要闻 ASIA-PACIFIC", [
             "日经中文", "CNA",
@@ -430,6 +428,65 @@ class UnifiedNewsSender:
             "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science",
         ]),
     ]
+
+    # Keywords for reclassifying articles from mixed-content Chinese sources
+    # (e.g., 界面新闻 publishes both domestic and international news)
+    _INTL_KEYWORDS = (
+        "美国", "美军", "美方", "美联储", "白宫", "五角大楼", "华盛顿",
+        "伊朗", "以色列", "以军", "巴勒斯坦", "哈马斯", "真主党", "中东",
+        "俄罗斯", "俄军", "乌克兰", "北约", "欧盟", "欧洲",
+        "法国", "德国", "英国", "日本", "韩国", "朝鲜", "印度",
+        "澳大利亚", "加拿大", "巴西", "墨西哥", "土耳其",
+        "联合国", "G7", "G20", "特朗普", "拜登",
+        "阿塞拜疆", "蒙古", "缅甸", "叙利亚", "也门",
+        "霍尔木兹", "德黑兰", "莫斯科", "基辅",
+        "洛杉矶", "纽约", "伦敦", "巴黎", "柏林", "东京",
+    )
+    # Sources that need title-based reclassification
+    _MIXED_SOURCES = {"界面新闻"}
+
+    @classmethod
+    def _reclassify_article(cls, title: str, source: str) -> str | None:
+        """Return target region for a mixed-source article, or None to keep original."""
+        if source not in cls._MIXED_SOURCES:
+            return None
+        if any(kw in title for kw in cls._INTL_KEYWORDS):
+            return "🏛 全球政治 GLOBAL POLITICS"
+        return None  # keep in original region (中国要闻)
+
+    def _collect_region_articles(self):
+        """Collect articles grouped by region, with reclassification for mixed sources."""
+        all_region_articles = []
+        reclassified = []  # (target_region, article_tuple)
+        for region_title, source_names in self.REGION_GROUPS:
+            region_articles = []
+            for src in source_names:
+                if src in self.news_data:
+                    for item in self.news_data[src]:
+                        if isinstance(item, tuple) and len(item) >= 4:
+                            title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
+                        elif isinstance(item, tuple) and len(item) >= 3:
+                            title, url, pub_dt, orig_title = item[0], item[1], item[2], None
+                        elif isinstance(item, tuple):
+                            title, url, pub_dt, orig_title = item[0], item[1], None, None
+                        else:
+                            title, url, pub_dt, orig_title = item, "", None, None
+                        art = (title, url, src, pub_dt, orig_title)
+                        # Check if this article should be reclassified
+                        target = self._reclassify_article(title, src)
+                        if target and target != region_title:
+                            reclassified.append((target, art))
+                        else:
+                            region_articles.append(art)
+            all_region_articles.append((region_title, region_articles))
+
+        # Insert reclassified articles into their target regions
+        region_map = {rt: arts for rt, arts in all_region_articles}
+        for target_region, art in reclassified:
+            if target_region in region_map:
+                region_map[target_region].append(art)
+
+        return all_region_articles
 
     def _sent_today_path(self) -> str:
         """Path to today's sent-article log. Cleans up files >2 days old."""
@@ -500,7 +557,15 @@ class UnifiedNewsSender:
         now = datetime.now(timezone.utc)
         hours_since_last = (now - last_send_time).total_seconds() / 3600 if last_send_time else float('inf')
 
-        from digest_pipeline import jaccard_similarity
+        if _HAS_PIPELINE:
+            from digest_pipeline import jaccard_similarity
+        else:
+            # Fallback: simple substring check when pipeline unavailable
+            def jaccard_similarity(a, b):
+                sa, sb = set(a), set(b)
+                inter = sa & sb
+                union = sa | sb
+                return len(inter) / len(union) if union else 0.0
 
         filtered = []
         removed_count = 0
@@ -678,23 +743,8 @@ class UnifiedNewsSender:
 <!-- === CONTENT === -->
 """
 
-        # Pass 1: collect all articles grouped by region
-        all_region_articles = []
-        for region_title, source_names in self.REGION_GROUPS:
-            region_articles = []
-            for src in source_names:
-                if src in self.news_data:
-                    for item in self.news_data[src]:
-                        if isinstance(item, tuple) and len(item) >= 4:
-                            title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
-                        elif isinstance(item, tuple) and len(item) >= 3:
-                            title, url, pub_dt, orig_title = item[0], item[1], item[2], None
-                        elif isinstance(item, tuple):
-                            title, url, pub_dt, orig_title = item[0], item[1], None, None
-                        else:
-                            title, url, pub_dt, orig_title = item, "", None, None
-                        region_articles.append((title, url, src, pub_dt, orig_title))
-            all_region_articles.append((region_title, region_articles))
+        # Pass 1: collect all articles grouped by region (with reclassification)
+        all_region_articles = self._collect_region_articles()
 
         # Apply digest pipeline (dedup + rank + quota) if available
         all_region_articles = self._apply_pipeline(all_region_articles)
@@ -963,23 +1013,8 @@ class UnifiedNewsSender:
         print("\n📰 新闻内容：")
         print("=" * 70)
 
-        # Pass 1: collect all articles grouped by region
-        all_region_articles = []
-        for region_title, source_names in self.REGION_GROUPS:
-            region_articles = []
-            for src in source_names:
-                if src in self.news_data:
-                    for item in self.news_data[src]:
-                        if isinstance(item, tuple) and len(item) >= 4:
-                            title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
-                        elif isinstance(item, tuple) and len(item) >= 3:
-                            title, url, pub_dt, orig_title = item[0], item[1], item[2], None
-                        elif isinstance(item, tuple):
-                            title, url, pub_dt, orig_title = item[0], item[1], None, None
-                        else:
-                            title, url, pub_dt, orig_title = item, "", None, None
-                        region_articles.append((title, url, src, pub_dt, orig_title))
-            all_region_articles.append((region_title, region_articles))
+        # Pass 1: collect all articles grouped by region (with reclassification)
+        all_region_articles = self._collect_region_articles()
 
         # Apply digest pipeline (dedup + rank + quota) if available
         all_region_articles = self._apply_pipeline(all_region_articles)
