@@ -119,18 +119,20 @@ Each delivery is tagged by Beijing time:
   NEWS_MAIL_BCC=bcc@email.com                    # optional, BCC recipients
   ```
 
-Current recipients (3 TO + 1 BCC):
-- `ch_w10@outlook.com`, `sunying1588@163.com`, `liuzhiwen@shenyuanele.com`
+Current recipients (4 TO + 1 BCC):
+- `ch_w10@outlook.com`, `sunying1588@163.com`, `liuzhiwen@shenyuanele.com`, `cjl1656@qq.com`
 - BCC: `tangwanshan@outlook.com`
 
 ## Cron Schedule
 
 ```cron
-# News digest: 3x daily at 00:04, 08:04, 16:04 BJT
-4 0,8,16 * * * ~/.openclaw/workspace/global-news-cron-wrapper.sh email >> ~/logs/news-cron.log 2>&1
+# News digest: 3x daily at 08:00, 16:15, 00:10 BJT (via cron-wrapper)
+0 0 * * * ~/cron-wrapper.sh --name global-news-00 --timeout 180 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
+15 8 * * * ~/cron-wrapper.sh --name global-news-08 --timeout 180 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
+10 16 * * * ~/cron-wrapper.sh --name global-news-16 --timeout 180 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
 
-# RSS health check: every 6h at :12, offset from other monitors
-12 0,6,12,18 * * * cd ~/.openclaw/workspace && python3 rss-health-check.py --email >> ~/logs/rss-health-cron.log 2>&1
+# RSS health check: every 6h at :20 past 0/6/12/18 UTC
+20 0,6,12,18 * * * ~/cron-wrapper.sh --name rss-health --timeout 120 -- python3 ~/.openclaw/workspace/rss-health-check.py
 ```
 
 ## AutoResearch — Digest Quality Pipeline
