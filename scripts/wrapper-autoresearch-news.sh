@@ -21,6 +21,9 @@ trap cleanup EXIT
 
 echo "$LOG_PREFIX Starting news autoresearch session..."
 
+# Cleanup fixtures older than 21 days before running experiments
+"$SCRIPT_DIR/cleanup-old-fixtures.sh" 21 2>&1 || echo "$LOG_PREFIX WARNING: fixture cleanup failed (non-fatal)"
+
 # CRITICAL: Unset API key so Claude uses Max plan auth (not paid API)
 unset ANTHROPIC_API_KEY
 unset CLAUDECODE
