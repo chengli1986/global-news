@@ -364,7 +364,7 @@ class UnifiedNewsSender:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=120) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
             content = result["choices"][0]["message"]["content"]
             parsed = json.loads(content)
@@ -522,7 +522,7 @@ class UnifiedNewsSender:
         )
 
         try:
-            with urllib.request.urlopen(req, timeout=30) as resp:
+            with urllib.request.urlopen(req, timeout=60) as resp:
                 result = json.loads(resp.read().decode("utf-8"))
             content = result["choices"][0]["message"]["content"]
             parsed = json.loads(content)
