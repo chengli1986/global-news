@@ -13,3 +13,4 @@ d81514e	0.8407	REVERTED	increase freshness_weight 0.30->0.50 (region caps bindin
 ee9812d	0.8103	KEPT	raise APAC/Canada min 2->4: fixture 8 balance 0.41->0.53 (+0.0005 avg)
 2831331	0.8119	KEPT	AI max 12->11, Finance max 10->11: balance 0.660->0.667, +0.0016 avg
 7161c19	0.8201	REVERTED	promote CNA/CBC/Globe commodity->standard (density improved in newer fixtures but net -0.0001)
+4b4e084	0.8267	KEPT	lower AI/Finance max 11->9, raise US&Europe/Politics/APAC min (balance 0.6667->0.7327, quality +0.0025)
