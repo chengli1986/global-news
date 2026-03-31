@@ -14,13 +14,13 @@
     "commodity": 0.7
   },
   "region_quotas": {
-    "AI & 科技前沿 TECH & AI":       {"min": 6, "max": 11},
-    "全球财经 GLOBAL FINANCE":        {"min": 5, "max": 11},
-    "全球政治 GLOBAL POLITICS":       {"min": 3, "max": 8},
+    "AI & 科技前沿 TECH & AI":       {"min": 6, "max": 9},
+    "全球财经 GLOBAL FINANCE":        {"min": 5, "max": 9},
+    "全球政治 GLOBAL POLITICS":       {"min": 4, "max": 8},
     "中国要闻 CHINA":                 {"min": 5, "max": 9},
-    "美国 & 欧洲 US & EUROPE":       {"min": 2, "max": 10},
-    "亚太要闻 ASIA-PACIFIC":          {"min": 4, "max": 10},
+    "美国 & 欧洲 US & EUROPE":       {"min": 4, "max": 9},
+    "亚太要闻 ASIA-PACIFIC":          {"min": 5, "max": 9},
     "加拿大 CANADA":                  {"min": 3, "max": 8},
-    "经济学人 THE ECONOMIST":         {"min": 1, "max": 8}
+    "经济学人 THE ECONOMIST":         {"min": 2, "max": 8}
   }
 }
