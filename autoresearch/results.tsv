@@ -17,3 +17,4 @@ ee9812d	0.8103	KEPT	raise APAC/Canada min 2->4: fixture 8 balance 0.41->0.53 (+0
 274c8b6	0.8274	KEPT	uniform max=8 all regions (balance 0.73->0.76 old fixtures, net +0.0007)
 REVERTED	0.8266	REVERTED	lower AI/Finance max 8->7 (density hurt in old fixtures, net -0.0008)
 45d8b46	0.8353	KEPT	lower target/max to 54 to match actual selection (density 0.9->1.0)
+7ae72cd	0.8447	KEPT	lower all region max 8->7 to improve balance (force even 6-7/region distribution)
