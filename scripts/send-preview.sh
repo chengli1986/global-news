@@ -42,7 +42,7 @@ fi
 # Build progress report
 export RESULTS_TSV RECIPIENT
 python3 << 'PYEOF'
-import os, smtplib
+import os, subprocess, smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from email.header import Header
@@ -50,6 +50,24 @@ from datetime import datetime, timezone, timedelta
 
 BJT = timezone(timedelta(hours=8))
 now_bjt = datetime.now(BJT).strftime("%Y-%m-%d %H:%M")
+
+# Build commit -> timestamp lookup from git log
+repo_dir = os.path.dirname(os.path.dirname(os.path.abspath(os.environ["RESULTS_TSV"])))
+def _git_timestamp(commit_hash: str) -> str:
+    """Get BJT timestamp for a commit hash, or '' if not found."""
+    if not commit_hash or len(commit_hash) < 6:
+        return ""
+    try:
+        result = subprocess.run(
+            ["git", "-C", repo_dir, "log", "-1", "--format=%aI", commit_hash],
+            capture_output=True, text=True, timeout=5,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            dt = datetime.fromisoformat(result.stdout.strip())
+            return dt.astimezone(BJT).strftime("%m/%d %H:%M")
+    except Exception:
+        pass
+    return ""
 
 results_file = os.environ["RESULTS_TSV"]
 recipient = os.environ["RECIPIENT"]
@@ -118,6 +136,7 @@ html = f"""<!DOCTYPE html>
   <h3 style="margin-top:20px;">实验历史</h3>
   <table style="width:100%;border-collapse:collapse;font-size:12px;">
     <tr style="background:#f0ede6;">
+      <th style="padding:6px;text-align:left;">Time</th>
       <th style="padding:6px;text-align:left;">Commit</th>
       <th style="padding:6px;text-align:left;">Quality</th>
       <th style="padding:6px;text-align:left;">Status</th>
@@ -126,8 +145,10 @@ html = f"""<!DOCTYPE html>
 
 for r in reversed(rows):
     color = "#3fb950" if r["status"] == "KEPT" else ("#d29922" if r["status"] == "REVERTED" else "#58a6ff")
+    ts = _git_timestamp(r["commit"])
     html += f"""
     <tr>
+      <td style="padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;color:#888;white-space:nowrap;">{ts}</td>
       <td style="padding:4px 6px;border-bottom:1px solid #eee;font-family:monospace;">{r['commit'][:7]}</td>
       <td style="padding:4px 6px;border-bottom:1px solid #eee;">{r['quality']}</td>
       <td style="padding:4px 6px;border-bottom:1px solid #eee;"><span style="color:{color};font-weight:bold;">{r['status']}</span></td>
