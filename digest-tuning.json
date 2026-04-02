@@ -20,7 +20,7 @@
     "中国要闻 CHINA":                 {"min": 5, "max": 6},
     "美国 & 欧洲 US & EUROPE":       {"min": 4, "max": 6},
     "亚太要闻 ASIA-PACIFIC":          {"min": 5, "max": 6},
-    "加拿大 CANADA":                  {"min": 3, "max": 7},
-    "经济学人 THE ECONOMIST":         {"min": 2, "max": 7}
+    "加拿大 CANADA":                  {"min": 3, "max": 6},
+    "经济学人 THE ECONOMIST":         {"min": 2, "max": 6}
   }
 }
