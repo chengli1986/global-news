@@ -18,3 +18,8 @@ ee9812d	0.8103	KEPT	raise APAC/Canada min 2->4: fixture 8 balance 0.41->0.53 (+0
 REVERTED	0.8266	REVERTED	lower AI/Finance max 8->7 (density hurt in old fixtures, net -0.0008)
 45d8b46	0.8353	KEPT	lower target/max to 54 to match actual selection (density 0.9->1.0)
 7ae72cd	0.8447	KEPT	lower all region max 8->7 to improve balance (force even 6-7/region distribution)
+b1905d5	0.8502	KEPT	lower target/max_total 54->50 to match natural selection (density 0.926->1.0)
+3a85a16	0.8494	REVERTED	raise Canada min 3->5, Economist min 2->4 (Canada supply limited, density dropped)
+77e6b1a	0.8502	REVERTED	lower AI/Finance min 6->4, raise Economist min 2->4 (no improvement, same as baseline)
+7b3064c	0.8561	KEPT	cap main-6 regions max 7->6, AI min 6->5, target 50->46 (balance 0.7922->0.8105 on smaller fixtures)
+5eba574	0.8627	KEPT	cap Canada/Economist max 7->6 (uniform max=6 all, prevent Economist overfill, balance stabilized)
