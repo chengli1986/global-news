@@ -6,12 +6,14 @@
   "source_tiers": {
     "premium": ["FT", "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science", "Bloomberg", "Bloomberg Econ", "Bloomberg Biz", "Bloomberg Politics", "界面新闻", "36氪"],
     "standard": ["BBC World", "BBC Business", "BBC Technology", "CNBC", "TechCrunch", "SCMP", "Hacker News", "纽约时报中文", "BBC中文", "中国科技/AI", "中国财经要闻", "虎嗅", "钛媒体", "南方周末", "日经中文"],
-    "commodity": ["IT之家", "少数派", "Solidot", "NYT Business", "NYT Technology", "CNA", "Ars Technica", "The Verge", "CBC Business", "Globe & Mail"]
+    "commodity": ["IT之家", "少数派", "Solidot", "NYT Business", "NYT Technology", "CNA", "Ars Technica", "The Verge", "CBC Business", "Globe & Mail"],
+    "suppressed": ["RTHK中文", "Straits Times", "HKFP", "SCMP Hong Kong"]
   },
   "tier_boost": {
     "premium": 1.5,
     "standard": 1.0,
-    "commodity": 0.7
+    "commodity": 0.7,
+    "suppressed": 0.1
   },
   "region_quotas": {
     "AI & 科技前沿 TECH & AI":       {"min": 5, "max": 6},

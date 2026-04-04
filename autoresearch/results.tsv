@@ -23,3 +23,4 @@ b1905d5	0.8502	KEPT	lower target/max_total 54->50 to match natural selection (de
 77e6b1a	0.8502	REVERTED	lower AI/Finance min 6->4, raise Economist min 2->4 (no improvement, same as baseline)
 7b3064c	0.8561	KEPT	cap main-6 regions max 7->6, AI min 6->5, target 50->46 (balance 0.7922->0.8105 on smaller fixtures)
 5eba574	0.8627	KEPT	cap Canada/Economist max 7->6 (uniform max=6 all, prevent Economist overfill, balance stabilized)
+REVERTED	0.8566	REVERTED	suppress RTHK+Straits Times only (HKFP/SCMP HK commodity still took ghost slots, net neutral on balance, freshness dropped)
