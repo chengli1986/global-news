@@ -1,0 +1,7 @@
+{
+  "reliability": 0.25,
+  "freshness": 0.20,
+  "content_quality": 0.20,
+  "authority": 0.20,
+  "uniqueness": 0.15
+}

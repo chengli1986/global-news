@@ -1,0 +1,80 @@
+{
+  "categories": [
+    {
+      "id": "global_finance",
+      "name": "全球财经",
+      "languages": ["en", "cn"],
+      "search_queries": [
+        "best RSS feeds global finance news reliable 2025 2026",
+        "高质量全球财经新闻 RSS feed 推荐"
+      ]
+    },
+    {
+      "id": "tech_ai",
+      "name": "科技/AI",
+      "languages": ["en", "cn"],
+      "search_queries": [
+        "best technology AI RSS feeds high quality 2025 2026",
+        "优质科技人工智能新闻 RSS 推荐"
+      ]
+    },
+    {
+      "id": "china_depth",
+      "name": "中国深度新闻",
+      "languages": ["cn"],
+      "search_queries": [
+        "中国深度调查报道 RSS feed 推荐",
+        "best Chinese in-depth news RSS feeds"
+      ]
+    },
+    {
+      "id": "hk_sea",
+      "name": "香港/东南亚",
+      "languages": ["en", "cn"],
+      "search_queries": [
+        "Hong Kong Southeast Asia news RSS feeds reliable",
+        "香港东南亚新闻 RSS feed 推荐"
+      ]
+    },
+    {
+      "id": "europe",
+      "name": "欧洲时政",
+      "languages": ["en"],
+      "search_queries": [
+        "best European politics news RSS feeds reliable 2025 2026",
+        "European news RSS BBC Guardian DW Reuters alternatives"
+      ]
+    },
+    {
+      "id": "north_america",
+      "name": "北美时政",
+      "languages": ["en"],
+      "search_queries": [
+        "best North America politics news RSS feeds 2025 2026",
+        "reliable US Canada news RSS feeds high quality"
+      ]
+    },
+    {
+      "id": "healthcare",
+      "name": "医药医疗前沿",
+      "languages": ["en", "cn"],
+      "search_queries": [
+        "best healthcare biotech pharma RSS feeds 2025 2026",
+        "医药医疗前沿新闻 RSS feed 推荐"
+      ]
+    },
+    {
+      "id": "vertical",
+      "name": "专题/垂直",
+      "languages": ["en", "cn"],
+      "search_queries": [
+        "best niche vertical RSS feeds Economist long-form analysis",
+        "优质垂直领域深度分析 RSS 推荐 经济学人类"
+      ]
+    }
+  ],
+  "directory_urls": [
+    "https://github.com/topics/rss-feeds",
+    "https://github.com/plenaryapp/awesome-rss-feeds"
+  ]
+}
