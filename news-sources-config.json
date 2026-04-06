@@ -44,7 +44,6 @@
       {"name": "CNBC",           "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114", "keywords": [], "limit": 3},
       {"name": "Bloomberg",      "url": "https://feeds.bloomberg.com/markets/news.rss",      "keywords": [], "limit": 3},
       {"name": "Bloomberg Econ", "url": "https://feeds.bloomberg.com/economics/news.rss",   "keywords": [], "limit": 2},
-      {"name": "Bloomberg Biz",  "url": "https://feeds.bloomberg.com/businessweek/news.rss", "keywords": [], "limit": 2},
       {"name": "Bloomberg Politics", "url": "https://feeds.bloomberg.com/politics/news.rss", "keywords": [], "limit": 2},
       {"name": "SCMP",           "url": "https://www.scmp.com/rss/91/feed",                  "keywords": [], "limit": 3},
       {"name": "CNA",            "url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml", "keywords": [], "limit": 3},
