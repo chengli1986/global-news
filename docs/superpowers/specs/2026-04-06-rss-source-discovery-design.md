@@ -224,11 +224,11 @@ Claude calls this helper during the session rather than doing everything inline.
 ## Cron Schedule
 
 ```
-# RSS source discovery — daily 03:30 BJT (19:30 UTC previous day)
-30 19 * * *  ~/cron-wrapper.sh rss-discovery 3600 ~/global-news/scripts/rss-source-discovery.sh
+# RSS source discovery — daily 04:15 BJT (20:15 UTC)
+15 20 * * *  ~/cron-wrapper.sh rss-discovery 2400 ~/global-news/scripts/rss-source-discovery.sh
 ```
 
-- Daily at 03:30 BJT, 60min timeout
+- Daily at 04:15 BJT, 40min timeout
 - After RSS health check (23:55) and before morning news send (08:00)
 - Wrapped by `cron-wrapper.sh` for timeout/lock/alert/JSONL logging
 
