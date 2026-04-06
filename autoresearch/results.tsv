@@ -27,3 +27,4 @@ REVERTED	0.8566	REVERTED	suppress RTHK+Straits Times only (HKFP/SCMP HK commodit
 91106e1	0.8548	KEPT	raise freshness_weight 0.30->0.38 (reward newer articles)
 REVERTED	0.8550	REVERTED	raise premium tier_boost 1.5->1.65 (marginal regression, reverted)
 5c2edd9	0.8545	REVERTED	promote NYT Business+Technology commodity->standard (no improvement, tier boost doesn't affect already-selected articles)
+e36e35f	0.8556	KEPT	raise freshness_weight 0.38->0.42 (continue freshness direction, quality +0.0011)

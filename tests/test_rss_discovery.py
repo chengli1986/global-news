@@ -146,13 +146,13 @@ class TestDedupCandidates(unittest.TestCase):
 
     def test_removes_prior_promoted(self):
         candidates = [{"name": "A", "url": "https://example.com/feed"}]
-        prior = [{"url": "https://example.com/feed", "status": "promoted"}]
+        prior = [{"url": "https://example.com/feed", "promoted": True, "rejected": False}]
         result = dedup_candidates(candidates, [], prior)
         self.assertEqual(len(result), 0)
 
     def test_removes_prior_rejected(self):
         candidates = [{"name": "A", "url": "https://example.com/feed"}]
-        prior = [{"url": "https://example.com/feed", "status": "rejected"}]
+        prior = [{"url": "https://example.com/feed", "promoted": False, "rejected": True}]
         result = dedup_candidates(candidates, [], prior)
         self.assertEqual(len(result), 0)
 

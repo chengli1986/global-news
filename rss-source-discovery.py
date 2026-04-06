@@ -30,7 +30,7 @@ CONFIG_DIR = os.path.join(SCRIPT_DIR, "config")
 CANDIDATES_FILE = os.path.join(CONFIG_DIR, "discovered-rss.json")
 WEIGHTS_FILE = os.path.join(CONFIG_DIR, "rss-scorer-weights.json")
 SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
-ENV_FILE = os.path.expanduser("~/.smtp.env")
+ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 FETCH_TIMEOUT = 15
 SCORE_THRESHOLD = 0.60
@@ -278,12 +278,11 @@ def validate_feeds_parallel(candidates: list) -> list:
                     "has_categories": False,
                     "error": str(e),
                 }
-            entry = {**candidates[idx], "validation": validation}
+            entry = {**candidates[idx], "validation": validation, "_order": idx}
             results.append(entry)
 
     # Preserve original order
-    results.sort(key=lambda x: candidates.index({k: v for k, v in x.items() if k != "validation"}
-    ) if False else 0)
+    results.sort(key=lambda x: x.pop("_order", 0))
     return results
 
 
@@ -383,7 +382,7 @@ def dedup_candidates(candidates: list, existing_sources: list,
     # Prior candidates that were promoted or rejected
     prior_urls = set()
     for pc in prior_candidates:
-        if pc.get("status") in ("promoted", "rejected"):
+        if pc.get("promoted") or pc.get("rejected"):
             prior_urls.add(_normalize_url(pc.get("url", "")))
 
     result = []
@@ -440,7 +439,7 @@ def generate_report_html(scored_candidates: list, existing_count: int) -> str:
     """Generate HTML table of candidates above SCORE_THRESHOLD, sorted by final score."""
     above = [c for c in scored_candidates
              if c.get("scores", {}).get("final", 0) >= SCORE_THRESHOLD
-             and c.get("status") not in ("promoted", "rejected")]
+             and not c.get("promoted") and not c.get("rejected")]
     above.sort(key=lambda x: x.get("scores", {}).get("final", 0), reverse=True)
     above = above[:15]
 
@@ -451,19 +450,30 @@ def generate_report_html(scored_candidates: list, existing_count: int) -> str:
 
     rows = []
     for c in above:
-        score = c.get("scores", {}).get("final", 0)
+        scores = c.get("scores", {})
+        score = scores.get("final", 0)
         if score >= SCORE_EXCELLENT:
             badge = '<span style="background:#22c55e;color:#fff;padding:2px 8px;border-radius:4px;">Excellent</span>'
         else:
             badge = '<span style="background:#eab308;color:#fff;padding:2px 8px;border-radius:4px;">Good</span>'
 
+        # R/F/Q/A/U breakdown
+        breakdown = "/".join(
+            str(scores.get(d, 0))
+            for d in ("reliability", "freshness", "content_quality", "authority", "uniqueness")
+        )
+        article_count = c.get("validation", {}).get("article_count", "")
+
         rows.append(
             f"<tr>"
             f"<td>{_html_escape(c.get('name', ''))}</td>"
             f"<td><a href=\"{_html_escape(c.get('url', ''))}\">{_html_escape(c.get('url', ''))}</a></td>"
+            f"<td>{_html_escape(c.get('category', ''))}</td>"
+            f"<td>{_html_escape(c.get('language', ''))}</td>"
             f"<td style='text-align:center'>{score:.3f}</td>"
             f"<td style='text-align:center'>{badge}</td>"
-            f"<td>{_html_escape(c.get('category', ''))}</td>"
+            f"<td style='text-align:center;font-family:monospace;'>{breakdown}</td>"
+            f"<td style='text-align:center'>{article_count}</td>"
             f"</tr>"
         )
 
@@ -472,7 +482,7 @@ def generate_report_html(scored_candidates: list, existing_count: int) -> str:
 <p>Generated: {now_bjt} | Existing sources: {existing_count} | New candidates: {len(above)}</p>
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;">
 <tr style="background:#f3f4f6;">
-  <th>Name</th><th>URL</th><th>Score</th><th>Rating</th><th>Category</th>
+  <th>Name</th><th>URL</th><th>Category</th><th>Language</th><th>Score</th><th>Rating</th><th>R/F/Q/A/U</th><th>Articles</th>
 </tr>
 {''.join(rows)}
 </table>
@@ -573,6 +583,8 @@ def cmd_save():
     for c in new_candidates:
         norm = _normalize_url(c.get("url", ""))
         if norm not in existing_urls:
+            c.setdefault("promoted", False)
+            c.setdefault("rejected", False)
             data["candidates"].append(c)
             existing_urls.add(norm)
 
@@ -589,7 +601,7 @@ def cmd_report():
     html = generate_report_html(candidates, len(existing))
     count = len([c for c in candidates
                  if c.get("scores", {}).get("final", 0) >= SCORE_THRESHOLD
-                 and c.get("status") not in ("promoted", "rejected")])
+                 and not c.get("promoted") and not c.get("rejected")])
     if count > 0:
         send_report_email(html, count)
     else:
