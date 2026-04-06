@@ -26,3 +26,4 @@ b1905d5	0.8502	KEPT	lower target/max_total 54->50 to match natural selection (de
 REVERTED	0.8566	REVERTED	suppress RTHK+Straits Times only (HKFP/SCMP HK commodity still took ghost slots, net neutral on balance, freshness dropped)
 91106e1	0.8548	KEPT	raise freshness_weight 0.30->0.38 (reward newer articles)
 REVERTED	0.8550	REVERTED	raise premium tier_boost 1.5->1.65 (marginal regression, reverted)
+5c2edd9	0.8545	REVERTED	promote NYT Business+Technology commodity->standard (no improvement, tier boost doesn't affect already-selected articles)
