@@ -1,5 +1,465 @@
 {
   "version": 1,
-  "last_discovery": null,
-  "candidates": []
+  "last_discovery": "2026-04-07T04:17:52.694790+08:00",
+  "candidates": [
+    {
+      "name": "MarketWatch Top Stories",
+      "url": "https://feeds.marketwatch.com/marketwatch/topstories/",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 0.97,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.8,
+        "authority": 0.75,
+        "uniqueness": 0.8,
+        "final": 0.83
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Wired",
+      "url": "https://www.wired.com/feed/rss",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 2.0,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.85,
+        "uniqueness": 0.7,
+        "final": 0.925
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "MIT Technology Review",
+      "url": "https://www.technologyreview.com/topnews.rss",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 3.72,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.85,
+        "uniqueness": 0.85,
+        "final": 0.898
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "VentureBeat",
+      "url": "https://venturebeat.com/feed/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 7,
+        "newest_age_hours": 4.27,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.6,
+        "final": 0.82
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Register",
+      "url": "https://www.theregister.com/headlines.atom",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 0.65,
+        "has_descriptions": false,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.3,
+        "authority": 0.7,
+        "uniqueness": 0.75,
+        "final": 0.762
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "端传媒",
+      "url": "https://theinitium.com/feed/",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 15,
+        "newest_age_hours": 21.27,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "authority": 0.75,
+        "uniqueness": 0.95,
+        "final": 0.853
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Diplomat",
+      "url": "https://thediplomat.com/feed/",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 96,
+        "newest_age_hours": 8.22,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.8,
+        "authority": 0.75,
+        "uniqueness": 0.9,
+        "final": 0.855
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Bangkok Post",
+      "url": "https://www.bangkokpost.com/rss/data/topstories.xml",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 4.63,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "authority": 0.65,
+        "uniqueness": 0.85,
+        "final": 0.758
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Politico Europe",
+      "url": "https://www.politico.eu/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 1.02,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.8,
+        "uniqueness": 0.95,
+        "final": 0.903
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "NPR News",
+      "url": "https://feeds.npr.org/1001/rss.xml",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 0.09,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.8,
+        "authority": 0.85,
+        "uniqueness": 0.8,
+        "final": 0.85
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Politico US Politics",
+      "url": "https://rss.politico.com/politics-news.xml",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 28.63,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.5,
+        "content_quality": 0.8,
+        "authority": 0.8,
+        "uniqueness": 0.85,
+        "final": 0.798
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "AP News",
+      "url": "https://rsshub.rssforever.com/apnews/topics/apf-topnews",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 39,
+        "newest_age_hours": null,
+        "has_descriptions": false,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.0,
+        "authority": 0.9,
+        "uniqueness": 0.75,
+        "final": 0.542
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "STAT News",
+      "url": "https://www.statnews.com/feed/",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.09,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.8,
+        "uniqueness": 0.95,
+        "final": 0.953
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Fierce Pharma",
+      "url": "https://www.fiercepharma.com/rss/xml",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 25,
+        "newest_age_hours": null,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.5,
+        "authority": 0.7,
+        "uniqueness": 0.9,
+        "final": 0.625
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Project Syndicate",
+      "url": "https://www.project-syndicate.org/rss",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 4.85,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.8,
+        "authority": 0.8,
+        "uniqueness": 0.9,
+        "final": 0.905
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Foreign Affairs",
+      "url": "https://www.foreignaffairs.com/rss.xml",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 16.27,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.8,
+        "authority": 0.85,
+        "uniqueness": 0.9,
+        "final": 0.875
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Rest of World",
+      "url": "https://restofworld.org/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 12,
+        "newest_age_hours": 10.27,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 0.8,
+        "authority": 0.7,
+        "uniqueness": 0.95,
+        "final": 0.802
+      },
+      "promoted": false,
+      "rejected": false
+    }
+  ]
 }
