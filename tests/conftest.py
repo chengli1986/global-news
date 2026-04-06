@@ -8,8 +8,8 @@ import importlib
 import importlib.util
 from datetime import datetime, timezone, timedelta
 
-# Ensure the global-news root is on sys.path
-_global_news_dir = os.path.expanduser("~/global-news")
+# Ensure the global-news root is on sys.path (resolve relative to this file, not ~/)
+_global_news_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if _global_news_dir not in sys.path:
     sys.path.insert(0, _global_news_dir)
 
