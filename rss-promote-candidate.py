@@ -45,7 +45,7 @@ def promote_candidate(
     with open(candidates_file, "r", encoding="utf-8") as f:
         candidates_data = json.load(f)
 
-    entries: list = candidates_data.get("discovered", [])
+    entries: list = candidates_data.get("candidates", [])
 
     # Find the candidate
     target = None
@@ -64,17 +64,21 @@ def promote_candidate(
     with open(sources_file, "r", encoding="utf-8") as f:
         sources_data = json.load(f)
 
-    new_feed = {
-        "name": target["name"],
-        "url": target["url"],
-        "keywords": [],
-        "limit": limit,
-    }
-    sources_data["news_sources"]["rss_feeds"].append(new_feed)
+    # Idempotency: skip if URL already in sources (guards against partial prior run)
+    existing_urls = {s.get("url", "").rstrip("/").lower()
+                     for s in sources_data.get("news_sources", {}).get("rss_feeds", [])}
+    target_url_norm = target["url"].rstrip("/").lower()
+    if target_url_norm not in existing_urls:
+        new_feed = {
+            "name": target["name"],
+            "url": target["url"],
+            "keywords": [],
+            "limit": limit,
+        }
+        sources_data["news_sources"]["rss_feeds"].append(new_feed)
+        _atomic_write(sources_file, sources_data)
 
-    # Atomic write sources first, then mark candidate as promoted
-    _atomic_write(sources_file, sources_data)
-
+    # Mark candidate as promoted (safe even if source was already added)
     entries[target_idx]["promoted"] = True
     _atomic_write(candidates_file, candidates_data)
 

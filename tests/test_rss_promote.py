@@ -21,7 +21,7 @@ promote_candidate = _mod.promote_candidate
 def _make_candidates(tmp_path, entries: list) -> str:
     path = str(tmp_path / "candidates.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump({"discovered": entries}, f)
+        json.dump({"version": 1, "last_discovery": None, "candidates": entries}, f)
     return path
 
 
@@ -67,7 +67,7 @@ def test_promote_existing_candidate(tmp_path):
     # Candidate should now have promoted=True
     cdata = _load_json(candidates_file)
     promoted_entry = next(
-        e for e in cdata["discovered"] if e["name"] == "Test Feed"
+        e for e in cdata["candidates"] if e["name"] == "Test Feed"
     )
     assert promoted_entry["promoted"] is True
 

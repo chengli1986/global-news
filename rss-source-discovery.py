@@ -21,6 +21,7 @@ import urllib.error
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
+from urllib.parse import urlparse
 
 # ============================================================
 # Constants
@@ -33,6 +34,7 @@ SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 FETCH_TIMEOUT = 15
+MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB cap to prevent memory exhaustion
 SCORE_THRESHOLD = 0.60
 SCORE_EXCELLENT = 0.80
 BJT = timezone(timedelta(hours=8))
@@ -124,11 +126,16 @@ def validate_feed(name: str, url: str, raw_bytes: bytes | None = None) -> dict:
 
     # Fetch if no raw_bytes
     if raw_bytes is None:
+        # SSRF guard: only allow http/https schemes
+        parsed = urlparse(url)
+        if parsed.scheme not in ("http", "https"):
+            result["error"] = f"rejected scheme: {parsed.scheme}"
+            return result
         try:
             req = urllib.request.Request(url, headers=HEADERS)
             with urllib.request.urlopen(req, timeout=FETCH_TIMEOUT) as resp:
                 result["http_status"] = resp.status
-                raw_bytes = resp.read()
+                raw_bytes = resp.read(MAX_RESPONSE_BYTES)
         except urllib.error.HTTPError as e:
             result["http_status"] = e.code
             result["error"] = f"HTTP {e.code}"
@@ -293,19 +300,27 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
     Returns dict with reliability, freshness, content_quality, authority,
     uniqueness, and final scores.
     """
+    default_weights = {
+        "reliability": 0.25,
+        "freshness": 0.20,
+        "content_quality": 0.20,
+        "authority": 0.20,
+        "uniqueness": 0.15,
+    }
     if weights is None:
-        # Load from file or use defaults
-        if os.path.isfile(WEIGHTS_FILE):
-            with open(WEIGHTS_FILE, "r", encoding="utf-8") as f:
-                weights = json.load(f)
-        else:
-            weights = {
-                "reliability": 0.25,
-                "freshness": 0.20,
-                "content_quality": 0.20,
-                "authority": 0.20,
-                "uniqueness": 0.15,
-            }
+        try:
+            if os.path.isfile(WEIGHTS_FILE):
+                with open(WEIGHTS_FILE, "r", encoding="utf-8") as f:
+                    loaded = json.load(f)
+                # Validate: all required keys present and numeric
+                for k in default_weights:
+                    if not isinstance(loaded.get(k), (int, float)):
+                        raise ValueError(f"invalid or missing weight: {k}")
+                weights = loaded
+            else:
+                weights = default_weights
+        except Exception:
+            weights = default_weights
 
     # Reliability
     if validation.get("parse_ok") and validation.get("article_count", 0) >= 20:
@@ -603,7 +618,8 @@ def cmd_report():
                  if c.get("scores", {}).get("final", 0) >= SCORE_THRESHOLD
                  and not c.get("promoted") and not c.get("rejected")])
     if count > 0:
-        send_report_email(html, count)
+        if not send_report_email(html, count):
+            sys.exit(1)
     else:
         print("No candidates above threshold to report.")
 

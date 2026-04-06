@@ -147,11 +147,13 @@ else
     echo "$LOG_PREFIX RSS discovery finished successfully"
 fi
 
-# Ensure any commits are pushed
-cd "$REPO_DIR"
-REMOTE_HEAD=$(git rev-parse origin/main 2>/dev/null || echo "")
-LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
-if [ -n "$REMOTE_HEAD" ] && [ "$REMOTE_HEAD" != "$LOCAL_HEAD" ]; then
-    echo "$LOG_PREFIX Pushing new commits..."
-    git push 2>&1 || echo "$LOG_PREFIX WARNING: git push failed"
+# Only push on successful completion — avoid publishing partial/broken results
+if [ $EXIT_CODE -eq 0 ]; then
+    cd "$REPO_DIR"
+    REMOTE_HEAD=$(git rev-parse origin/main 2>/dev/null || echo "")
+    LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
+    if [ -n "$REMOTE_HEAD" ] && [ "$REMOTE_HEAD" != "$LOCAL_HEAD" ]; then
+        echo "$LOG_PREFIX Pushing new commits..."
+        git push 2>&1 || echo "$LOG_PREFIX WARNING: git push failed"
+    fi
 fi
