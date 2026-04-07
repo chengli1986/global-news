@@ -34,6 +34,7 @@ BJT = timezone(timedelta(hours=8))
 
 FETCH_TIMEOUT = 10
 SMTP_TIMEOUT = 30
+JACCARD_SIMILARITY_THRESHOLD = 0.55
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 def _is_english_source(name: str) -> bool:
@@ -705,7 +706,7 @@ class UnifiedNewsSender:
                 already_sent = False
                 if url and url in sent_urls:
                     already_sent = True
-                elif any(jaccard_similarity(title, st) > 0.55 for st in sent_titles):
+                elif any(jaccard_similarity(title, st) > JACCARD_SIMILARITY_THRESHOLD for st in sent_titles):
                     already_sent = True
 
                 if already_sent:
@@ -775,7 +776,7 @@ class UnifiedNewsSender:
                 flat.append({"title": title, "url": url, "source": src, "pub_dt": pub_dt, "orig_title": orig_title, "region": region_key, "region_title": region_title})
         if not flat:
             return all_region_articles
-        deduped = deduplicate(flat, tuning.get("dedup_similarity_threshold", 0.55))
+        deduped = deduplicate(flat, tuning.get("dedup_similarity_threshold", JACCARD_SIMILARITY_THRESHOLD))
         selected = rank_and_select(deduped, tuning)
         # Rebuild region groups preserving original order, Chinese articles first
         rebuilt = {}
