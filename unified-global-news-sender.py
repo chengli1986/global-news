@@ -22,6 +22,7 @@ from email.header import Header
 from email.utils import parsedate_to_datetime
 import re
 import html
+import logging
 
 # Digest pipeline (dedup + rank + quota) — optional, degrades gracefully
 try:
@@ -296,7 +297,8 @@ class UnifiedNewsSender:
                 name = futures[future]
                 try:
                     self.news_data[name] = future.result()
-                except Exception:
+                except Exception as e:
+                    logging.exception("Thread failed fetching source %s", name)
                     self.news_data[name] = []
 
         print(f"✅ 成功抓取 {sum(len(v) for v in self.news_data.values())} 条新闻\n")
@@ -748,8 +750,8 @@ class UnifiedNewsSender:
         try:
             with open(fixture_path, "w") as f:
                 json.dump(snapshot, f, ensure_ascii=False)
-        except Exception:
-            pass  # non-critical
+        except Exception as e:
+            logging.warning("Failed to save fixture snapshot to %s: %s", fixture_path, e)
 
     def _apply_pipeline(self, all_region_articles):
         """Apply dedup + rank + quota pipeline if digest-tuning.json exists."""
