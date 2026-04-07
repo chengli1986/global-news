@@ -18,6 +18,7 @@ import re
 import subprocess
 import tempfile
 import base64
+import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
@@ -56,18 +57,18 @@ def _parse_date_flexible(date_str):
         return None
     try:
         return parsedate_to_datetime(s)
-    except Exception:
-        pass
+    except Exception as e:
+        logging.debug("parsedate_to_datetime failed for %r: %s", date_str, e)
     try:
         return datetime.fromisoformat(s)
-    except Exception:
-        pass
+    except Exception as e:
+        logging.debug("fromisoformat failed for %r: %s", date_str, e)
     cleaned = re.sub(r'\s*([+-]\d{4})$', r' \1', s)
     if cleaned != s:
         try:
             return datetime.fromisoformat(cleaned)
-        except Exception:
-            pass
+        except Exception as e:
+            logging.debug("fromisoformat failed for cleaned %r: %s", date_str, e)
     return None
 
 
@@ -109,7 +110,8 @@ def swap_url_in_config(old_url, new_url):
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
         os.replace(tmp_path, CONFIG_FILE)
-    except Exception:
+    except Exception as e:
+        logging.warning("Config write failed, cleaning up temp file: %s", e)
         os.unlink(tmp_path)
         raise
     return True
