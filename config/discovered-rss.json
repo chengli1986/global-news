@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-07T04:17:52.694790+08:00",
+  "last_discovery": "2026-04-08T04:17:31.514049+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -457,6 +457,438 @@
         "authority": 0.7,
         "uniqueness": 0.95,
         "final": 0.802
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "WSJ Markets",
+      "url": "https://feeds.a.dj.com/rss/RSSMarketsMain.xml",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 10440.84,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.7,
+        "authority": 0.85,
+        "uniqueness": 0.7,
+        "final": 0.665
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Yahoo Finance",
+      "url": "https://finance.yahoo.com/news/rssindex",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 47,
+        "newest_age_hours": 8.86,
+        "has_descriptions": false,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.0,
+        "authority": 0.55,
+        "uniqueness": 0.45,
+        "final": 0.588
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Investing.com RSS",
+      "url": "https://www.investing.com/rss/news.rss",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 0.36,
+        "has_descriptions": false,
+        "has_authors": true,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.3,
+        "authority": 0.55,
+        "uniqueness": 0.55,
+        "final": 0.653
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "VentureBeat",
+      "url": "https://feeds.feedburner.com/venturebeat/SZYF",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 7,
+        "newest_age_hours": 1.27,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.72,
+        "uniqueness": 0.72,
+        "final": 0.852
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "IEEE Spectrum",
+      "url": "https://spectrum.ieee.org/feeds/feed.rss",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 2.27,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.82,
+        "uniqueness": 0.88,
+        "final": 0.946
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Engadget",
+      "url": "https://www.engadget.com/rss.xml",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 0.85,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.45,
+        "final": 0.848
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "ZDNet",
+      "url": "https://www.zdnet.com/news/rss.xml",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.15,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "authority": 0.65,
+        "uniqueness": 0.65,
+        "final": 0.778
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "RFA中文",
+      "url": "https://www.rfa.org/mandarin/rss2.xml",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 15.67,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "authority": 0.78,
+        "uniqueness": 0.9,
+        "final": 0.901
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Le Monde English",
+      "url": "https://www.lemonde.fr/en/rss/une.xml",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 18,
+        "newest_age_hours": 1.68,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "authority": 0.82,
+        "uniqueness": 0.8,
+        "final": 0.784
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Euronews",
+      "url": "https://www.euronews.com/rss?format=mrss&level=theme&name=news",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 0.59,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "authority": 0.65,
+        "uniqueness": 0.7,
+        "final": 0.785
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "PBS NewsHour",
+      "url": "https://www.pbs.org/newshour/feeds/rss/headlines",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.57,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.82,
+        "uniqueness": 0.62,
+        "final": 0.907
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Axios",
+      "url": "https://api.axios.com/feed/",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 100,
+        "newest_age_hours": 0.32,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.75,
+        "uniqueness": 0.68,
+        "final": 0.902
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Fierce Healthcare",
+      "url": "https://www.fiercehealthcare.com/rss/xml",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 25,
+        "newest_age_hours": null,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.5,
+        "authority": 0.65,
+        "uniqueness": 0.88,
+        "final": 0.612
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "MedPage Today",
+      "url": "https://www.medpagetoday.com/rss/headlines.xml",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.98,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "authority": 0.65,
+        "uniqueness": 0.88,
+        "final": 0.812
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Foreign Policy",
+      "url": "https://foreignpolicy.com/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 25,
+        "newest_age_hours": 1.22,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "authority": 0.85,
+        "uniqueness": 0.82,
+        "final": 0.943
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "ProPublica",
+      "url": "https://feeds.propublica.org/propublica/main",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 11.27,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "authority": 0.82,
+        "uniqueness": 0.9,
+        "final": 0.909
       },
       "promoted": false,
       "rejected": false
