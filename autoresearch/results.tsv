@@ -29,3 +29,4 @@ REVERTED	0.8550	REVERTED	raise premium tier_boost 1.5->1.65 (marginal regression
 5c2edd9	0.8545	REVERTED	promote NYT Business+Technology commodity->standard (no improvement, tier boost doesn't affect already-selected articles)
 e36e35f	0.8556	KEPT	raise freshness_weight 0.38->0.42 (continue freshness direction, quality +0.0011)
 42afd2e	0.8708	REVERTED	dedup_threshold 0.62->0.55 (diversity unchanged, reverted)
+a9973b7	0.8713	KEPT	commodity tier_boost 0.7->0.6 (prefer premium/standard sources)
