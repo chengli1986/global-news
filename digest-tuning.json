@@ -12,7 +12,7 @@
   "tier_boost": {
     "premium": 1.5,
     "standard": 1.0,
-    "commodity": 0.7,
+    "commodity": 0.6,
     "suppressed": 0.1
   },
   "region_quotas": {
