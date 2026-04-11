@@ -155,12 +155,26 @@ An automated experimentation system (Phase B) that tunes news digest quality thr
 1. **Fixture capture**: `tests/YYYY-MM-DD.json` snapshots of raw fetched articles
 2. **Pipeline replay**: `digest_pipeline.py` processes fixtures with current tuning params
 3. **Quality scoring**: `evaluate_digest.py` measures 5 dimensions, produces composite score
-4. **Current score**: 0.8407 (from baseline 0.8207, measured 2026-03-28)
+4. **Current score**: 0.8407+ (from baseline 0.8207, measured 2026-03-28)
+
+## RSS Trial Manager
+
+Automated source promotion pipeline that turns high-scoring discovery candidates into active sources:
+
+- **Auto-promotion**: candidates with score ≥ 0.85 added to commodity tier automatically (1/day, max 3 active trials)
+- **Graduation evaluation**: after 7 days, runs quality A/B test — no quality drop → promoted to standard; drop → removed
+- **Script**: `rss-trial-manager.py` (state machine: `run` / `status` / `keep` / `remove`)
+- **State file**: `config/trial-state.json`
+- **Integration**: called daily by `scripts/rss-source-discovery.sh` at 04:15 BJT
+
+## Scoring v2
+
+Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0.25, authority 0.20→0.30. New `content_depth` sub-dimension (avg description length post-HTML-strip) penalizes paywall summaries. Low-frequency correction: sources with ≤10 articles/check use gentle freshness decay (weekly journals not penalized).
 
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 9 tests
+python3 -m pytest tests/ -q   # 36 tests (9 pipeline + 11 trial manager + 16 discovery)
 ```
 
 ## Development
