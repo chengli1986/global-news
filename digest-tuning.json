@@ -1,7 +1,7 @@
 {
   "dedup_similarity_threshold": 0.62,
-  "max_total_articles": 100,
-  "target_article_count": 100,
+  "max_total_articles": 120,
+  "target_article_count": 120,
   "freshness_weight": 1.0,
   "source_tiers": {
     "premium": ["FT", "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science", "Bloomberg", "Bloomberg Econ", "Bloomberg Biz", "Bloomberg Politics", "界面新闻", "36氪"],
@@ -16,13 +16,13 @@
     "suppressed": 0.1
   },
   "region_quotas": {
-    "AI & 科技前沿 TECH & AI":       {"min": 11, "max": 13},
-    "全球财经 GLOBAL FINANCE":        {"min": 11, "max": 13},
-    "全球政治 GLOBAL POLITICS":       {"min":  9, "max": 13},
-    "中国要闻 CHINA":                 {"min": 11, "max": 13},
-    "美国 & 欧洲 US & EUROPE":       {"min":  9, "max": 13},
-    "亚太要闻 ASIA-PACIFIC":          {"min": 11, "max": 13},
-    "加拿大 CANADA":                  {"min":  7, "max": 13},
-    "经济学人 THE ECONOMIST":         {"min":  4, "max": 13}
+    "AI & 科技前沿 TECH & AI":       {"min": 13, "max": 16},
+    "全球财经 GLOBAL FINANCE":        {"min": 13, "max": 16},
+    "全球政治 GLOBAL POLITICS":       {"min": 11, "max": 16},
+    "中国要闻 CHINA":                 {"min": 13, "max": 16},
+    "美国 & 欧洲 US & EUROPE":       {"min": 11, "max": 16},
+    "亚太要闻 ASIA-PACIFIC":          {"min": 13, "max": 16},
+    "加拿大 CANADA":                  {"min":  8, "max": 16},
+    "经济学人 THE ECONOMIST":         {"min":  5, "max": 16}
   }
 }
