@@ -35,3 +35,4 @@ b7e23f3	0.8699	REVERTED	premium tier_boost 1.5->1.6 (marginal regression)
 REVERTED	0.7822	REVERTED	max_total 45→120 + region_quotas scaled 2.67x (raw pool ~90-110 insufficient, density 0.75, balance 0.52, net -0.0907)
 974e6c6	n/a	BASELINE_RESET	expand source limits avg-3→avg-6/8, max_total 45→100, region_quotas 2.2x — old fixtures cleared, AR baseline reset
 6587c61	n/a	CONFIG	raise max_total 100→120, region_quotas scaled ×1.2 (245 raw pool, 51% selection rate)
+67d5972	n/a	CONFIG	merge US&Europe quota into GLOBAL POLITICS (min 11+11=22, max 32); freshness_weight 1.0→0.42; enable --pipeline in cron (195 raw → 117 selected)

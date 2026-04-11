@@ -59,7 +59,7 @@ check_config() {
 # 执行推送（控制台模式）
 run_console_mode() {
     log "📻 运行控制台模式..."
-    python3 "$PYTHON_SCRIPT" console >> "$LOG_FILE" 2>&1 || {
+    python3 "$PYTHON_SCRIPT" console --pipeline >> "$LOG_FILE" 2>&1 || {
         log "❌ 控制台模式执行失败 (exit=$?)"
         return 1
     }
@@ -86,7 +86,7 @@ run_email_mode() {
     [ -f ~/.secrets.env ] && source ~/.secrets.env
     export OPENAI_API_KEY
 
-    python3 "$PYTHON_SCRIPT" email "$recipients" >> "$LOG_FILE" 2>&1 || {
+    python3 "$PYTHON_SCRIPT" email "$recipients" --pipeline >> "$LOG_FILE" 2>&1 || {
         log "❌ 邮件发送失败 (exit=$?)"
         return 1
     }
