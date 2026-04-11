@@ -12,19 +12,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 0.97,
+        "newest_age_hours": 0.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 115,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.8,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
         "authority": 0.75,
         "uniqueness": 0.8,
-        "final": 0.83
+        "final": 0.807
       },
       "promoted": false,
       "rejected": false
@@ -39,19 +41,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 50,
-        "newest_age_hours": 2.0,
+        "newest_age_hours": 0.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 126,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.7,
-        "final": 0.925
+        "final": 0.875
       },
       "promoted": false,
       "rejected": false
@@ -66,19 +70,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 3.72,
+        "newest_age_hours": 21.01,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 370,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.85,
         "uniqueness": 0.85,
-        "final": 0.898
+        "final": 0.905
       },
       "promoted": false,
       "rejected": false
@@ -93,19 +99,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 7,
-        "newest_age_hours": 4.27,
+        "newest_age_hours": 12.63,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 9670,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.65,
         "uniqueness": 0.6,
-        "final": 0.82
+        "final": 0.795
       },
       "promoted": false,
       "rejected": false
@@ -120,19 +128,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 50,
-        "newest_age_hours": 0.65,
+        "newest_age_hours": 2.58,
         "has_descriptions": false,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 0,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.3,
+        "content_quality": 0.25,
+        "content_depth": 0.0,
         "authority": 0.7,
         "uniqueness": 0.75,
-        "final": 0.762
+        "final": 0.672
       },
       "promoted": false,
       "rejected": false
@@ -147,19 +157,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 15,
-        "newest_age_hours": 21.27,
+        "newest_age_hours": 12.07,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 38,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 0.8,
-        "content_quality": 1.0,
+        "content_quality": 0.8,
+        "content_depth": 0.0,
         "authority": 0.75,
         "uniqueness": 0.95,
-        "final": 0.853
+        "final": 0.815
       },
       "promoted": false,
       "rejected": false
@@ -174,19 +186,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 96,
-        "newest_age_hours": 8.22,
+        "newest_age_hours": 29.45,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 133,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 0.8,
-        "content_quality": 0.8,
+        "freshness": 0.5,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
         "authority": 0.75,
         "uniqueness": 0.9,
-        "final": 0.855
+        "final": 0.773
       },
       "promoted": false,
       "rejected": false
@@ -201,19 +215,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 4.63,
+        "newest_age_hours": 1.22,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 256,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.5,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
         "authority": 0.65,
         "uniqueness": 0.85,
-        "final": 0.758
+        "final": 0.745
       },
       "promoted": false,
       "rejected": false
@@ -228,19 +244,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 1.02,
+        "newest_age_hours": 0.31,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 165,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.95,
-        "final": 0.903
+        "final": 0.89
       },
       "promoted": false,
       "rejected": false
@@ -255,19 +273,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 0.09,
+        "newest_age_hours": 0.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 154,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.8,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.8,
-        "final": 0.85
+        "final": 0.838
       },
       "promoted": false,
       "rejected": false
@@ -282,19 +302,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 30,
-        "newest_age_hours": 28.63,
+        "newest_age_hours": 0.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 142,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 0.5,
-        "content_quality": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.85,
-        "final": 0.798
+        "final": 0.853
       },
       "promoted": false,
       "rejected": false
@@ -313,15 +335,17 @@
         "has_descriptions": false,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 0,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 0.0,
         "content_quality": 0.0,
+        "content_depth": 0.0,
         "authority": 0.9,
         "uniqueness": 0.75,
-        "final": 0.542
+        "final": 0.52
       },
       "promoted": false,
       "rejected": false
@@ -336,19 +360,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 0.09,
+        "newest_age_hours": 0.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 121,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.95,
-        "final": 0.953
+        "final": 0.91
       },
       "promoted": false,
       "rejected": false
@@ -367,15 +393,17 @@
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 195,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 0.0,
-        "content_quality": 0.5,
+        "content_quality": 0.52,
+        "content_depth": 0.6,
         "authority": 0.7,
         "uniqueness": 0.9,
-        "final": 0.625
+        "final": 0.62
       },
       "promoted": false,
       "rejected": false
@@ -390,19 +418,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 4.85,
+        "newest_age_hours": 18.77,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 313,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
-        "content_quality": 0.8,
+        "freshness": 0.8,
+        "content_quality": 0.85,
+        "content_depth": 1.0,
         "authority": 0.8,
         "uniqueness": 0.9,
-        "final": 0.905
+        "final": 0.853
       },
       "promoted": false,
       "rejected": false
@@ -417,19 +447,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 16.27,
+        "newest_age_hours": 31.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 57,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 0.8,
-        "content_quality": 0.8,
+        "freshness": 0.5,
+        "content_quality": 0.71,
+        "content_depth": 0.3,
         "authority": 0.85,
         "uniqueness": 0.9,
-        "final": 0.875
+        "final": 0.787
       },
       "promoted": false,
       "rejected": false
@@ -444,19 +476,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 12,
-        "newest_age_hours": 10.27,
+        "newest_age_hours": 22.75,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 128,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 0.8,
-        "content_quality": 0.8,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
         "authority": 0.7,
         "uniqueness": 0.95,
-        "final": 0.802
+        "final": 0.792
       },
       "promoted": false,
       "rejected": false
@@ -471,19 +505,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 10440.84,
+        "newest_age_hours": 10527.65,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": true,
+        "avg_description_length": 116,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 0.0,
-        "content_quality": 0.7,
+        "content_quality": 0.67,
+        "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.7,
-        "final": 0.665
+        "final": 0.662
       },
       "promoted": false,
       "rejected": false
@@ -497,20 +533,22 @@
       "validation": {
         "http_status": 200,
         "parse_ok": true,
-        "article_count": 47,
-        "newest_age_hours": 8.86,
+        "article_count": 44,
+        "newest_age_hours": 1.08,
         "has_descriptions": false,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 0,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 0.8,
+        "freshness": 1.0,
         "content_quality": 0.0,
+        "content_depth": 0.0,
         "authority": 0.55,
         "uniqueness": 0.45,
-        "final": 0.588
+        "final": 0.505
       },
       "promoted": false,
       "rejected": false
@@ -525,19 +563,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 0.36,
+        "newest_age_hours": 0.04,
         "has_descriptions": false,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 0,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.3,
+        "content_quality": 0.25,
+        "content_depth": 0.0,
         "authority": 0.55,
         "uniqueness": 0.55,
-        "final": 0.653
+        "final": 0.568
       },
       "promoted": false,
       "rejected": false
@@ -552,19 +592,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 7,
-        "newest_age_hours": 1.27,
+        "newest_age_hours": 12.63,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 9670,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.72,
         "uniqueness": 0.72,
-        "final": 0.852
+        "final": 0.84
       },
       "promoted": false,
       "rejected": false
@@ -579,19 +621,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 30,
-        "newest_age_hours": 2.27,
+        "newest_age_hours": 16.27,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 7854,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
+        "freshness": 0.8,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.82,
         "uniqueness": 0.88,
-        "final": 0.946
+        "final": 0.892
       },
       "promoted": false,
       "rejected": false
@@ -606,19 +650,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 50,
-        "newest_age_hours": 0.85,
+        "newest_age_hours": 0.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 2455,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.65,
         "uniqueness": 0.45,
-        "final": 0.848
+        "final": 0.785
       },
       "promoted": false,
       "rejected": false
@@ -633,19 +679,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 0.15,
+        "newest_age_hours": 2.07,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 120,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.5,
+        "content_quality": 0.52,
+        "content_depth": 0.6,
         "authority": 0.65,
         "uniqueness": 0.65,
-        "final": 0.778
+        "final": 0.705
       },
       "promoted": false,
       "rejected": false
@@ -660,19 +708,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 30,
-        "newest_age_hours": 15.67,
+        "newest_age_hours": 51.9,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 93,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 0.8,
-        "content_quality": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.86,
+        "content_depth": 0.3,
         "authority": 0.78,
         "uniqueness": 0.9,
-        "final": 0.901
+        "final": 0.759
       },
       "promoted": false,
       "rejected": false
@@ -687,19 +737,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 18,
-        "newest_age_hours": 1.68,
+        "newest_age_hours": 0.58,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 215,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.5,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
         "authority": 0.82,
         "uniqueness": 0.8,
-        "final": 0.784
+        "final": 0.786
       },
       "promoted": false,
       "rejected": false
@@ -712,13 +764,14 @@
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
-        "parse_ok": true,
-        "article_count": 50,
-        "newest_age_hours": 0.59,
-        "has_descriptions": true,
+        "parse_ok": false,
+        "article_count": 0,
+        "newest_age_hours": null,
+        "has_descriptions": false,
         "has_authors": false,
         "has_categories": false,
-        "error": null
+        "avg_description_length": 0,
+        "error": "XML parse error: not well-formed (invalid token): line 1, column 0"
       },
       "scores": {
         "reliability": 1.0,
@@ -741,19 +794,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 0.57,
+        "newest_age_hours": 12.15,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 247,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
+        "freshness": 0.8,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.82,
         "uniqueness": 0.62,
-        "final": 0.907
+        "final": 0.84
       },
       "promoted": false,
       "rejected": false
@@ -768,19 +823,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 100,
-        "newest_age_hours": 0.32,
+        "newest_age_hours": 16.17,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 3304,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
+        "freshness": 0.8,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.75,
         "uniqueness": 0.68,
-        "final": 0.902
+        "final": 0.831
       },
       "promoted": false,
       "rejected": false
@@ -799,15 +856,17 @@
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 179,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 0.0,
-        "content_quality": 0.5,
+        "content_quality": 0.52,
+        "content_depth": 0.6,
         "authority": 0.65,
         "uniqueness": 0.88,
-        "final": 0.612
+        "final": 0.601
       },
       "promoted": false,
       "rejected": false
@@ -822,19 +881,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 0.98,
+        "newest_age_hours": 13.64,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 247,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
-        "content_quality": 0.5,
+        "freshness": 0.8,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
         "authority": 0.65,
         "uniqueness": 0.88,
-        "final": 0.812
+        "final": 0.741
       },
       "promoted": false,
       "rejected": false
@@ -849,19 +910,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 25,
-        "newest_age_hours": 1.22,
+        "newest_age_hours": 13.41,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 81,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
-        "content_quality": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.86,
+        "content_depth": 0.3,
         "authority": 0.85,
         "uniqueness": 0.82,
-        "final": 0.943
+        "final": 0.854
       },
       "promoted": false,
       "rejected": false
@@ -876,19 +939,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 11.27,
+        "newest_age_hours": 2.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 129,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 0.8,
-        "content_quality": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.82,
         "uniqueness": 0.9,
-        "final": 0.909
+        "final": 0.906
       },
       "promoted": false,
       "rejected": false
@@ -903,19 +968,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 45,
-        "newest_age_hours": 0.31,
+        "newest_age_hours": 1.48,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 631,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.88,
         "uniqueness": 0.8,
-        "final": 0.946
+        "final": 0.924
       },
       "promoted": false,
       "rejected": false
@@ -930,19 +997,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 25,
-        "newest_age_hours": 0.33,
+        "newest_age_hours": 12.58,
         "has_descriptions": false,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 0,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
-        "content_quality": 0.3,
+        "freshness": 0.8,
+        "content_quality": 0.25,
+        "content_depth": 0.0,
         "authority": 0.82,
         "uniqueness": 0.88,
-        "final": 0.806
+        "final": 0.705
       },
       "promoted": false,
       "rejected": false
@@ -957,19 +1026,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 15,
-        "newest_age_hours": 0.08,
+        "newest_age_hours": 1.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 347,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.72,
         "uniqueness": 0.72,
-        "final": 0.852
+        "final": 0.84
       },
       "promoted": false,
       "rejected": false
@@ -984,19 +1055,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 3.19,
+        "newest_age_hours": 18.87,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 186,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.8,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
         "authority": 0.7,
         "uniqueness": 0.88,
-        "final": 0.832
+        "final": 0.808
       },
       "promoted": false,
       "rejected": false
@@ -1011,19 +1084,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 5.84,
+        "newest_age_hours": 8.76,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 14,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 1.0,
+        "content_quality": 0.8,
+        "content_depth": 0.0,
         "authority": 0.65,
         "uniqueness": 0.92,
-        "final": 0.868
+        "final": 0.809
       },
       "promoted": false,
       "rejected": false
@@ -1038,19 +1113,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 5.81,
+        "newest_age_hours": 3.04,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 146,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.68,
         "uniqueness": 0.92,
-        "final": 0.874
+        "final": 0.848
       },
       "promoted": false,
       "rejected": false
@@ -1065,19 +1142,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 10,
-        "newest_age_hours": 0.19,
+        "newest_age_hours": 0.08,
         "has_descriptions": false,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 0,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.3,
+        "content_quality": 0.25,
+        "content_depth": 0.0,
         "authority": 0.75,
         "uniqueness": 0.7,
-        "final": 0.715
+        "final": 0.657
       },
       "promoted": false,
       "rejected": false
@@ -1092,19 +1171,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 3.28,
+        "newest_age_hours": 20.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 129,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
-        "content_quality": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.72,
         "uniqueness": 0.85,
-        "final": 0.921
+        "final": 0.836
       },
       "promoted": false,
       "rejected": false
@@ -1119,19 +1200,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 24,
-        "newest_age_hours": 4.02,
+        "newest_age_hours": 1.07,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 214,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.72,
         "uniqueness": 0.9,
-        "final": 0.929
+        "final": 0.896
       },
       "promoted": false,
       "rejected": false
@@ -1146,19 +1229,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 24,
-        "newest_age_hours": 0.23,
+        "newest_age_hours": 1.17,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 391,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.8,
         "uniqueness": 0.8,
-        "final": 0.93
+        "final": 0.9
       },
       "promoted": false,
       "rejected": false
@@ -1173,19 +1258,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 15,
-        "newest_age_hours": 152.59,
+        "newest_age_hours": 191.39,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 377,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
-        "freshness": 0.2,
+        "freshness": 0.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.6,
         "uniqueness": 0.9,
-        "final": 0.695
+        "final": 0.69
       },
       "promoted": false,
       "rejected": false
@@ -1200,19 +1287,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 60,
-        "newest_age_hours": 10.95,
+        "newest_age_hours": 2.62,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 211,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 0.8,
-        "content_quality": 0.5,
+        "freshness": 1.0,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
         "authority": 0.6,
         "uniqueness": 0.9,
-        "final": 0.765
+        "final": 0.76
       },
       "promoted": false,
       "rejected": false
@@ -1226,20 +1315,22 @@
       "validation": {
         "http_status": 200,
         "parse_ok": true,
-        "article_count": 17,
-        "newest_age_hours": 1.37,
+        "article_count": 10,
+        "newest_age_hours": 0.47,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": false,
+        "avg_description_length": 133,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.8,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.6,
-        "final": 0.82
+        "final": 0.797
       },
       "promoted": false,
       "rejected": false
@@ -1254,19 +1345,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 1.09,
+        "newest_age_hours": 1.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 253,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.65,
         "uniqueness": 0.8,
-        "final": 0.9
+        "final": 0.855
       },
       "promoted": false,
       "rejected": false
@@ -1281,19 +1374,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 22,
-        "newest_age_hours": 4.26,
+        "newest_age_hours": 1.9,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 248,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.7,
         "uniqueness": 0.8,
-        "final": 0.91
+        "final": 0.87
       },
       "promoted": false,
       "rejected": false
@@ -1308,19 +1403,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 15,
-        "newest_age_hours": 6.38,
+        "newest_age_hours": 3.87,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 365,
         "error": null
       },
       "scores": {
         "reliability": 0.8,
-        "freshness": 0.8,
+        "freshness": 1.0,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.65,
         "uniqueness": 0.75,
-        "final": 0.802
+        "final": 0.825
       },
       "promoted": false,
       "rejected": false
@@ -1339,15 +1436,17 @@
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 151,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 0.0,
-        "content_quality": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.7,
         "uniqueness": 0.85,
-        "final": 0.718
+        "final": 0.71
       },
       "promoted": false,
       "rejected": false
@@ -1361,20 +1460,22 @@
       "validation": {
         "http_status": 200,
         "parse_ok": true,
-        "article_count": 134,
-        "newest_age_hours": 1.23,
+        "article_count": 133,
+        "newest_age_hours": 1.6,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": true,
+        "avg_description_length": 180,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.7,
+        "content_quality": 0.67,
+        "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.75,
-        "final": 0.873
+        "final": 0.823
       },
       "promoted": false,
       "rejected": false
@@ -1389,19 +1490,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 346.48,
+        "newest_age_hours": 361.28,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": false,
+        "avg_description_length": 192,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 0.0,
-        "content_quality": 0.5,
+        "content_quality": 0.52,
+        "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.72,
-        "final": 0.618
+        "final": 0.614
       },
       "promoted": false,
       "rejected": false
@@ -1416,19 +1519,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 25,
-        "newest_age_hours": 0.2,
+        "newest_age_hours": 0.28,
         "has_descriptions": true,
         "has_authors": false,
         "has_categories": true,
+        "avg_description_length": 106,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.7,
+        "content_quality": 0.67,
+        "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.92,
-        "final": 0.898
+        "final": 0.857
       },
       "promoted": false,
       "rejected": false
@@ -1443,19 +1548,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 50,
-        "newest_age_hours": 2.28,
+        "newest_age_hours": 1.08,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 109,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
         "authority": 0.88,
         "uniqueness": 0.85,
-        "final": 0.954
+        "final": 0.914
       },
       "promoted": false,
       "rejected": false
@@ -1470,19 +1577,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 20,
-        "newest_age_hours": 10.01,
+        "newest_age_hours": 10.44,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 74,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
         "freshness": 0.8,
-        "content_quality": 1.0,
+        "content_quality": 0.86,
+        "content_depth": 0.3,
         "authority": 0.58,
         "uniqueness": 0.6,
-        "final": 0.816
+        "final": 0.729
       },
       "promoted": false,
       "rejected": false
@@ -1497,19 +1606,21 @@
         "http_status": 200,
         "parse_ok": true,
         "article_count": 30,
-        "newest_age_hours": 0.55,
+        "newest_age_hours": 10.24,
         "has_descriptions": true,
         "has_authors": true,
         "has_categories": true,
+        "avg_description_length": 504,
         "error": null
       },
       "scores": {
         "reliability": 1.0,
-        "freshness": 1.0,
+        "freshness": 0.8,
         "content_quality": 1.0,
+        "content_depth": 1.0,
         "authority": 0.65,
         "uniqueness": 0.78,
-        "final": 0.897
+        "final": 0.821
       },
       "promoted": false,
       "rejected": false

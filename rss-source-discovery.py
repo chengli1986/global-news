@@ -121,6 +121,7 @@ def validate_feed(name: str, url: str, raw_bytes: bytes | None = None) -> dict:
         "has_descriptions": False,
         "has_authors": False,
         "has_categories": False,
+        "avg_description_length": 0,
         "error": None,
     }
 
@@ -178,6 +179,7 @@ def validate_feed(name: str, url: str, raw_bytes: bytes | None = None) -> dict:
     author_count = 0
     cat_count = 0
     newest_dt = None
+    desc_lengths: list[int] = []
     now = datetime.now(timezone.utc)
 
     for item in items:
@@ -193,6 +195,10 @@ def validate_feed(name: str, url: str, raw_bytes: bytes | None = None) -> dict:
             desc_el = item.find("description")
         if desc_el is not None and desc_el.text and desc_el.text.strip():
             desc_count += 1
+            # Strip HTML tags to measure plain-text content depth
+            plain = re.sub(r"<[^>]+>", "", desc_el.text).strip()
+            if plain:
+                desc_lengths.append(len(plain))
 
         # Author
         auth_el = None
@@ -248,6 +254,9 @@ def validate_feed(name: str, url: str, raw_bytes: bytes | None = None) -> dict:
     result["has_descriptions"] = (desc_count / total) > 0.5
     result["has_authors"] = (author_count / total) > 0.3
     result["has_categories"] = (cat_count / total) > 0.3
+    result["avg_description_length"] = (
+        int(sum(desc_lengths) / len(desc_lengths)) if desc_lengths else 0
+    )
 
     if newest_dt is not None:
         age = (now - newest_dt).total_seconds() / 3600.0
@@ -283,6 +292,7 @@ def validate_feeds_parallel(candidates: list) -> list:
                     "has_descriptions": False,
                     "has_authors": False,
                     "has_categories": False,
+                    "avg_description_length": 0,
                     "error": str(e),
                 }
             entry = {**candidates[idx], "validation": validation, "_order": idx}
@@ -297,15 +307,22 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
                    weights: dict | None = None) -> dict:
     """Compute 5-dimension scores + final weighted score.
 
-    Returns dict with reliability, freshness, content_quality, authority,
-    uniqueness, and final scores.
+    Returns dict with reliability, freshness, content_quality, content_depth,
+    authority, uniqueness, and final scores.
+
+    Weight rationale (v2):
+      reliability   0.10  — demoted: acts as gate (broken feeds score ~0), not differentiator
+      freshness     0.15  — reduced; cadence-adjusted for low-frequency specialty publishers
+      content_quality 0.25 — elevated; now includes content_depth sub-signal
+      authority     0.30  — elevated: strongest editorial-quality signal
+      uniqueness    0.20  — elevated: rewards coverage gaps in existing pool
     """
     default_weights = {
-        "reliability": 0.25,
-        "freshness": 0.20,
-        "content_quality": 0.20,
-        "authority": 0.20,
-        "uniqueness": 0.15,
+        "reliability": 0.10,
+        "freshness": 0.15,
+        "content_quality": 0.25,
+        "authority": 0.30,
+        "uniqueness": 0.20,
     }
     if weights is None:
         try:
@@ -322,7 +339,9 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
         except Exception:
             weights = default_weights
 
-    # Reliability
+    # Reliability — gate + soft signal
+    # Broken feeds (parse_ok=False) get 0.2; live feeds with articles get 0.8-1.0.
+    # At weight=0.10 this penalises broken feeds by at most 0.08 vs a perfect feed.
     if validation.get("parse_ok") and validation.get("article_count", 0) >= 20:
         reliability = 1.0
     elif validation.get("parse_ok") and validation.get("article_count", 0) >= 5:
@@ -332,26 +351,49 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
     else:
         reliability = 0.2
 
-    # Freshness
+    # Freshness — cadence-aware
+    # Low-frequency publishers (article_count <= 10, e.g. weekly specialty journals)
+    # use a gentler decay so a 3-day-old article isn't penalised like breaking news.
     age = validation.get("newest_age_hours")
+    article_count = validation.get("article_count", 0)
+    is_low_frequency = article_count <= 10
+
     if age is None:
         freshness = 0.0
     elif age <= 6:
         freshness = 1.0
     elif age <= 24:
-        freshness = 0.8
+        freshness = 1.0 if is_low_frequency else 0.8
     elif age <= 48:
-        freshness = 0.5
+        freshness = 0.8 if is_low_frequency else 0.5
+    elif age <= 96:
+        freshness = 0.5 if is_low_frequency else 0.2
     elif age <= 168:
-        freshness = 0.2
+        freshness = 0.3 if is_low_frequency else 0.0
     else:
         freshness = 0.0
 
-    # Content quality
+    # Content quality — metadata presence (0.80) + content depth (0.20)
+    # content_depth proxies full-text vs paywall teaser via avg description length:
+    #   >= 200 chars  → likely full text or rich summary  (1.0)
+    #   >= 100 chars  → decent summary                    (0.6)
+    #   >= 50 chars   → minimal teaser                    (0.3)
+    #   < 50 chars    → paywall stub / empty              (0.0)
+    avg_desc_len = validation.get("avg_description_length", 0)
+    if avg_desc_len >= 200:
+        content_depth = 1.0
+    elif avg_desc_len >= 100:
+        content_depth = 0.6
+    elif avg_desc_len >= 50:
+        content_depth = 0.3
+    else:
+        content_depth = 0.0
+
     content_quality = (
-        (0.5 if validation.get("has_descriptions") else 0.0)
-        + (0.3 if validation.get("has_authors") else 0.0)
-        + (0.2 if validation.get("has_categories") else 0.0)
+        (0.40 if validation.get("has_descriptions") else 0.0)
+        + (0.25 if validation.get("has_authors") else 0.0)
+        + (0.15 if validation.get("has_categories") else 0.0)
+        + 0.20 * content_depth
     )
 
     # Clamp authority and uniqueness
@@ -360,17 +402,18 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
 
     # Weighted final
     final = (
-        weights.get("reliability", 0.25) * reliability
-        + weights.get("freshness", 0.20) * freshness
-        + weights.get("content_quality", 0.20) * content_quality
-        + weights.get("authority", 0.20) * authority
-        + weights.get("uniqueness", 0.15) * uniqueness
+        weights.get("reliability", 0.10) * reliability
+        + weights.get("freshness", 0.15) * freshness
+        + weights.get("content_quality", 0.25) * content_quality
+        + weights.get("authority", 0.30) * authority
+        + weights.get("uniqueness", 0.20) * uniqueness
     )
 
     return {
         "reliability": round(reliability, 2),
         "freshness": round(freshness, 2),
         "content_quality": round(content_quality, 2),
+        "content_depth": round(content_depth, 2),
         "authority": round(authority, 2),
         "uniqueness": round(uniqueness, 2),
         "final": round(final, 3),

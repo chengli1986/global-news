@@ -95,12 +95,14 @@ class TestComputeScores(unittest.TestCase):
             "has_descriptions": True,
             "has_authors": True,
             "has_categories": True,
+            "avg_description_length": 250,  # full-text RSS → content_depth=1.0
         }
         result = compute_scores(validation, authority=0.9, uniqueness=0.8)
         self.assertGreater(result["final"], 0.8)
         self.assertEqual(result["reliability"], 1.0)
         self.assertEqual(result["freshness"], 1.0)
         self.assertEqual(result["content_quality"], 1.0)
+        self.assertEqual(result["content_depth"], 1.0)
 
     def test_stale_feed(self):
         validation = {

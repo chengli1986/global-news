@@ -87,8 +87,22 @@ cat /tmp/rss-deduped.json | python3 $HELPER validate > /tmp/rss-validated.json
 
 ### Step 5: Score
 For each validated candidate where parse_ok=true and article_count>0, you need to provide two AI judgments:
-- **authority** (0.0-1.0): 0.9+ for major outlets (BBC, NYT, Reuters, FT), 0.7-0.8 for established publications, 0.5-0.6 for smaller/niche, 0.3 for unknown
-- **uniqueness** (0.0-1.0): 0.9 if covers topic/region not in current pool, 0.5-0.7 if partially overlaps, 0.2-0.3 if heavily overlaps with existing sources
+
+- **authority** (0.0-1.0): Editorial credibility and brand recognition within its coverage domain.
+  - 0.90–1.0: Major international outlets — BBC, Reuters, AP, NYT, FT, The Guardian, Bloomberg, Economist, WSJ
+  - 0.85–0.89: Strong regional or specialty outlets — SCMP, Foreign Policy, The Diplomat, IEEE Spectrum, Nature, Science, ProPublica, NPR
+  - 0.75–0.84: Established mid-tier outlets — Axios, Politico, The Atlantic, France24, RFI, CNA, PBS NewsHour
+  - 0.65–0.74: Respected niche outlets — The Register, Ars Technica, VentureBeat, STAT News, Endpoints News
+  - Chinese-language reference: 财新/南方周末 = 0.85+; 36氪/虎嗅/澎湃 = 0.75; IT之家/少数派 = 0.65
+  - 0.50–0.64: Smaller niche or regional publications with limited broader recognition
+  - 0.30–0.49: Unknown / unverifiable sources
+  - **Paywall note**: Heavy paywalls (New Yorker, Foreign Policy, IEEE Spectrum) do NOT reduce authority — authority reflects editorial quality. Content depth is captured separately via avg_description_length.
+
+- **uniqueness** (0.0-1.0): How much NEW coverage this source adds vs the existing pool.
+  - 0.90: Covers a region/topic/language entirely absent from current pool
+  - 0.70–0.85: Meaningful differentiation — different editorial angle, unique specialisation, underrepresented region
+  - 0.50–0.65: Partial overlap — similar topic area but different outlet or perspective
+  - 0.20–0.40: Heavy overlap — same region AND same topic as 2+ existing sources
 
 Then compute scores:
 \`\`\`python
