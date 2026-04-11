@@ -316,6 +316,9 @@ def send_report_email(trial: dict) -> bool:
     html = generate_report_html(trial)
     # Replace placeholder From header with real address
     html = html.replace("no-reply@163.com", smtp_user)
+    # Inject To: header (RFC 2822 requires it; missing causes spam filtering)
+    html = html.replace(f"From: RSS Trial Manager <{smtp_user}>",
+                        f"From: RSS Trial Manager <{smtp_user}>\nTo: {mail_to}")
 
     fd, mail_file = tempfile.mkstemp(suffix=".eml")
     try:
