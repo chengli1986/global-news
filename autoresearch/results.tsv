@@ -32,3 +32,4 @@ e36e35f	0.8556	KEPT	raise freshness_weight 0.38->0.42 (continue freshness direct
 a9973b7	0.8713	KEPT	commodity tier_boost 0.7->0.6 (prefer premium/standard sources)
 b7e23f3	0.8699	REVERTED	premium tier_boost 1.5->1.6 (marginal regression)
 608ea33	0.8718	KEPT	lower target/max_total 46->45 to fix density (density closer to 1.0)
+REVERTED	0.7822	REVERTED	max_total 45→120 + region_quotas scaled 2.67x (raw pool ~90-110 insufficient, density 0.75, balance 0.52, net -0.0907)
