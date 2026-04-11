@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-11T04:17:38.818099+08:00",
+  "last_discovery": "2026-04-12T04:19:19.167085+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -1621,6 +1621,325 @@
         "authority": 0.65,
         "uniqueness": 0.78,
         "final": 0.821
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "KFF Health News",
+      "url": "https://kffhealthnews.org/feed/",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 11.29,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 230,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.82,
+        "uniqueness": 0.85,
+        "final": 0.896
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Noema Magazine",
+      "url": "https://www.noemamag.com/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 27.54,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 75,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 0.71,
+        "content_depth": 0.3,
+        "authority": 0.7,
+        "uniqueness": 0.9,
+        "final": 0.768
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Conversation US",
+      "url": "https://theconversation.com/us/articles.atom",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 6.99,
+        "has_descriptions": false,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 0,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.25,
+        "content_depth": 0.0,
+        "authority": 0.78,
+        "uniqueness": 0.85,
+        "final": 0.686
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Carbon Brief",
+      "url": "https://www.carbonbrief.org/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 26.3,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 230,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.78,
+        "uniqueness": 0.9,
+        "final": 0.864
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Global Voices",
+      "url": "https://globalvoices.org/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 15,
+        "newest_age_hours": 14.29,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 176,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.68,
+        "uniqueness": 0.9,
+        "final": 0.814
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Guardian Science",
+      "url": "https://www.theguardian.com/science/rss",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 28,
+        "newest_age_hours": 0.3,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 525,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.88,
+        "uniqueness": 0.65,
+        "final": 0.894
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "China Media Project",
+      "url": "https://chinamediaproject.org/feed/",
+      "language": "en",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 89.39,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 255,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.5,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.8,
+        "uniqueness": 0.92,
+        "final": 0.829
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "PhilStar Headlines",
+      "url": "https://www.philstar.com/rss/headlines",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 4.31,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 233,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.85,
+        "content_depth": 1.0,
+        "authority": 0.6,
+        "uniqueness": 0.8,
+        "final": 0.783
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Balkan Insight",
+      "url": "https://balkaninsight.com/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 90,
+        "newest_age_hours": 30.99,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 186,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.5,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.92,
+        "final": 0.805
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Dawn Pakistan",
+      "url": "https://www.dawn.com/feeds/home",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 23,
+        "newest_age_hours": 1.58,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 3943,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.72,
+        "uniqueness": 0.9,
+        "final": 0.896
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "MedCity News",
+      "url": "https://medcitynews.com/feed/",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 22.21,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 364,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.7,
+        "final": 0.805
       },
       "promoted": false,
       "rejected": false
