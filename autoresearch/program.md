@@ -39,7 +39,7 @@ commit_hash	quality	status	description
 
 ## Constraints
 - digest-tuning.json must remain valid JSON
-- All 33 sources must appear in exactly one tier
+- All 39 sources must appear in exactly one tier (36 RSS + 2 Sina + 1 HN)
 - Region quota min must be >= 1, max must be > min
 - dedup_similarity_threshold must be in [0.3, 0.9]
-- max_total_articles must be in [30, 100]
+- max_total_articles must be in [30, 150]

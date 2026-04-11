@@ -32,21 +32,22 @@ SOURCE_TO_REGION: dict[str, str] = {
     "NYT Technology": "AI & 科技前沿 TECH & AI",
     "中国财经要闻": "全球财经 GLOBAL FINANCE", "CNBC": "全球财经 GLOBAL FINANCE",
     "Bloomberg": "全球财经 GLOBAL FINANCE", "Bloomberg Econ": "全球财经 GLOBAL FINANCE",
-    "Bloomberg Biz": "全球财经 GLOBAL FINANCE", "BBC Business": "全球财经 GLOBAL FINANCE",
-    "FT": "全球财经 GLOBAL FINANCE",
+    "BBC Business": "全球财经 GLOBAL FINANCE", "FT": "全球财经 GLOBAL FINANCE",
+    "NYT Business": "全球财经 GLOBAL FINANCE",  # matches REGION_GROUPS; "美国&欧洲" quota removed
     "纽约时报中文": "全球政治 GLOBAL POLITICS", "BBC中文": "全球政治 GLOBAL POLITICS",
     "BBC World": "全球政治 GLOBAL POLITICS", "SCMP": "全球政治 GLOBAL POLITICS",
     "Bloomberg Politics": "全球政治 GLOBAL POLITICS",
     "界面新闻": "中国要闻 CHINA", "南方周末": "中国要闻 CHINA",
-    "NYT Business": "美国 & 欧洲 US & EUROPE",
     "日经中文": "亚太要闻 ASIA-PACIFIC", "CNA": "亚太要闻 ASIA-PACIFIC",
+    "RTHK中文": "亚太要闻 ASIA-PACIFIC", "Straits Times": "亚太要闻 ASIA-PACIFIC",
+    "HKFP": "亚太要闻 ASIA-PACIFIC", "SCMP Hong Kong": "亚太要闻 ASIA-PACIFIC",
     "CBC Business": "加拿大 CANADA", "Globe & Mail": "加拿大 CANADA",
     "Economist Leaders": "经济学人 THE ECONOMIST", "Economist Finance": "经济学人 THE ECONOMIST",
     "Economist Business": "经济学人 THE ECONOMIST", "Economist Science": "经济学人 THE ECONOMIST",
 }
 
 ALL_REGIONS = sorted(set(SOURCE_TO_REGION.values()))
-TOTAL_REGIONS = len(ALL_REGIONS)  # 8
+TOTAL_REGIONS = len(ALL_REGIONS)  # 7
 
 
 # --- Loaders ---

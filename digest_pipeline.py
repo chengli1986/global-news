@@ -78,6 +78,8 @@ def rank_and_select(articles: list[dict], tuning: dict, now: datetime | None = N
         candidates = [a for a in remaining if a.get("region") == region and id(a) not in selected_set]
         needed = quota["min"] - current
         for article in candidates[:needed]:
+            if len(selected) >= max_total:
+                break
             selected.append(article)
             selected_set.add(id(article))
             region_fill[region] = region_fill.get(region, 0) + 1

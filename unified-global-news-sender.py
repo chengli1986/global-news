@@ -35,7 +35,7 @@ BJT = timezone(timedelta(hours=8))
 
 FETCH_TIMEOUT = 10
 SMTP_TIMEOUT = 30
-JACCARD_SIMILARITY_THRESHOLD = 0.55
+JACCARD_SIMILARITY_THRESHOLD = 0.62  # matches dedup_similarity_threshold in digest-tuning.json
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 def _is_english_source(name: str) -> bool:
@@ -411,7 +411,7 @@ class UnifiedNewsSender:
         ]),
         ("💰 全球财经 GLOBAL FINANCE", [
             "中国财经要闻",
-            "CNBC", "Bloomberg", "Bloomberg Econ", "Bloomberg Biz", "BBC Business", "FT",
+            "CNBC", "Bloomberg", "Bloomberg Econ", "BBC Business", "FT",
             "NYT Business",
         ]),
         ("🏛 全球政治 GLOBAL POLITICS", [
