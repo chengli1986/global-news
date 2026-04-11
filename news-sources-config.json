@@ -241,6 +241,13 @@
         "keywords": [],
         "limit": 6,
         "max_age_hours": 96
+      },
+      {
+        "name": "The Guardian World",
+        "url": "https://www.theguardian.com/world/rss",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [

@@ -1,0 +1,14 @@
+{
+  "active_trial": {
+    "name": "The Guardian World",
+    "url": "https://www.theguardian.com/world/rss",
+    "category": "europe",
+    "language": "en",
+    "candidate_score": 0.924,
+    "start_date": "2026-04-12",
+    "end_date": null,
+    "report_sent": false,
+    "daily_stats": []
+  },
+  "history": []
+}
