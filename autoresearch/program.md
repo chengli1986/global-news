@@ -12,6 +12,11 @@ Run: `cd ~/.openclaw/workspace && python3 evaluate_digest.py`
 Read the last line of output: `quality: 0.XXXX`
 Higher is better.
 
+## Current-cycle guardrails
+- After any `BASELINE_RESET`, do **not** compare against pre-reset scores
+- If the latest row in `autoresearch/results.tsv` is `BASELINE_RESET`, first append one fresh `BASELINE` row for the current fixture pool before trying experiments
+- Do not run autoresearch on tiny sample sets; wait until there are at least 6 fixture snapshots
+
 ## Rules
 1. **NEVER edit** any file except `digest-tuning.json`
 2. **NEVER edit** evaluate_digest.py, digest_pipeline.py, or the sender
@@ -43,3 +48,4 @@ commit_hash	quality	status	description
 - Region quota min must be >= 1, max must be > min
 - dedup_similarity_threshold must be in [0.3, 0.9]
 - max_total_articles must be in [30, 150]
+- Post-reset baselines must be logged as a new cycle; old-cycle best scores are historical only

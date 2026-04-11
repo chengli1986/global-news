@@ -6,6 +6,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_PREFIX="[$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')]"
+MIN_FIXTURES="${MIN_FIXTURES:-6}"
 
 cleanup() {
     local pids
@@ -23,6 +24,13 @@ echo "$LOG_PREFIX Starting news autoresearch session..."
 
 # Cleanup fixtures older than 21 days before running experiments
 "$SCRIPT_DIR/cleanup-old-fixtures.sh" 21 2>&1 || echo "$LOG_PREFIX WARNING: fixture cleanup failed (non-fatal)"
+
+FIXTURE_COUNT=$(find "$REPO_DIR/fixtures" -maxdepth 1 -name '*.json' 2>/dev/null | wc -l)
+if [ "$FIXTURE_COUNT" -lt "$MIN_FIXTURES" ]; then
+    echo "$LOG_PREFIX SKIP: only $FIXTURE_COUNT fixtures available; need at least $MIN_FIXTURES before running autoresearch"
+    echo "$LOG_PREFIX Waiting for more fixture snapshots to avoid overfitting the post-reset cycle"
+    exit 0
+fi
 
 # CRITICAL: Unset API key so Claude uses Max plan auth (not paid API)
 unset ANTHROPIC_API_KEY
@@ -43,6 +51,8 @@ $(cat "$PROGRAM_MD")
 ## Session constraints (added by wrapper)
 - You have a MAXIMUM of 20 minutes for this session
 - Run 2-3 experiments only, then stop
+- Current fixture pool is $FIXTURE_COUNT files; do not treat this as a mature benchmark
+- If the latest row in autoresearch/results.tsv is BASELINE_RESET, first log one fresh BASELINE on the current fixture pool before trying experiments
 - After all experiments, if any commits were kept, run: cd ~/global-news && git push
 "
 

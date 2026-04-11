@@ -28,8 +28,10 @@ class TestFetchRssNews:
     """Tests for UnifiedNewsSender.fetch_rss_news static method."""
 
     @patch("unified_global_news_sender.UnifiedNewsSender.fetch_text")
-    def test_fetch_rss_news_valid_rss(self, mock_fetch_text):
+    @patch("time.time")
+    def test_fetch_rss_news_valid_rss(self, mock_time, mock_fetch_text):
         """Standard RSS 2.0 feed with <item> elements parses correctly."""
+        mock_time.return_value = datetime(2026, 4, 5, 12, 0, 0, tzinfo=timezone.utc).timestamp()
         mock_fetch_text.return_value = SAMPLE_RSS_XML
         results = UnifiedNewsSender.fetch_rss_news("https://example.com/feed", limit=10)
         assert len(results) == 3
@@ -40,8 +42,10 @@ class TestFetchRssNews:
         assert isinstance(results[0][2], datetime)
 
     @patch("unified_global_news_sender.UnifiedNewsSender.fetch_text")
-    def test_fetch_rss_news_valid_atom(self, mock_fetch_text):
+    @patch("time.time")
+    def test_fetch_rss_news_valid_atom(self, mock_time, mock_fetch_text):
         """Atom feed with <entry> elements parses correctly."""
+        mock_time.return_value = datetime(2026, 4, 5, 15, 0, 0, tzinfo=timezone.utc).timestamp()
         mock_fetch_text.return_value = SAMPLE_ATOM_XML
         results = UnifiedNewsSender.fetch_rss_news("https://example.com/atom", limit=10)
         assert len(results) == 2
@@ -65,8 +69,10 @@ class TestFetchRssNews:
         assert results == []
 
     @patch("unified_global_news_sender.UnifiedNewsSender.fetch_text")
-    def test_fetch_rss_news_keyword_filter(self, mock_fetch_text):
+    @patch("time.time")
+    def test_fetch_rss_news_keyword_filter(self, mock_time, mock_fetch_text):
         """Only articles matching keywords are returned."""
+        mock_time.return_value = datetime(2026, 4, 5, 12, 0, 0, tzinfo=timezone.utc).timestamp()
         mock_fetch_text.return_value = SAMPLE_RSS_XML
         results = UnifiedNewsSender.fetch_rss_news(
             "https://example.com/feed", keywords=["AI"], limit=10

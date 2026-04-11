@@ -94,14 +94,23 @@ if not rows:
     print("No experiment data yet")
     raise SystemExit(0)
 
-# Find baseline and best
-baseline = next((r for r in rows if r["status"] == "BASELINE"), rows[0])
-keeps = [r for r in rows if r["status"] == "KEPT"]
-best = max(keeps, key=lambda r: float(r["quality"])) if keeps else baseline
-latest = rows[-1]
-total_experiments = len(rows)
+# Only report the current cycle after the latest BASELINE_RESET.
+last_reset_idx = max((i for i, r in enumerate(rows) if r["status"] == "BASELINE_RESET"), default=-1)
+cycle_rows = rows[last_reset_idx + 1:] if last_reset_idx >= 0 else rows
+scored_cycle_rows = [r for r in cycle_rows if r["status"] in {"BASELINE", "KEPT", "REVERTED"}]
+
+if scored_cycle_rows:
+    baseline = next((r for r in scored_cycle_rows if r["status"] == "BASELINE"), scored_cycle_rows[0])
+    keeps = [r for r in scored_cycle_rows if r["status"] == "KEPT"]
+    best = max(keeps, key=lambda r: float(r["quality"])) if keeps else baseline
+    latest = scored_cycle_rows[-1]
+else:
+    baseline = best = latest = {"quality": "0", "status": "PENDING", "desc": "Waiting for first post-reset baseline", "commit": ""}
+    keeps = []
+
+total_experiments = len(scored_cycle_rows)
 keep_count = len(keeps)
-discard_count = sum(1 for r in rows if r["status"] == "REVERTED")
+discard_count = sum(1 for r in scored_cycle_rows if r["status"] == "REVERTED")
 
 try:
     baseline_q = float(baseline["quality"])
