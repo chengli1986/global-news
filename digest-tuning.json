@@ -2,7 +2,7 @@
   "dedup_similarity_threshold": 0.62,
   "max_total_articles": 45,
   "target_article_count": 45,
-  "freshness_weight": 0.95,
+  "freshness_weight": 1.0,
   "source_tiers": {
     "premium": ["FT", "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science", "Bloomberg", "Bloomberg Econ", "Bloomberg Biz", "Bloomberg Politics", "界面新闻", "36氪"],
     "standard": ["BBC World", "BBC Business", "BBC Technology", "CNBC", "TechCrunch", "SCMP", "Hacker News", "纽约时报中文", "BBC中文", "中国科技/AI", "中国财经要闻", "虎嗅", "钛媒体", "南方周末", "日经中文"],

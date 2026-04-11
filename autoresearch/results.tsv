@@ -31,3 +31,4 @@ e36e35f	0.8556	KEPT	raise freshness_weight 0.38->0.42 (continue freshness direct
 42afd2e	0.8708	REVERTED	dedup_threshold 0.62->0.55 (diversity unchanged, reverted)
 a9973b7	0.8713	KEPT	commodity tier_boost 0.7->0.6 (prefer premium/standard sources)
 b7e23f3	0.8699	REVERTED	premium tier_boost 1.5->1.6 (marginal regression)
+608ea33	0.8718	KEPT	lower target/max_total 46->45 to fix density (density closer to 1.0)
