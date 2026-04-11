@@ -753,6 +753,46 @@ class UnifiedNewsSender:
         except Exception as e:
             logging.warning("Failed to save fixture snapshot to %s: %s", fixture_path, e)
 
+    def _log_trial_source_stats(self) -> None:
+        """If a trial source is active, log today's fetched/selected counts to JSONL."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        trial_state_file = os.path.join(script_dir, "config", "trial-state.json")
+        if not os.path.isfile(trial_state_file):
+            return
+        try:
+            with open(trial_state_file, encoding="utf-8") as f:
+                state = json.load(f)
+        except Exception:
+            return
+
+        active = state.get("active_trial")
+        if not active:
+            return
+
+        source_name = active["name"]
+        fetched = len(self.news_data.get(source_name, []))
+
+        # Count articles from this source that appear in the grouped output.
+        # We approximate by checking how many articles are in news_data for this source,
+        # since precise post-quota counts require replaying the rendering logic.
+        # selected = fetched if source is in an active group; ungrouped sources always show all.
+        selected = fetched  # trial sources appear in "其他" (ungrouped), all are shown
+
+        log_entry = {
+            "ts": datetime.now(BJT).isoformat(),
+            "source": source_name,
+            "fetched": fetched,
+            "selected": selected,
+        }
+        log_dir = os.path.join(script_dir, "logs")
+        os.makedirs(log_dir, exist_ok=True)
+        log_file = os.path.join(log_dir, "trial-source-log.jsonl")
+        try:
+            with open(log_file, "a", encoding="utf-8") as f:
+                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+        except Exception as e:
+            logging.warning("Failed to write trial source log: %s", e)
+
     def _apply_pipeline(self, all_region_articles):
         """Apply dedup + rank + quota pipeline if digest-tuning.json exists."""
         if not self._use_pipeline or not _HAS_PIPELINE:
@@ -797,9 +837,24 @@ class UnifiedNewsSender:
         """Escape HTML entities in text."""
         return html.escape(text, quote=True)
 
+    def _get_trial_source_name(self) -> str | None:
+        """Return the name of the currently active trial source, or None."""
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        trial_state_file = os.path.join(script_dir, "config", "trial-state.json")
+        if not os.path.isfile(trial_state_file):
+            return None
+        try:
+            with open(trial_state_file, encoding="utf-8") as f:
+                state = json.load(f)
+            active = state.get("active_trial")
+            return active["name"] if active else None
+        except Exception:
+            return None
+
     def generate_html(self):
         """生成报纸风格HTML邮件"""
         period, period_desc = self.period_info
+        trial_source_name = self._get_trial_source_name()
 
         # -- Style constants --
         C_PAPER   = "#faf8f3"
@@ -955,7 +1010,7 @@ class UnifiedNewsSender:
           {title_html}
         </div>{orig_title_html}
         <div style="font-size:11px;font-family:{FONT_SANS};color:{C_SRC};margin-top:3px;">
-          via {self._esc(src)}{time_html}
+          via {self._esc(src)}{' <span style="background:#e8f4fd;color:#0066cc;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:bold;">🆕试用</span>' if src == trial_source_name else ""}{time_html}
         </div>
       </td>
     </tr>
@@ -1041,7 +1096,7 @@ class UnifiedNewsSender:
           {title_html}
         </div>{orig_title_html_other}
         <div style="font-size:11px;font-family:{FONT_SANS};color:{C_SRC};margin-top:3px;">
-          via {self._esc(src)}{time_html}
+          via {self._esc(src)}{' <span style="background:#e8f4fd;color:#0066cc;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:bold;">🆕试用</span>' if src == trial_source_name else ""}{time_html}
         </div>
       </td>
     </tr>
@@ -1230,6 +1285,7 @@ class UnifiedNewsSender:
         self.translate_titles()
         self.classify_articles()
         self._save_fixture()
+        self._log_trial_source_stats()
 
         # 零文章保护 — 全部源失败时不发送空邮件
         if self._total_article_count() == 0:

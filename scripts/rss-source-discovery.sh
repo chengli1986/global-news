@@ -144,7 +144,7 @@ git diff --cached --quiet || git commit -m \"data(discovery): update RSS candida
 - Maximum 30 minutes for this session
 - Target: 5-15 new candidates per run
 - Only recommend feeds that parse successfully and have recent articles
-- Do NOT modify news-sources-config.json (promotion is manual)
+- Do NOT modify news-sources-config.json (promotion is handled automatically by rss-trial-manager.py)
 - Do NOT use placeholder authority/uniqueness scores — assess each feed individually
 "
 
@@ -170,4 +170,21 @@ if [ $EXIT_CODE -eq 0 ]; then
         echo "$LOG_PREFIX Pushing new commits..."
         git push 2>&1 || echo "$LOG_PREFIX WARNING: git push failed"
     fi
+fi
+
+# Run trial manager regardless of discovery exit code
+# (trial stats/promotion should not depend on discovery success)
+echo "$LOG_PREFIX Running RSS trial manager..."
+python3 "$REPO_DIR/rss-trial-manager.py" run 2>&1
+TRIAL_EXIT=$?
+if [ $TRIAL_EXIT -ne 0 ]; then
+    echo "$LOG_PREFIX WARNING: trial manager exited with code $TRIAL_EXIT"
+fi
+
+# Commit news-sources-config.json if trial manager added/modified it
+cd "$REPO_DIR"
+if ! git diff --quiet config/trial-state.json news-sources-config.json 2>/dev/null; then
+    git add config/trial-state.json news-sources-config.json
+    git diff --cached --quiet || git commit -m "trial: update trial state $(TZ='Asia/Shanghai' date '+%Y-%m-%d')"
+    git push 2>&1 || echo "$LOG_PREFIX WARNING: git push (trial) failed"
 fi
