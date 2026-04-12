@@ -8,7 +8,13 @@
     "start_date": "2026-04-12",
     "end_date": null,
     "report_sent": false,
-    "daily_stats": []
+    "daily_stats": [
+      {
+        "date": "2026-04-12",
+        "fetched": 3,
+        "selected": 3
+      }
+    ]
   },
   "history": []
 }
