@@ -70,7 +70,7 @@ class UnifiedNewsSender:
     
     def __init__(self, config_file="news-sources-config.json"):
         # Resolve config path relative to this script's directory
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script_dir = os.path.dirname(os.path.realpath(__file__))
         if not os.path.isabs(config_file):
             config_file = os.path.join(script_dir, config_file)
         self.config_file = config_file
@@ -617,7 +617,7 @@ class UnifiedNewsSender:
 
     def _sent_today_path(self) -> str:
         """Path to today's sent-article log. Cleans up files >2 days old."""
-        log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+        log_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "logs")
         os.makedirs(log_dir, exist_ok=True)
         date_str = datetime.now(BJT).strftime("%Y-%m-%d")
         # Cleanup files >2 days old
@@ -671,7 +671,7 @@ class UnifiedNewsSender:
                 pass
 
         # Load premium sources from tuning config
-        tuning_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "digest-tuning.json")
+        tuning_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "digest-tuning.json")
         premium_sources = set()
         if os.path.exists(tuning_path):
             try:
@@ -730,7 +730,7 @@ class UnifiedNewsSender:
     def _save_fixture(self):
         """Save current fetch results as a fixture for autoresearch evaluation.
         Saves one per send (3x/day) using YYYY-MM-DD-HH filename for time-of-day variety."""
-        fixture_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "fixtures")
+        fixture_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "fixtures")
         os.makedirs(fixture_dir, exist_ok=True)
         date_hour_str = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H")
         fixture_path = os.path.join(fixture_dir, f"{date_hour_str}.json")
@@ -755,7 +755,7 @@ class UnifiedNewsSender:
 
     def _log_trial_source_stats(self) -> None:
         """If a trial source is active, log today's fetched/selected counts to JSONL."""
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script_dir = os.path.dirname(os.path.realpath(__file__))
         trial_state_file = os.path.join(script_dir, "config", "trial-state.json")
         if not os.path.isfile(trial_state_file):
             return
@@ -797,7 +797,7 @@ class UnifiedNewsSender:
         """Apply dedup + rank + quota pipeline if digest-tuning.json exists."""
         if not self._use_pipeline or not _HAS_PIPELINE:
             return all_region_articles
-        tuning_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "digest-tuning.json")
+        tuning_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "digest-tuning.json")
         if not os.path.exists(tuning_path):
             return all_region_articles
         with open(tuning_path) as f:
@@ -839,7 +839,7 @@ class UnifiedNewsSender:
 
     def _get_trial_source_name(self) -> str | None:
         """Return the name of the currently active trial source, or None."""
-        script_dir = os.path.dirname(os.path.abspath(__file__))
+        script_dir = os.path.dirname(os.path.realpath(__file__))
         trial_state_file = os.path.join(script_dir, "config", "trial-state.json")
         if not os.path.isfile(trial_state_file):
             return None
