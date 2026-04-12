@@ -416,7 +416,7 @@ class UnifiedNewsSender:
         ]),
         ("🏛 全球政治 GLOBAL POLITICS", [
             "纽约时报中文", "BBC中文",
-            "BBC World", "SCMP", "Bloomberg Politics",
+            "BBC World", "SCMP", "Bloomberg Politics", "The Guardian World",
         ]),
         ("🇨🇳 中国要闻 CHINA", [
             "界面新闻", "南方周末",
