@@ -103,6 +103,9 @@ For each validated candidate where parse_ok=true and article_count>0, you need t
   - 0.70–0.85: Meaningful differentiation — different editorial angle, unique specialisation, underrepresented region
   - 0.50–0.65: Partial overlap — similar topic area but different outlet or perspective
   - 0.20–0.40: Heavy overlap — same region AND same topic as 2+ existing sources
+  - **0.10–0.20: Sub-feed of an existing outlet** — HARD PENALTY. Apply when the candidate is a section/topic feed from an outlet already in the pool (e.g., BBC Technology when BBC World/BBC Business already exist; Bloomberg Markets when Bloomberg already exists; NYT Science when NYT Business already exists). The parent outlet already covers the same editorial voice.
+  - **0.15–0.25: Same media group, different brand** — e.g., Guardian US when Guardian World exists; CNBC Asia when CNBC already exists.
+  - **Rule**: Always check `config/news-sources-config.json` (existing pool) before scoring. If the candidate shares a root domain or parent brand with an existing source, apply the sub-feed penalty unless it covers a clearly distinct language or region not represented.
 
 Then compute scores:
 \`\`\`python

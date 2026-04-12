@@ -34,6 +34,7 @@ SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 FETCH_TIMEOUT = 15
+MAX_POOL_SIZE = 50  # keep only top-N pending candidates; auto-reject the rest
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB cap to prevent memory exhaustion
 SCORE_THRESHOLD = 0.60
 SCORE_EXCELLENT = 0.80
@@ -646,9 +647,27 @@ def cmd_save():
             data["candidates"].append(c)
             existing_urls.add(norm)
 
+    # Enforce pool cap: keep top MAX_POOL_SIZE pending by final score; auto-reject the rest
+    pending = [c for c in data["candidates"] if not c.get("promoted") and not c.get("rejected")]
+    if len(pending) > MAX_POOL_SIZE:
+        keep_urls = {
+            _normalize_url(c["url"])
+            for c in sorted(pending, key=lambda c: c.get("scores", {}).get("final", 0), reverse=True)[:MAX_POOL_SIZE]
+        }
+        pruned = 0
+        for c in data["candidates"]:
+            if not c.get("promoted") and not c.get("rejected"):
+                if _normalize_url(c.get("url", "")) not in keep_urls:
+                    c["rejected"] = True
+                    c["reject_reason"] = "pool-cap"
+                    pruned += 1
+        if pruned:
+            print(f"Pool cap: pruned {pruned} lowest-scoring pending candidates (kept top {MAX_POOL_SIZE})")
+
     data["last_discovery"] = datetime.now(BJT).isoformat()
     save_candidates(data)
-    print(f"Saved {len(new_candidates)} candidates (total: {len(data['candidates'])})")
+    pending_count = len([c for c in data["candidates"] if not c.get("promoted") and not c.get("rejected")])
+    print(f"Saved {len(new_candidates)} new candidates (total pool: {len(data['candidates'])}, pending: {pending_count})")
 
 
 def cmd_report():

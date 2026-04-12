@@ -33,8 +33,9 @@ SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
-PROMOTE_THRESHOLD = 0.85
+PROMOTE_THRESHOLD = 0.90
 TRIAL_DAYS = 7
+AUTO_KEEP_MIN_SELECTED = 5  # auto-keep if ≥5 articles selected over 7-day trial
 BJT = timezone(timedelta(hours=8))
 
 
@@ -303,6 +304,102 @@ From: RSS Trial Manager <no-reply@163.com>
 </html>"""
 
 
+def send_auto_decision_email(trial: dict, kept: bool, total_selected: int) -> bool:
+    """Send auto-decision notification email (keep or remove)."""
+    env = _load_env()
+    smtp_user = env.get("SMTP_USER_163", env.get("SMTP_USER", ""))
+    smtp_pass = env.get("SMTP_PASS_163", env.get("SMTP_PASS", ""))
+    mail_to = env.get("REPORT_EMAIL", env.get("MAIL_TO", smtp_user))
+
+    if not smtp_user or not smtp_pass:
+        print("ERROR: SMTP credentials not found in env", file=sys.stderr)
+        return False
+
+    name = _html_escape(trial["name"])
+    url = _html_escape(trial["url"])
+    score = trial.get("candidate_score", 0)
+    start = trial.get("start_date", "?")
+    stats = trial.get("daily_stats", [])
+    now_str = datetime.now(BJT).strftime("%Y-%m-%d %H:%M BJT")
+    decision_color = "#2e7d32" if kept else "#c62828"
+    decision_label = "✅ 自动保留" if kept else "❌ 自动移除"
+    decision_reason = (
+        f"7 天内共 {total_selected} 篇入选（门槛 ≥ {AUTO_KEEP_MIN_SELECTED}）"
+        if kept else
+        f"7 天内仅 {total_selected} 篇入选（门槛 ≥ {AUTO_KEEP_MIN_SELECTED}）"
+    )
+
+    rows = ""
+    for d in stats:
+        rows += (
+            f"<tr><td style='padding:6px 12px;border-bottom:1px solid #eee;'>{_html_escape(d.get('date',''))}</td>"
+            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;text-align:center;'>{d.get('fetched',0)}</td>"
+            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;text-align:center;'>{d.get('selected',0)}</td></tr>"
+        )
+    total_fetched = sum(d.get("fetched", 0) for d in stats)
+
+    html = f"""MIME-Version: 1.0
+Content-Type: text/html; charset=utf-8
+Subject: [RSS试用] {trial['name']} — {decision_label}
+From: RSS Trial Manager <{smtp_user}>
+To: {mail_to}
+
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"></head>
+<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
+<h2 style="border-bottom:2px solid #e8e8e8;padding-bottom:8px;">📊 RSS 试用结果</h2>
+<div style="padding:12px 16px;background:{decision_color};color:#fff;border-radius:4px;font-size:16px;font-weight:bold;margin-bottom:20px;">
+  {decision_label} — {name}
+</div>
+<p style="color:#555;">{decision_reason}</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:6px;padding:16px;margin-bottom:20px;">
+  <tr><td style="padding:4px 0;"><strong>RSS URL：</strong><a href="{url}">{url}</a></td></tr>
+  <tr><td style="padding:4px 0;"><strong>发现评分：</strong>{score:.3f}</td></tr>
+  <tr><td style="padding:4px 0;"><strong>试用期：</strong>{start} → {_today()}（{TRIAL_DAYS} 天）</td></tr>
+</table>
+<h3>每日贡献统计</h3>
+<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;border-collapse:collapse;">
+  <thead><tr style="background:#1a1a2e;color:#fff;">
+    <th style="padding:8px 12px;text-align:left;">日期</th>
+    <th style="padding:8px 12px;text-align:center;">抓取</th>
+    <th style="padding:8px 12px;text-align:center;">入选</th>
+  </tr></thead>
+  <tbody>{rows}</tbody>
+  <tfoot><tr style="background:#f0f0f0;font-weight:bold;">
+    <td style="padding:8px 12px;">合计</td>
+    <td style="padding:8px 12px;text-align:center;">{total_fetched}</td>
+    <td style="padding:8px 12px;text-align:center;">{total_selected}</td>
+  </tr></tfoot>
+</table>
+<p style="color:#999;font-size:12px;margin-top:20px;">生成时间：{now_str} · RSS Trial Manager</p>
+</body></html>"""
+
+    fd, mail_file = tempfile.mkstemp(suffix=".eml")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(html)
+        result = subprocess.run(
+            ["curl", "--silent", "--ssl-reqd", "--max-time", "30",
+             "--url", "smtps://smtp.163.com:465",
+             "--user", f"{smtp_user}:{smtp_pass}",
+             "--mail-from", smtp_user,
+             "--mail-rcpt", mail_to,
+             "--upload-file", mail_file],
+            capture_output=True, text=True, timeout=45,
+        )
+        if result.returncode == 0:
+            print(f"Auto-decision email sent to {mail_to}")
+            return True
+        print(f"Email failed: {result.stderr}", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"Email error: {e}", file=sys.stderr)
+        return False
+    finally:
+        if os.path.exists(mail_file):
+            os.unlink(mail_file)
+
+
 def send_report_email(trial: dict) -> bool:
     env = _load_env()
     smtp_user = env.get("SMTP_USER_163", "")
@@ -382,14 +479,26 @@ def cmd_run() -> None:
         # --- Check if trial has run its course ---
         start = datetime.strptime(active["start_date"], "%Y-%m-%d").replace(tzinfo=BJT)
         elapsed_days = (datetime.now(BJT) - start).days
-        if elapsed_days >= TRIAL_DAYS and not active.get("report_sent"):
-            print(f"[trial-manager] Trial complete ({elapsed_days}d). Sending report...")
-            if send_report_email(active):
-                active["report_sent"] = True
-                active["end_date"] = today
-                print(f"[trial-manager] Report sent. Awaiting keep/remove decision.")
+        if elapsed_days >= TRIAL_DAYS and not active.get("auto_decided"):
+            total_selected = sum(d.get("selected", 0) for d in stats)
+            kept = total_selected >= AUTO_KEEP_MIN_SELECTED
+            if kept:
+                graduate_trial_in_config(active["name"])
+                active["outcome"] = "auto-graduated"
+                print(f"[trial-manager] Auto-keep '{active['name']}' "
+                      f"({total_selected} selected >= {AUTO_KEEP_MIN_SELECTED})")
             else:
-                print("[trial-manager] Report email failed; will retry tomorrow.")
+                remove_trial_from_config(active["name"])
+                active["outcome"] = "auto-removed"
+                print(f"[trial-manager] Auto-remove '{active['name']}' "
+                      f"({total_selected} selected < {AUTO_KEEP_MIN_SELECTED})")
+            active["auto_decided"] = True
+            active["end_date"] = today
+            state.setdefault("history", []).append(active)
+            state["active_trial"] = None
+            save_state(state)
+            send_auto_decision_email(active, kept, total_selected)
+            return
 
         save_state(state)
         return
