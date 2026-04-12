@@ -1151,8 +1151,7 @@ class UnifiedNewsSender:
         
         try:
             period, _ = self.period_info
-            preview_tag = "【预览版·autoresearch】" if self._use_pipeline else ""
-            subject = f"🌍 {preview_tag}全球要闻简报 - {period} - {self.beijing_time}"
+            subject = f"🌍 全球要闻简报 - {period} - {self.beijing_time}"
             html_content = self.generate_html()
             
             # 创建邮件
