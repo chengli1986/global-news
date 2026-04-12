@@ -15,7 +15,7 @@ Higher is better.
 ## Current-cycle guardrails
 - After any `BASELINE_RESET`, do **not** compare against pre-reset scores
 - If the latest row in `autoresearch/results.tsv` is `BASELINE_RESET`, first append one fresh `BASELINE` row for the current fixture pool before trying experiments
-- Do not run autoresearch on tiny sample sets; wait until there are at least 6 fixture snapshots
+- Do not run autoresearch on tiny sample sets; wait until there are at least 10 fixture snapshots
 
 ## Rules
 1. **NEVER edit** any file except `digest-tuning.json`
