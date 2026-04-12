@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-12T04:19:19.167085+08:00",
+  "last_discovery": "2026-04-12T22:03:21.820527+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -145,7 +145,8 @@
         "final": 0.672
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "端传媒",
@@ -232,7 +233,8 @@
         "final": 0.745
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Politico Europe",
@@ -348,7 +350,8 @@
         "final": 0.52
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "STAT News",
@@ -406,7 +409,8 @@
         "final": 0.62
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Project Syndicate",
@@ -522,7 +526,8 @@
         "final": 0.662
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Yahoo Finance",
@@ -551,7 +556,8 @@
         "final": 0.505
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Investing.com RSS",
@@ -580,7 +586,8 @@
         "final": 0.568
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "VentureBeat",
@@ -696,7 +703,8 @@
         "final": 0.705
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "RFA中文",
@@ -725,7 +733,8 @@
         "final": 0.759
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Le Monde English",
@@ -869,7 +878,8 @@
         "final": 0.601
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "MedPage Today",
@@ -898,7 +908,8 @@
         "final": 0.741
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Foreign Policy",
@@ -1014,7 +1025,8 @@
         "final": 0.705
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "The Hill",
@@ -1159,7 +1171,8 @@
         "final": 0.657
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Science News",
@@ -1275,7 +1288,8 @@
         "final": 0.69
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "VnExpress International",
@@ -1304,7 +1318,8 @@
         "final": 0.76
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Washington Post World",
@@ -1449,7 +1464,8 @@
         "final": 0.71
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "DW World News",
@@ -1507,7 +1523,8 @@
         "final": 0.614
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Al Jazeera English",
@@ -1594,7 +1611,8 @@
         "final": 0.729
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "SiliconAngle",
@@ -1681,7 +1699,8 @@
         "final": 0.768
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "The Conversation US",
@@ -1710,7 +1729,8 @@
         "final": 0.686
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Carbon Brief",
@@ -1940,6 +1960,243 @@
         "authority": 0.65,
         "uniqueness": 0.7,
         "final": 0.805
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Quanta Magazine",
+      "url": "https://www.quantamagazine.org/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 5,
+        "newest_age_hours": 47.63,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 291,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.85,
+        "uniqueness": 0.9,
+        "final": 0.885
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Aeon Magazine",
+      "url": "https://aeon.co/feed.rss",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 52.05,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 147,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
+        "authority": 0.75,
+        "uniqueness": 0.85,
+        "final": 0.718
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Fierce Biotech",
+      "url": "https://www.fiercebiotech.com/rss/xml",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 25,
+        "newest_age_hours": null,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 184,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.52,
+        "content_depth": 0.6,
+        "authority": 0.65,
+        "uniqueness": 0.7,
+        "final": 0.565
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "New Scientist",
+      "url": "https://www.newscientist.com/feed/home/",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 100,
+        "newest_age_hours": 36.71,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 179,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.5,
+        "content_quality": 0.52,
+        "content_depth": 0.6,
+        "authority": 0.75,
+        "uniqueness": 0.65,
+        "final": 0.66
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "SCMP Business",
+      "url": "https://www.scmp.com/rss/5/feed",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 0.36,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 500,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.85,
+        "content_depth": 1.0,
+        "authority": 0.85,
+        "uniqueness": 0.1,
+        "final": 0.738
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Undark Magazine",
+      "url": "https://undark.org/feed/",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 54.58,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 318,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.5,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.7,
+        "uniqueness": 0.85,
+        "final": 0.785
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Conversation Global",
+      "url": "https://theconversation.com/global/articles.atom",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 61.25,
+        "has_descriptions": false,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 0,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.25,
+        "content_depth": 0.0,
+        "authority": 0.7,
+        "uniqueness": 0.2,
+        "final": 0.443
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Al-Monitor",
+      "url": "https://www.al-monitor.com/rss",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.44,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 470,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
+        "authority": 0.75,
+        "uniqueness": 0.85,
+        "final": 0.795
       },
       "promoted": false,
       "rejected": false
