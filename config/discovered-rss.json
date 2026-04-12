@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-12T22:03:21.820527+08:00",
+  "last_discovery": "2026-04-13T04:20:57.787437+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -204,7 +204,8 @@
         "final": 0.773
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Bangkok Post",
@@ -674,7 +675,8 @@
         "final": 0.785
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "ZDNet",
@@ -791,7 +793,8 @@
         "final": 0.785
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "PBS NewsHour",
@@ -1875,7 +1878,8 @@
         "final": 0.783
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Balkan Insight",
@@ -2140,7 +2144,8 @@
         "final": 0.785
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "The Conversation Global",
@@ -2197,6 +2202,361 @@
         "authority": 0.75,
         "uniqueness": 0.85,
         "final": 0.795
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Japan Times",
+      "url": "https://www.japantimes.co.jp/feed/",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 1.21,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 139,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.67,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.8,
+        "final": 0.793
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "EUobserver",
+      "url": "https://euobserver.com/rss",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.38,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 255,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.72,
+        "final": 0.839
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "New Statesman",
+      "url": "https://www.newstatesman.com/feed",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 16.69,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 87,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.86,
+        "content_depth": 0.3,
+        "authority": 0.72,
+        "uniqueness": 0.75,
+        "final": 0.801
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "OpenAI Blog",
+      "url": "https://openai.com/blog/rss.xml",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 934,
+        "newest_age_hours": 68.32,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 175,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.67,
+        "content_depth": 0.6,
+        "authority": 0.7,
+        "uniqueness": 0.88,
+        "final": 0.683
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Bloomberg Technology",
+      "url": "https://feeds.bloomberg.com/technology/news.rss",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 15,
+        "newest_age_hours": 6.32,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 203,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.9,
+        "uniqueness": 0.12,
+        "final": 0.744
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Nikkei Asia via rsshub",
+      "url": "https://rsshub.rssforever.com/nikkei/asia",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 0.14,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 1546,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.85,
+        "uniqueness": 0.72,
+        "final": 0.899
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "South China Morning Post Tech",
+      "url": "https://www.scmp.com/rss/36/feed",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 11.8,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 499,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.85,
+        "content_depth": 1.0,
+        "authority": 0.8,
+        "uniqueness": 0.1,
+        "final": 0.693
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Science Daily Health",
+      "url": "https://www.sciencedaily.com/rss/health_medicine.xml",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 60,
+        "newest_age_hours": 7.34,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 424,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.82,
+        "final": 0.729
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Politico EU",
+      "url": "https://www.politico.eu/rss",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 0.61,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 114,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.8,
+        "uniqueness": 0.15,
+        "final": 0.73
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "TechMeme",
+      "url": "https://www.techmeme.com/feed.xml",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 15,
+        "newest_age_hours": 2.16,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 335,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
+        "authority": 0.6,
+        "uniqueness": 0.78,
+        "final": 0.716
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "AI Business",
+      "url": "https://aibusiness.com/rss.xml",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": -2654.68,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 110,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
+        "authority": 0.58,
+        "uniqueness": 0.65,
+        "final": 0.747
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Philippine Daily Inquirer",
+      "url": "https://newsinfo.inquirer.net/feed",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 40,
+        "newest_age_hours": -4.89,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 359,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.88,
+        "final": 0.871
       },
       "promoted": false,
       "rejected": false
