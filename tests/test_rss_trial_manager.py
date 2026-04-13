@@ -52,9 +52,9 @@ class TestGetPromotableCandidates(unittest.TestCase):
     def test_returns_candidates_above_threshold(self):
         with tempfile.TemporaryDirectory() as d:
             self._write_candidates(d, [
-                make_candidate("A", score=0.90),
-                make_candidate("B", score=0.80),  # below threshold
-                make_candidate("C", score=0.87),
+                make_candidate("A", score=0.95),
+                make_candidate("B", score=0.80),  # below threshold (PROMOTE_THRESHOLD=0.90)
+                make_candidate("C", score=0.92),
             ])
             with patch.object(tm, "CANDIDATES_FILE", os.path.join(d, "discovered-rss.json")):
                 result = tm.get_promotable_candidates(make_state())
@@ -83,9 +83,9 @@ class TestGetPromotableCandidates(unittest.TestCase):
     def test_sorted_by_score_desc(self):
         with tempfile.TemporaryDirectory() as d:
             self._write_candidates(d, [
-                make_candidate("Low",  score=0.86),
-                make_candidate("High", score=0.95),
-                make_candidate("Mid",  score=0.90),
+                make_candidate("Low",  score=0.90),
+                make_candidate("High", score=0.98),
+                make_candidate("Mid",  score=0.93),
             ])
             with patch.object(tm, "CANDIDATES_FILE", os.path.join(d, "discovered-rss.json")):
                 result = tm.get_promotable_candidates(make_state())
