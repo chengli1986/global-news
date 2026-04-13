@@ -1,6 +1,6 @@
 #!/bin/bash
 # RSS Source Discovery — Claude Code session driver
-# Cron: daily 03:30 BJT via cron-wrapper.sh
+# Cron: daily 04:15 BJT (20:15 UTC) via cron-wrapper.sh
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
