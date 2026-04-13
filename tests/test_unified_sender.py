@@ -375,3 +375,108 @@ class TestHtmlHelpers:
         assert _is_english_source("纽约时报中文") is False
         assert _is_english_source("SCMP Hong Kong") is True
         assert _is_english_source("36氪") is False
+
+
+# ===== LLM API Fallback =====
+
+class TestLLMApiFallback:
+    """Tests for _llm_api_call provider fallback and _extract_json_from_text."""
+
+    def _make_sender(self, openai_key="", gemini_key=""):
+        """Create a sender with injected API keys (no real config needed)."""
+        with patch.object(UnifiedNewsSender, "__init__", lambda self, **kw: None):
+            s = UnifiedNewsSender.__new__(UnifiedNewsSender)
+            s._openai_key = openai_key
+            s._gemini_key = gemini_key
+            return s
+
+    def test_extract_json_plain(self):
+        """Plain JSON string is extracted correctly."""
+        s = self._make_sender()
+        assert s._extract_json_from_text('["hello"]') == ["hello"]
+        assert s._extract_json_from_text('{"a": 1}') == {"a": 1}
+
+    def test_extract_json_markdown_wrapped(self):
+        """JSON wrapped in markdown code blocks is extracted correctly."""
+        s = self._make_sender()
+        text = '```json\n["油价飙升", "特朗普"]\n```'
+        assert s._extract_json_from_text(text) == ["油价飙升", "特朗普"]
+
+    def test_extract_json_markdown_no_lang(self):
+        """Code block without language tag also works."""
+        s = self._make_sender()
+        text = '```\n{"key": "value"}\n```'
+        assert s._extract_json_from_text(text) == {"key": "value"}
+
+    def test_no_keys_raises(self):
+        """RuntimeError when neither OpenAI nor Gemini key is set."""
+        s = self._make_sender()
+        with pytest.raises(RuntimeError, match="No LLM API keys"):
+            s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
+
+    @patch.object(UnifiedNewsSender, "_api_call_with_retry")
+    def test_openai_success_no_fallback(self, mock_retry):
+        """When OpenAI succeeds, Gemini is never called."""
+        mock_retry.return_value = {"choices": [{"message": {"content": "ok"}}]}
+        s = self._make_sender(openai_key="sk-test", gemini_key="gem-test")
+        result = s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
+        assert result["choices"][0]["message"]["content"] == "ok"
+        mock_retry.assert_called_once()
+        assert "api.openai.com" in mock_retry.call_args[1]["url"]
+
+    @patch.object(UnifiedNewsSender, "_api_call_with_retry")
+    def test_openai_fail_gemini_fallback(self, mock_retry):
+        """When OpenAI fails, falls back to Gemini."""
+        gemini_response = {"choices": [{"message": {"content": "from gemini"}}]}
+        mock_retry.side_effect = [
+            Exception("429 Too Many Requests"),  # OpenAI fails
+            gemini_response,                      # Gemini succeeds
+        ]
+        s = self._make_sender(openai_key="sk-test", gemini_key="gem-test")
+        result = s._llm_api_call(
+            {"model": "gpt-4.1-mini", "messages": [], "response_format": {"type": "json_object"}}
+        )
+        assert result["choices"][0]["message"]["content"] == "from gemini"
+        # Gemini call should NOT have response_format
+        gemini_call = mock_retry.call_args_list[1]
+        assert "response_format" not in gemini_call[1]["payload"]
+        assert "gemini-2.5-flash" in gemini_call[1]["payload"]["model"]
+
+    @patch.object(UnifiedNewsSender, "_api_call_with_retry")
+    def test_gemini_flash_fail_falls_to_lite(self, mock_retry):
+        """gemini-2.5-flash 503 → gemini-2.5-flash-lite."""
+        lite_response = {"choices": [{"message": {"content": "from lite"}}]}
+        mock_retry.side_effect = [
+            Exception("429"),   # OpenAI
+            Exception("503"),   # gemini-2.5-flash
+            lite_response,      # gemini-2.5-flash-lite
+        ]
+        s = self._make_sender(openai_key="sk-test", gemini_key="gem-test")
+        result = s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
+        assert result["choices"][0]["message"]["content"] == "from lite"
+        lite_call = mock_retry.call_args_list[2]
+        assert "flash-lite" in lite_call[1]["payload"]["model"]
+
+    @patch.object(UnifiedNewsSender, "_api_call_with_retry")
+    def test_openai_only_no_gemini_key(self, mock_retry):
+        """Without Gemini key, OpenAI failure raises directly."""
+        mock_retry.side_effect = Exception("429")
+        s = self._make_sender(openai_key="sk-test")
+        with pytest.raises(Exception, match="429"):
+            s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
+
+    @patch.object(UnifiedNewsSender, "_api_call_with_retry")
+    def test_gemini_only_no_openai_key(self, mock_retry):
+        """With only Gemini key, goes directly to Gemini."""
+        mock_retry.return_value = {"choices": [{"message": {"content": "gemini"}}]}
+        s = self._make_sender(gemini_key="gem-test")
+        result = s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
+        assert "generativelanguage.googleapis.com" in mock_retry.call_args[1]["url"]
+
+    def test_gemini_key_from_env(self):
+        """GEMINI_API_KEY and GOOGLE_API_KEY both picked up."""
+        with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": "gk-test"}, clear=False):
+            with patch.object(UnifiedNewsSender, "__init__", lambda self, **kw: None):
+                s = UnifiedNewsSender.__new__(UnifiedNewsSender)
+                s._gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+                assert s._gemini_key == "gk-test"

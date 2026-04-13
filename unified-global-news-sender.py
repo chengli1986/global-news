@@ -328,6 +328,18 @@ class UnifiedNewsSender:
                     continue
                 raise
 
+    @staticmethod
+    def _extract_json_from_text(text: str):
+        """Extract JSON from text that may contain markdown code blocks."""
+        # Strip markdown ```json ... ``` wrapper
+        stripped = text.strip()
+        if stripped.startswith("```"):
+            lines = stripped.split("\n")
+            # Remove first line (```json) and last line (```)
+            lines = [l for l in lines[1:] if l.strip() != "```"]
+            stripped = "\n".join(lines)
+        return json.loads(stripped)
+
     def _llm_api_call(self, payload: dict, timeout: int = 120, max_retries: int = 3) -> dict:
         """Make LLM API call: try OpenAI first, fallback to Gemini 2.5 Flash on failure."""
         # Try OpenAI (gpt-4.1-mini)
@@ -344,14 +356,24 @@ class UnifiedNewsSender:
                 else:
                     raise
 
-        # Fallback: Gemini 2.5 Flash via OpenAI-compatible endpoint
+        # Fallback: Gemini via OpenAI-compatible endpoint
+        # Strip response_format — Gemini's compat endpoint returns 503 with it on larger payloads.
+        # Try gemini-2.5-flash first, then gemini-2.5-flash-lite if capacity-limited.
         if self._gemini_key:
-            gemini_payload = dict(payload, model="gemini-2.5-flash")
-            return self._api_call_with_retry(
-                url="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-                api_key=self._gemini_key, payload=gemini_payload,
-                timeout=timeout, max_retries=max_retries, provider="Gemini",
-            )
+            base_payload = {k: v for k, v in payload.items() if k != "response_format"}
+            gemini_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
+            for gemini_model in ("gemini-2.5-flash", "gemini-2.5-flash-lite"):
+                try:
+                    return self._api_call_with_retry(
+                        url=gemini_url, api_key=self._gemini_key,
+                        payload=dict(base_payload, model=gemini_model),
+                        timeout=timeout, max_retries=max_retries, provider=f"Gemini({gemini_model})",
+                    )
+                except Exception as gemini_err:
+                    if gemini_model == "gemini-2.5-flash":
+                        print(f"  ⚠️  {gemini_model} unavailable ({gemini_err}), trying flash-lite...")
+                    else:
+                        raise
 
         raise RuntimeError("No LLM API keys available (OPENAI_API_KEY / GEMINI_API_KEY)")
 
@@ -409,7 +431,7 @@ class UnifiedNewsSender:
                 "response_format": {"type": "json_object"},
             }, timeout=120)
             content = result["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
+            parsed = self._extract_json_from_text(content)
             # Accept either a plain array or {"translations": [...]} or any key with array value
             if isinstance(parsed, list):
                 translations = parsed
@@ -554,7 +576,7 @@ class UnifiedNewsSender:
                 "response_format": {"type": "json_object"},
             }, timeout=60)
             content = result["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
+            parsed = self._extract_json_from_text(content)
 
             # Convert response to {int_index: label} mapping
             label_map = {}  # 0-based index -> category label
