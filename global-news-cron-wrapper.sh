@@ -85,6 +85,7 @@ run_email_mode() {
     export SMTP_PASS
     [ -f ~/.secrets.env ] && source ~/.secrets.env
     export OPENAI_API_KEY
+    export GEMINI_API_KEY
 
     python3 "$PYTHON_SCRIPT" email "$recipients" --pipeline >> "$LOG_FILE" 2>&1 || {
         log "❌ 邮件发送失败 (exit=$?)"

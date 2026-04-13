@@ -77,6 +77,7 @@ class UnifiedNewsSender:
         self.config = self.load_config()
         self.news_data = {}
         self._openai_key = os.getenv("OPENAI_API_KEY", "")
+        self._gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
         self._use_pipeline = False  # off by default, enable with --pipeline
         self.beijing_time = self.get_beijing_time()
         self.period_info = self.get_period_info()
@@ -303,17 +304,16 @@ class UnifiedNewsSender:
 
         print(f"✅ 成功抓取 {sum(len(v) for v in self.news_data.values())} 条新闻\n")
 
-    def _openai_api_call(self, payload: dict, timeout: int = 120, max_retries: int = 3) -> dict:
-        """Make an OpenAI API call with retry on 429/5xx errors.
-        Returns the parsed JSON response. Raises on persistent failure."""
+    def _api_call_with_retry(self, url: str, api_key: str, payload: dict,
+                             timeout: int, max_retries: int, provider: str) -> dict:
+        """Low-level API call with retry on 429/5xx. Returns parsed JSON."""
         data = json.dumps(payload).encode("utf-8")
         for attempt in range(max_retries):
             req = urllib.request.Request(
-                "https://api.openai.com/v1/chat/completions",
-                data=data,
+                url, data=data,
                 headers={
                     "Content-Type": "application/json",
-                    "Authorization": f"Bearer {self._openai_key}",
+                    "Authorization": f"Bearer {api_key}",
                 },
                 method="POST",
             )
@@ -323,10 +323,37 @@ class UnifiedNewsSender:
             except urllib.error.HTTPError as e:
                 if e.code in (429, 500, 502, 503) and attempt < max_retries - 1:
                     wait = (2 ** attempt) * 5  # 5s, 10s, 20s
-                    print(f"  ⏳ API returned {e.code}, retrying in {wait}s (attempt {attempt + 1}/{max_retries})...")
+                    print(f"  ⏳ {provider} returned {e.code}, retrying in {wait}s (attempt {attempt + 1}/{max_retries})...")
                     time.sleep(wait)
                     continue
                 raise
+
+    def _llm_api_call(self, payload: dict, timeout: int = 120, max_retries: int = 3) -> dict:
+        """Make LLM API call: try OpenAI first, fallback to Gemini 2.5 Flash on failure."""
+        # Try OpenAI (gpt-4.1-mini)
+        if self._openai_key:
+            try:
+                return self._api_call_with_retry(
+                    url="https://api.openai.com/v1/chat/completions",
+                    api_key=self._openai_key, payload=payload,
+                    timeout=timeout, max_retries=max_retries, provider="OpenAI",
+                )
+            except Exception as openai_err:
+                if self._gemini_key:
+                    print(f"  ⚠️  OpenAI failed ({openai_err}), switching to Gemini 2.5 Flash...")
+                else:
+                    raise
+
+        # Fallback: Gemini 2.5 Flash via OpenAI-compatible endpoint
+        if self._gemini_key:
+            gemini_payload = dict(payload, model="gemini-2.5-flash")
+            return self._api_call_with_retry(
+                url="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+                api_key=self._gemini_key, payload=gemini_payload,
+                timeout=timeout, max_retries=max_retries, provider="Gemini",
+            )
+
+        raise RuntimeError("No LLM API keys available (OPENAI_API_KEY / GEMINI_API_KEY)")
 
     def translate_titles(self):
         """Translate English news titles to simplified Chinese via GPT-4.1-mini.
@@ -358,11 +385,11 @@ class UnifiedNewsSender:
             print("ℹ️  No English titles to translate")
             return
 
-        if not self._openai_key:
-            print("⚠️  OPENAI_API_KEY not set, skipping title translation")
+        if not self._openai_key and not self._gemini_key:
+            print("⚠️  No LLM API key set, skipping title translation")
             return
 
-        print(f"🔄 Translating {len(eng_titles)} English titles via GPT-4.1-mini...")
+        print(f"🔄 Translating {len(eng_titles)} English titles...")
 
         # Build the prompt
         titles_for_api = [t[2] for t in eng_titles]
@@ -375,7 +402,7 @@ class UnifiedNewsSender:
         )
 
         try:
-            result = self._openai_api_call({
+            result = self._llm_api_call({
                 "model": "gpt-4.1-mini",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.3,
@@ -490,11 +517,11 @@ class UnifiedNewsSender:
         if not to_classify:
             return
 
-        if not self._openai_key:
-            print("⚠️  OPENAI_API_KEY not set, skipping article classification")
+        if not self._openai_key and not self._gemini_key:
+            print("⚠️  No LLM API key set, skipping article classification")
             return
 
-        print(f"🏷️  Classifying {len(to_classify)} articles from mixed sources via GPT-4.1-mini...")
+        print(f"🏷️  Classifying {len(to_classify)} articles...")
 
         # Build numbered title list for reliable index mapping
         numbered_titles = "\n".join(f"{i+1}. {t[2]}" for i, t in enumerate(to_classify))
@@ -520,7 +547,7 @@ class UnifiedNewsSender:
         )
 
         try:
-            result = self._openai_api_call({
+            result = self._llm_api_call({
                 "model": "gpt-4.1-mini",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
