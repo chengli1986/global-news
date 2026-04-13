@@ -34,6 +34,15 @@ cleanup() {
 }
 trap cleanup EXIT
 
+validate_json_array() {
+    local f="$1"
+    [ -s "$f" ] && python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+assert isinstance(d, list) and len(d) > 0
+" "$f" 2>/dev/null
+}
+
 echo "$LOG_PREFIX Starting RSS source discovery..."
 
 # Use Max plan auth
