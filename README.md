@@ -83,6 +83,16 @@ English news titles are batch-translated to Chinese using GPT-4.1-mini (approxim
 
 Articles from mixed-content sources are classified into correct sections using GPT-4.1-mini. The `classify_articles()` method sends all article titles (except locked sources: Canada, Economist) in a single API call, receiving a numbered JSON dict mapping each article to one of five categories: `tech`, `finance`, `politics`, `china`, `asia`. Falls back to keyword-based reclassification if the API call fails.
 
+## LLM Fallback Chain
+
+Both translation and classification use a multi-provider fallback chain to ensure resilience:
+
+```
+GPT-4.1-mini → Gemini 2.5 Flash → Gemini 2.5 Flash-Lite → keyword fallback
+```
+
+When a provider returns HTTP 429 (rate limit), it fast-fails in 2 seconds and moves to the next provider. The email includes an LLM Status banner when fallback is active (orange for FALLBACK, red for FAILED), hidden when all calls succeed via the primary provider.
+
 ## Cross-Send Deduplication
 
 Articles are tracked across the three daily sends via `logs/sent-today-YYYY-MM-DD.json`. Previously sent articles are filtered out to avoid repetition. Premium sources (Economist, FT, Bloomberg, NYT) can resurface after a 4-hour cooldown period.
@@ -175,7 +185,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 36 tests (9 pipeline + 11 trial manager + 16 discovery)
+python3 -m pytest tests/ -q   # 68 tests (9 pipeline + 11 trial manager + 16 discovery + 32 sender)
 ```
 
 ## Development
