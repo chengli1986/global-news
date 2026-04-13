@@ -79,6 +79,7 @@ class UnifiedNewsSender:
         self._openai_key = os.getenv("OPENAI_API_KEY", "")
         self._gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
         self._last_provider = ""  # set by _llm_api_call to the provider that handled each call
+        self._llm_status = []  # tracks (step, provider_or_None, ok: bool) for email status banner
         self._use_pipeline = False  # off by default, enable with --pipeline
         self.beijing_time = self.get_beijing_time()
         self.period_info = self.get_period_info()
@@ -477,9 +478,11 @@ class UnifiedNewsSender:
 
             provider = getattr(self, "_last_provider", "unknown")
             print(f"✅ Translated {applied}/{len(eng_titles)} English titles to Chinese (via {provider})")
+            self._llm_status.append(("翻译 Translation", provider, True))
 
         except Exception as e:
             print(f"⚠️  Title translation failed ({e}), keeping original English titles")
+            self._llm_status.append(("翻译 Translation", None, False))
 
     # Region grouping: source name → (region_key, display_source_label)
     REGION_GROUPS = [
@@ -633,9 +636,11 @@ class UnifiedNewsSender:
 
             provider = getattr(self, "_last_provider", "unknown")
             print(f"✅ Classified {classified_count}/{len(to_classify)} articles, {reclassified_count} reclassified to different sections (via {provider})")
+            self._llm_status.append(("分类 Classification", provider, True))
 
         except Exception as e:
             print(f"⚠️  Article classification failed ({e}), falling back to keyword-based routing")
+            self._llm_status.append(("分类 Classification", None, False))
 
     def _reclassify_article(self, title: str, source: str, source_idx: int) -> str | None:
         """Return target region for an article, or None to keep in original region.
@@ -992,6 +997,26 @@ class UnifiedNewsSender:
 </td></tr>
 
 <!-- === CONTENT === -->
+"""
+
+        # LLM status banner — only shown when any step failed or used fallback
+        has_issue = any(not ok or (prov and prov != "OpenAI") for _, prov, ok in self._llm_status)
+        if has_issue and self._llm_status:
+            status_lines = []
+            for step, prov, ok in self._llm_status:
+                if not ok:
+                    status_lines.append(f"&bull; {step}: <b style='color:#c0392b;'>FAILED</b> (降级为关键词/英文原文)")
+                elif prov and prov != "OpenAI":
+                    status_lines.append(f"&bull; {step}: <b style='color:#e67e22;'>FALLBACK</b> &rarr; {html.escape(prov)}")
+            if status_lines:
+                html += f"""
+<tr><td style="padding:8px 30px;">
+  <table width="100%" cellpadding="0" cellspacing="0" border="0">
+    <tr><td style="background:#fef9e7;border:1px solid #f0e1a0;border-radius:4px;padding:10px 14px;font-family:{FONT_SANS};font-size:11px;color:#7d6608;line-height:1.6;">
+      <b>LLM Status</b><br>{'<br>'.join(status_lines)}
+    </td></tr>
+  </table>
+</td></tr>
 """
 
         # Pass 1: collect all articles grouped by region (with reclassification)
