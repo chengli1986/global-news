@@ -569,10 +569,12 @@ def send_report_email(html_body: str, candidate_count: int) -> bool:
     now_bjt = datetime.now(BJT).strftime("%m月%d日 %H:%M")
     subject = f"🔍 RSS Discovery — {candidate_count} candidates — {now_bjt}"
     subject_b64 = base64.b64encode(subject.encode("utf-8")).decode("ascii")
+    msg_id = f"<rss-discovery-{datetime.now(BJT).strftime('%Y%m%d%H%M%S')}-{os.getpid()}@ec2.sinostor.com.cn>"
 
     mail_content = (
         f'From: "RSS Discovery" <{smtp_user}>\r\n'
         f"To: {mail_to}\r\n"
+        f"Message-ID: {msg_id}\r\n"
         f"Subject: =?UTF-8?B?{subject_b64}?=\r\n"
         f"Content-Type: text/html; charset=UTF-8\r\n"
         f"MIME-Version: 1.0\r\n"
@@ -597,7 +599,7 @@ def send_report_email(html_body: str, candidate_count: int) -> bool:
             capture_output=True, text=True, timeout=45,
         )
         if result.returncode == 0:
-            print(f"Report email sent to {mail_to}")
+            print(f"Report email sent to {mail_to} (Message-ID: {msg_id})")
             return True
         else:
             print(f"Email send failed: {result.stderr}", file=sys.stderr)
