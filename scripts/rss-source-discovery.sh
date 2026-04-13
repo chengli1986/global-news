@@ -7,6 +7,20 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 LOG_PREFIX="[$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')]"
 
+# Absolute paths — single source of truth
+CATEGORIES_FILE="$REPO_DIR/config/rss-discovery-categories.json"
+SOURCES_FILE="$REPO_DIR/news-sources-config.json"
+CANDIDATES_FILE="$REPO_DIR/config/discovered-rss.json"
+HELPER="$REPO_DIR/rss-source-discovery.py"
+TRIAL_MANAGER="$REPO_DIR/rss-trial-manager.py"
+ENV_FILE="$HOME/.stock-monitor.env"
+
+# PID-scoped temp files to prevent concurrent-run collisions
+RAW_JSON="/tmp/rss-raw-candidates.$$.json"
+DEDUPED_JSON="/tmp/rss-deduped.$$.json"
+VALIDATED_JSON="/tmp/rss-validated.$$.json"
+SCORED_JSON="/tmp/rss-scored.$$.json"
+
 cleanup() {
     local pids
     pids=$(jobs -p 2>/dev/null)
@@ -16,6 +30,7 @@ cleanup() {
         sleep 2
         kill -9 $pids 2>/dev/null || true
     fi
+    rm -f "$RAW_JSON" "$DEDUPED_JSON" "$VALIDATED_JSON" "$SCORED_JSON"
 }
 trap cleanup EXIT
 
@@ -26,10 +41,6 @@ unset ANTHROPIC_API_KEY
 unset CLAUDECODE
 
 cd "$REPO_DIR"
-
-CATEGORIES_FILE="$REPO_DIR/config/rss-discovery-categories.json"
-SOURCES_FILE="$REPO_DIR/news-sources-config.json"
-HELPER="$REPO_DIR/rss-source-discovery.py"
 
 if [ ! -f "$CATEGORIES_FILE" ]; then
     echo "$LOG_PREFIX ERROR: $CATEGORIES_FILE not found"
