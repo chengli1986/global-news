@@ -321,8 +321,11 @@ class UnifiedNewsSender:
                 with urllib.request.urlopen(req, timeout=timeout) as resp:
                     return json.loads(resp.read().decode("utf-8"))
             except urllib.error.HTTPError as e:
-                if e.code in (429, 500, 502, 503) and attempt < max_retries - 1:
-                    wait = (2 ** attempt) * 5  # 5s, 10s, 20s
+                # 429 = rate limit / budget exhausted — retry once then give up fast
+                # 5xx = transient server error — worth retrying with backoff
+                retryable = (429, 500, 502, 503)
+                if e.code in retryable and attempt < max_retries - 1:
+                    wait = 2 if e.code == 429 else (2 ** attempt) * 5
                     print(f"  ⏳ {provider} returned {e.code}, retrying in {wait}s (attempt {attempt + 1}/{max_retries})...")
                     time.sleep(wait)
                     continue
