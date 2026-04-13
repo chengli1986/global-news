@@ -340,10 +340,15 @@ class UnifiedNewsSender:
             stripped = "\n".join(lines)
         return json.loads(stripped)
 
+    # Circuit breaker: skip providers that already failed this session
+    _openai_down = False
+    _gemini_flash_down = False
+
     def _llm_api_call(self, payload: dict, timeout: int = 120, max_retries: int = 3) -> dict:
-        """Make LLM API call: try OpenAI first, fallback to Gemini 2.5 Flash on failure."""
-        # Try OpenAI (gpt-4.1-mini)
-        if self._openai_key:
+        """Make LLM API call: try OpenAI first, fallback to Gemini.
+        Circuit breaker skips providers that already failed this session."""
+        # Try OpenAI (gpt-4.1-mini) — skip if already down
+        if self._openai_key and not self._openai_down:
             try:
                 return self._api_call_with_retry(
                     url="https://api.openai.com/v1/chat/completions",
@@ -351,18 +356,20 @@ class UnifiedNewsSender:
                     timeout=timeout, max_retries=max_retries, provider="OpenAI",
                 )
             except Exception as openai_err:
+                UnifiedNewsSender._openai_down = True
                 if self._gemini_key:
-                    print(f"  ⚠️  OpenAI failed ({openai_err}), switching to Gemini 2.5 Flash...")
+                    print(f"  ⚠️  OpenAI failed ({openai_err}), switching to Gemini (skipping OpenAI for remaining calls)...")
                 else:
                     raise
 
         # Fallback: Gemini via OpenAI-compatible endpoint
         # Strip response_format — Gemini's compat endpoint returns 503 with it on larger payloads.
-        # Try gemini-2.5-flash first, then gemini-2.5-flash-lite if capacity-limited.
         if self._gemini_key:
             base_payload = {k: v for k, v in payload.items() if k != "response_format"}
             gemini_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-            for gemini_model in ("gemini-2.5-flash", "gemini-2.5-flash-lite"):
+            models = ("gemini-2.5-flash", "gemini-2.5-flash-lite") if not self._gemini_flash_down \
+                else ("gemini-2.5-flash-lite",)
+            for gemini_model in models:
                 try:
                     return self._api_call_with_retry(
                         url=gemini_url, api_key=self._gemini_key,
@@ -371,6 +378,7 @@ class UnifiedNewsSender:
                     )
                 except Exception as gemini_err:
                     if gemini_model == "gemini-2.5-flash":
+                        UnifiedNewsSender._gemini_flash_down = True
                         print(f"  ⚠️  {gemini_model} unavailable ({gemini_err}), trying flash-lite...")
                     else:
                         raise
