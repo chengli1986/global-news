@@ -58,12 +58,12 @@ PROMPT="IMPORTANT: Skip daily log recap and session start routines. Go straight 
 
 # RSS Source Discovery Task
 
-You are an RSS feed discovery agent. Find high-quality RSS feeds across 8 categories, validate them, score them, and generate a report.
+You are an RSS feed discovery agent. Find high-quality RSS feeds across 8 categories, validate them, and score them.
 
 ## Current State
 - Existing sources: $EXISTING_COUNT
 - Categories file: $CATEGORIES_FILE
-- Helper script: $HELPER (subcommands: validate, dedup, save, report)
+- Helper script: $HELPER (subcommands: validate, dedup)
 - Working directory: $REPO_DIR
 
 ## Steps
@@ -72,7 +72,7 @@ You are an RSS feed discovery agent. Find high-quality RSS feeds across 8 catego
 Read these files to understand what exists:
 - $CATEGORIES_FILE — 8 categories with search queries
 - $SOURCES_FILE — current source pool (avoid duplicates)
-- config/discovered-rss.json — prior candidates (avoid re-recommending rejected ones)
+- $CANDIDATES_FILE — prior candidates (avoid re-recommending rejected ones)
 
 ### Step 2: Discover candidates (dual-channel)
 For EACH of the 8 categories in the categories file:
@@ -85,38 +85,38 @@ Also check the directory_urls in the categories file for curated RSS lists.
 Target: 5-15 new candidates total across all categories.
 
 ### Step 3: Dedup
-Write your candidates as a JSON array to /tmp/rss-raw-candidates.json, then:
+Write your candidates as a JSON array to $RAW_JSON, then:
 \`\`\`bash
-cat /tmp/rss-raw-candidates.json | python3 $HELPER dedup > /tmp/rss-deduped.json
-echo \"Deduped: \$(python3 -c \"import json; print(len(json.load(open('/tmp/rss-deduped.json'))))\" ) candidates\"
+cat $RAW_JSON | python3 $HELPER dedup > $DEDUPED_JSON
+echo \"Deduped: \$(python3 -c \"import json; print(len(json.load(open('$DEDUPED_JSON'))))\" ) candidates\"
 \`\`\`
 
 ### Step 4: Validate
 \`\`\`bash
-cat /tmp/rss-deduped.json | python3 $HELPER validate > /tmp/rss-validated.json
+cat $DEDUPED_JSON | python3 $HELPER validate > $VALIDATED_JSON
 \`\`\`
 
 ### Step 5: Score
 For each validated candidate where parse_ok=true and article_count>0, you need to provide two AI judgments:
 
 - **authority** (0.0-1.0): Editorial credibility and brand recognition within its coverage domain.
-  - 0.90–1.0: Major international outlets — BBC, Reuters, AP, NYT, FT, The Guardian, Bloomberg, Economist, WSJ
-  - 0.85–0.89: Strong regional or specialty outlets — SCMP, Foreign Policy, The Diplomat, IEEE Spectrum, Nature, Science, ProPublica, NPR
-  - 0.75–0.84: Established mid-tier outlets — Axios, Politico, The Atlantic, France24, RFI, CNA, PBS NewsHour
-  - 0.65–0.74: Respected niche outlets — The Register, Ars Technica, VentureBeat, STAT News, Endpoints News
+  - 0.90-1.0: Major international outlets — BBC, Reuters, AP, NYT, FT, The Guardian, Bloomberg, Economist, WSJ
+  - 0.85-0.89: Strong regional or specialty outlets — SCMP, Foreign Policy, The Diplomat, IEEE Spectrum, Nature, Science, ProPublica, NPR
+  - 0.75-0.84: Established mid-tier outlets — Axios, Politico, The Atlantic, France24, RFI, CNA, PBS NewsHour
+  - 0.65-0.74: Respected niche outlets — The Register, Ars Technica, VentureBeat, STAT News, Endpoints News
   - Chinese-language reference: 财新/南方周末 = 0.85+; 36氪/虎嗅/澎湃 = 0.75; IT之家/少数派 = 0.65
-  - 0.50–0.64: Smaller niche or regional publications with limited broader recognition
-  - 0.30–0.49: Unknown / unverifiable sources
+  - 0.50-0.64: Smaller niche or regional publications with limited broader recognition
+  - 0.30-0.49: Unknown / unverifiable sources
   - **Paywall note**: Heavy paywalls (New Yorker, Foreign Policy, IEEE Spectrum) do NOT reduce authority — authority reflects editorial quality. Content depth is captured separately via avg_description_length.
 
 - **uniqueness** (0.0-1.0): How much NEW coverage this source adds vs the existing pool.
   - 0.90: Covers a region/topic/language entirely absent from current pool
-  - 0.70–0.85: Meaningful differentiation — different editorial angle, unique specialisation, underrepresented region
-  - 0.50–0.65: Partial overlap — similar topic area but different outlet or perspective
-  - 0.20–0.40: Heavy overlap — same region AND same topic as 2+ existing sources
-  - **0.10–0.20: Sub-feed of an existing outlet** — HARD PENALTY. Apply when the candidate is a section/topic feed from an outlet already in the pool (e.g., BBC Technology when BBC World/BBC Business already exist; Bloomberg Markets when Bloomberg already exists; NYT Science when NYT Business already exists). The parent outlet already covers the same editorial voice.
-  - **0.15–0.25: Same media group, different brand** — e.g., Guardian US when Guardian World exists; CNBC Asia when CNBC already exists.
-  - **Rule**: Always check `config/news-sources-config.json` (existing pool) before scoring. If the candidate shares a root domain or parent brand with an existing source, apply the sub-feed penalty unless it covers a clearly distinct language or region not represented.
+  - 0.70-0.85: Meaningful differentiation — different editorial angle, unique specialisation, underrepresented region
+  - 0.50-0.65: Partial overlap — similar topic area but different outlet or perspective
+  - 0.20-0.40: Heavy overlap — same region AND same topic as 2+ existing sources
+  - **0.10-0.20: Sub-feed of an existing outlet** — HARD PENALTY. Apply when the candidate is a section/topic feed from an outlet already in the pool (e.g., BBC Technology when BBC World/BBC Business already exist; Bloomberg Markets when Bloomberg already exists; NYT Science when NYT Business already exists). The parent outlet already covers the same editorial voice.
+  - **0.15-0.25: Same media group, different brand** — e.g., Guardian US when Guardian World exists; CNBC Asia when CNBC already exists.
+  - **Rule**: Always check $SOURCES_FILE (existing pool) before scoring. If the candidate shares a root domain or parent brand with an existing source, apply the sub-feed penalty unless it covers a clearly distinct language or region not represented.
 
 Then compute scores:
 \`\`\`python
@@ -124,7 +124,7 @@ python3 << 'PYEOF'
 import json, sys, os, importlib.util
 spec = importlib.util.spec_from_file_location(\"m\", \"$HELPER\")
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-candidates = json.load(open(\"/tmp/rss-validated.json\"))
+candidates = json.load(open(\"$VALIDATED_JSON\"))
 scored = []
 for c in candidates:
     v = c.get(\"validation\", {})
@@ -134,31 +134,21 @@ for c in candidates:
         uniqueness = 0.5  # REPLACE per candidate
         c[\"scores\"] = m.compute_scores(v, authority=authority, uniqueness=uniqueness)
         scored.append(c)
-json.dump(scored, open(\"/tmp/rss-scored.json\", \"w\"), indent=2, ensure_ascii=False)
+json.dump(scored, open(\"$SCORED_JSON\", \"w\"), indent=2, ensure_ascii=False)
 print(f\"Scored {len(scored)} candidates\")
 PYEOF
 \`\`\`
 
 IMPORTANT: Do NOT use the placeholder values above. For EACH candidate, assess authority and uniqueness based on your knowledge of the publication.
 
-### Step 6: Save + Report
-\`\`\`bash
-cat /tmp/rss-scored.json | python3 $HELPER save
-python3 $HELPER report
-\`\`\`
-
-### Step 7: Commit + Push
-\`\`\`bash
-cd $REPO_DIR
-git add config/discovered-rss.json
-git diff --cached --quiet || git commit -m \"data(discovery): update RSS candidates \$(TZ='Asia/Shanghai' date '+%Y-%m-%d')\"
-\`\`\`
+### Done
+After Step 5, your work is complete. Do NOT run save, commit, push, or report — the orchestration shell handles those.
 
 ## Constraints
 - Maximum 30 minutes for this session
 - Target: 5-15 new candidates per run
 - Only recommend feeds that parse successfully and have recent articles
-- Do NOT modify news-sources-config.json (promotion is handled automatically by rss-trial-manager.py)
+- Do NOT modify $SOURCES_FILE (promotion is handled by the trial manager)
 - Do NOT use placeholder authority/uniqueness scores — assess each feed individually
 "
 
