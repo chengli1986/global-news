@@ -478,7 +478,12 @@ def main():
     report = format_console_report(results, state, swapped, reverted)
     print(report)
 
-    has_problems = any(not r["ok"] for r in results.values())
+    # Only flag as "has_problems" if a source has failed ≥2 consecutive times.
+    # Single failures are transient network blips — don't wake the cron alert.
+    has_problems = any(
+        not r["ok"] and state.get(name, {}).get("consecutive_fails", 0) >= 2
+        for name, r in results.items()
+    )
     has_changes = len(swapped) > 0 or len(reverted) > 0
 
     if send_email and (has_problems or has_changes):
@@ -487,7 +492,7 @@ def main():
     elif send_email:
         print("\n✅ 全部健康，无需发送告警邮件")
 
-    # Exit code: 0 = all ok, 1 = has problems
+    # Exit code: 0 = all ok or only 1 transient failure, 1 = ≥2 consecutive failures
     sys.exit(0 if not has_problems else 1)
 
 
