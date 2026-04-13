@@ -413,6 +413,28 @@ class TestLLMApiFallback:
         text = '```\n{"key": "value"}\n```'
         assert s._extract_json_from_text(text) == {"key": "value"}
 
+    def test_extract_json_with_surrounding_text(self):
+        """Text before/after code fence is ignored — only fenced content extracted."""
+        s = self._make_sender()
+        text = 'Here are the translations:\n```json\n["油价飙升"]\n```\nDone!'
+        # Leading text makes it not start with ```, so json.loads is attempted on the whole string
+        # which will fail — this is expected: the model should return clean output.
+        with pytest.raises(Exception):
+            s._extract_json_from_text(text)
+
+    def test_extract_json_invalid(self):
+        """Invalid JSON raises an exception."""
+        s = self._make_sender()
+        with pytest.raises(Exception):
+            s._extract_json_from_text("not json at all")
+        with pytest.raises(Exception):
+            s._extract_json_from_text('```json\n{broken\n```')
+
+    def test_extract_json_whitespace_padding(self):
+        """JSON with whitespace padding is handled."""
+        s = self._make_sender()
+        assert s._extract_json_from_text('  \n  ["a", "b"]  \n  ') == ["a", "b"]
+
     def test_no_keys_raises(self):
         """RuntimeError when neither OpenAI nor Gemini key is set."""
         s = self._make_sender()

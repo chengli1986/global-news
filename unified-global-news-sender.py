@@ -78,6 +78,7 @@ class UnifiedNewsSender:
         self.news_data = {}
         self._openai_key = os.getenv("OPENAI_API_KEY", "")
         self._gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
+        self._last_provider = ""  # set by _llm_api_call to the provider that handled each call
         self._use_pipeline = False  # off by default, enable with --pipeline
         self.beijing_time = self.get_beijing_time()
         self.period_info = self.get_period_info()
@@ -349,15 +350,18 @@ class UnifiedNewsSender:
 
     def _llm_api_call(self, payload: dict, timeout: int = 120, max_retries: int = 3) -> dict:
         """Make LLM API call: try OpenAI first, fallback to Gemini.
-        Circuit breaker skips providers that already failed this session."""
+        Circuit breaker skips providers that already failed this session.
+        Sets self._last_provider to the provider that actually handled the call."""
         # Try OpenAI (gpt-4.1-mini) — skip if already down
         if self._openai_key and not self._openai_down:
             try:
-                return self._api_call_with_retry(
+                result = self._api_call_with_retry(
                     url="https://api.openai.com/v1/chat/completions",
                     api_key=self._openai_key, payload=payload,
                     timeout=timeout, max_retries=max_retries, provider="OpenAI",
                 )
+                self._last_provider = "OpenAI"
+                return result
             except Exception as openai_err:
                 UnifiedNewsSender._openai_down = True
                 if self._gemini_key:
@@ -374,11 +378,13 @@ class UnifiedNewsSender:
                 else ("gemini-2.5-flash-lite",)
             for gemini_model in models:
                 try:
-                    return self._api_call_with_retry(
+                    result = self._api_call_with_retry(
                         url=gemini_url, api_key=self._gemini_key,
                         payload=dict(base_payload, model=gemini_model),
                         timeout=timeout, max_retries=max_retries, provider=f"Gemini({gemini_model})",
                     )
+                    self._last_provider = gemini_model
+                    return result
                 except Exception as gemini_err:
                     if gemini_model == "gemini-2.5-flash":
                         UnifiedNewsSender._gemini_flash_down = True
@@ -469,7 +475,8 @@ class UnifiedNewsSender:
                     self.news_data[source_name][idx] = (translations[i], old[1], old[2], orig_title)
                     applied += 1
 
-            print(f"✅ Translated {applied}/{len(eng_titles)} English titles to Chinese")
+            provider = getattr(self, "_last_provider", "unknown")
+            print(f"✅ Translated {applied}/{len(eng_titles)} English titles to Chinese (via {provider})")
 
         except Exception as e:
             print(f"⚠️  Title translation failed ({e}), keeping original English titles")
@@ -624,7 +631,8 @@ class UnifiedNewsSender:
                             reclassified_count += 1
                             break
 
-            print(f"✅ Classified {classified_count}/{len(to_classify)} articles, {reclassified_count} reclassified to different sections")
+            provider = getattr(self, "_last_provider", "unknown")
+            print(f"✅ Classified {classified_count}/{len(to_classify)} articles, {reclassified_count} reclassified to different sections (via {provider})")
 
         except Exception as e:
             print(f"⚠️  Article classification failed ({e}), falling back to keyword-based routing")
