@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-13T04:20:57.787437+08:00",
+  "last_discovery": "2026-04-14T04:18:08.477849+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -469,7 +469,8 @@
         "final": 0.787
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Rest of World",
@@ -765,7 +766,8 @@
         "final": 0.786
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Euronews",
@@ -2557,6 +2559,184 @@
         "authority": 0.65,
         "uniqueness": 0.88,
         "final": 0.871
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "National Post",
+      "url": "https://nationalpost.com/feed",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 0.7,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 111,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.65,
+        "uniqueness": 0.45,
+        "final": 0.745
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Bellingcat",
+      "url": "https://www.bellingcat.com/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 103.86,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 455,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.3,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.75,
+        "uniqueness": 0.88,
+        "final": 0.776
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "The China Project",
+      "url": "https://thechinaproject.com/feed/",
+      "language": "en",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 150,
+        "newest_age_hours": 20022.82,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 184,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.65,
+        "uniqueness": 0.68,
+        "final": 0.661
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "The Walrus",
+      "url": "https://thewalrus.ca/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 2.69,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 181,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.68,
+        "uniqueness": 0.75,
+        "final": 0.814
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Coconuts Media",
+      "url": "https://coconuts.co/feed/",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 15923.63,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 263,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.5,
+        "uniqueness": 0.65,
+        "final": 0.63
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Frontier Myanmar",
+      "url": "https://www.frontiermyanmar.net/en/feed",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 15.33,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 317,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.9,
+        "final": 0.855
       },
       "promoted": false,
       "rejected": false
