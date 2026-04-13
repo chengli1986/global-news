@@ -303,6 +303,31 @@ class UnifiedNewsSender:
 
         print(f"✅ 成功抓取 {sum(len(v) for v in self.news_data.values())} 条新闻\n")
 
+    def _openai_api_call(self, payload: dict, timeout: int = 120, max_retries: int = 3) -> dict:
+        """Make an OpenAI API call with retry on 429/5xx errors.
+        Returns the parsed JSON response. Raises on persistent failure."""
+        data = json.dumps(payload).encode("utf-8")
+        for attempt in range(max_retries):
+            req = urllib.request.Request(
+                "https://api.openai.com/v1/chat/completions",
+                data=data,
+                headers={
+                    "Content-Type": "application/json",
+                    "Authorization": f"Bearer {self._openai_key}",
+                },
+                method="POST",
+            )
+            try:
+                with urllib.request.urlopen(req, timeout=timeout) as resp:
+                    return json.loads(resp.read().decode("utf-8"))
+            except urllib.error.HTTPError as e:
+                if e.code in (429, 500, 502, 503) and attempt < max_retries - 1:
+                    wait = (2 ** attempt) * 5  # 5s, 10s, 20s
+                    print(f"  ⏳ API returned {e.code}, retrying in {wait}s (attempt {attempt + 1}/{max_retries})...")
+                    time.sleep(wait)
+                    continue
+                raise
+
     def translate_titles(self):
         """Translate English news titles to simplified Chinese via GPT-4.1-mini.
         Converts all news_data entries from 3-tuples to 4-tuples:
@@ -349,26 +374,13 @@ class UnifiedNewsSender:
             "Titles:\n" + json.dumps(titles_for_api, ensure_ascii=False)
         )
 
-        payload = json.dumps({
-            "model": "gpt-4.1-mini",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.3,
-            "response_format": {"type": "json_object"},
-        }).encode("utf-8")
-
-        req = urllib.request.Request(
-            "https://api.openai.com/v1/chat/completions",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self._openai_key}",
-            },
-            method="POST",
-        )
-
         try:
-            with urllib.request.urlopen(req, timeout=120) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
+            result = self._openai_api_call({
+                "model": "gpt-4.1-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.3,
+                "response_format": {"type": "json_object"},
+            }, timeout=120)
             content = result["choices"][0]["message"]["content"]
             parsed = json.loads(content)
             # Accept either a plain array or {"translations": [...]} or any key with array value
@@ -507,26 +519,13 @@ class UnifiedNewsSender:
             f"Titles ({len(to_classify)} total):\n{numbered_titles}"
         )
 
-        payload = json.dumps({
-            "model": "gpt-4.1-mini",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "response_format": {"type": "json_object"},
-        }).encode("utf-8")
-
-        req = urllib.request.Request(
-            "https://api.openai.com/v1/chat/completions",
-            data=payload,
-            headers={
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {self._openai_key}",
-            },
-            method="POST",
-        )
-
         try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                result = json.loads(resp.read().decode("utf-8"))
+            result = self._openai_api_call({
+                "model": "gpt-4.1-mini",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "response_format": {"type": "json_object"},
+            }, timeout=60)
             content = result["choices"][0]["message"]["content"]
             parsed = json.loads(content)
 
