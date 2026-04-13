@@ -382,11 +382,6 @@ class TestHtmlHelpers:
 class TestLLMApiFallback:
     """Tests for _llm_api_call provider fallback and _extract_json_from_text."""
 
-    def setup_method(self):
-        """Reset circuit breaker state before each test."""
-        UnifiedNewsSender._openai_down = False
-        UnifiedNewsSender._gemini_flash_down = False
-
     def _make_sender(self, openai_key="", gemini_key=""):
         """Create a sender with injected API keys (no real config needed)."""
         with patch.object(UnifiedNewsSender, "__init__", lambda self, **kw: None):
@@ -499,21 +494,6 @@ class TestLLMApiFallback:
         s = self._make_sender(gemini_key="gem-test")
         result = s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
         assert "generativelanguage.googleapis.com" in mock_retry.call_args[1]["url"]
-
-    @patch.object(UnifiedNewsSender, "_api_call_with_retry")
-    def test_circuit_breaker_skips_openai_on_second_call(self, mock_retry):
-        """After OpenAI fails once, second _llm_api_call skips OpenAI entirely."""
-        gemini_resp = {"choices": [{"message": {"content": "ok"}}]}
-        mock_retry.side_effect = [
-            Exception("429"),  # 1st call: OpenAI fails
-            gemini_resp,       # 1st call: Gemini succeeds
-            gemini_resp,       # 2nd call: Gemini directly (OpenAI skipped)
-        ]
-        s = self._make_sender(openai_key="sk-test", gemini_key="gem-test")
-        s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
-        s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
-        # 3 calls total: OpenAI(fail) + Gemini + Gemini (no second OpenAI attempt)
-        assert mock_retry.call_count == 3
 
     def test_gemini_key_from_env(self):
         """GEMINI_API_KEY and GOOGLE_API_KEY both picked up."""
