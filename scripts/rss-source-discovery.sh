@@ -174,30 +174,71 @@ else
     echo "$LOG_PREFIX RSS discovery finished successfully"
 fi
 
-# Only push on successful completion — avoid publishing partial/broken results
-if [ $EXIT_CODE -eq 0 ]; then
-    cd "$REPO_DIR"
-    REMOTE_HEAD=$(git rev-parse origin/main 2>/dev/null || echo "")
-    LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
-    if [ -n "$REMOTE_HEAD" ] && [ "$REMOTE_HEAD" != "$LOCAL_HEAD" ]; then
-        echo "$LOG_PREFIX Pushing new commits..."
-        git push 2>&1 || echo "$LOG_PREFIX WARNING: git push failed"
+# ============================================================
+# Phase 2: Deterministic post-AI orchestration
+# ============================================================
+
+SAVE_OK=false
+
+if [ $EXIT_CODE -eq 0 ] && validate_json_array "$SCORED_JSON"; then
+    echo "$LOG_PREFIX Artifact valid: $SCORED_JSON"
+
+    # --- Save ---
+    if python3 "$HELPER" save < "$SCORED_JSON" 2>&1; then
+        SAVE_OK=true
+        echo "$LOG_PREFIX Save succeeded"
+    else
+        echo "$LOG_PREFIX WARNING: save failed (exit $?), skipping commit/report"
+    fi
+else
+    if [ $EXIT_CODE -eq 0 ]; then
+        echo "$LOG_PREFIX WARNING: AI exited 0 but no valid scored artifact at $SCORED_JSON"
     fi
 fi
 
-# Run trial manager regardless of discovery exit code
-# (trial stats/promotion should not depend on discovery success)
+# --- Git commit + push (only if save succeeded) ---
+if $SAVE_OK; then
+    cd "$REPO_DIR"
+    git add config/discovered-rss.json
+    if git diff --cached --quiet 2>/dev/null; then
+        echo "$LOG_PREFIX No changes to commit (candidates already in pool)"
+    else
+        git commit -m "data(discovery): update RSS candidates $(TZ='Asia/Shanghai' date '+%Y-%m-%d')" 2>&1
+        if ! git push 2>&1; then
+            echo "$LOG_PREFIX WARNING: git push failed (will retry next run)"
+        fi
+    fi
+fi
+
+# --- Report email (only if save succeeded) ---
+if $SAVE_OK; then
+    if [ -f "$ENV_FILE" ]; then
+        set +u; source "$ENV_FILE"; set -u
+        if ! python3 "$HELPER" report 2>&1; then
+            echo "$LOG_PREFIX WARNING: report email failed (exit $?)"
+        fi
+    else
+        echo "$LOG_PREFIX WARNING: $ENV_FILE not found, skipping report email"
+    fi
+fi
+
+# --- Trial manager (unconditional) ---
 echo "$LOG_PREFIX Running RSS trial manager..."
-python3 "$REPO_DIR/rss-trial-manager.py" run 2>&1
+python3 "$TRIAL_MANAGER" run 2>&1
 TRIAL_EXIT=$?
 if [ $TRIAL_EXIT -ne 0 ]; then
     echo "$LOG_PREFIX WARNING: trial manager exited with code $TRIAL_EXIT"
 fi
 
-# Commit news-sources-config.json if trial manager added/modified it
+# Commit trial state changes if any
 cd "$REPO_DIR"
 if ! git diff --quiet config/trial-state.json news-sources-config.json 2>/dev/null; then
     git add config/trial-state.json news-sources-config.json
     git diff --cached --quiet || git commit -m "trial: update trial state $(TZ='Asia/Shanghai' date '+%Y-%m-%d')"
     git push 2>&1 || echo "$LOG_PREFIX WARNING: git push (trial) failed"
+fi
+
+# Propagate AI exit code for cron-wrapper alerting
+if [ $EXIT_CODE -ne 0 ]; then
+    exit $EXIT_CODE
 fi
