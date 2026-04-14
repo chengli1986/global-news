@@ -204,6 +204,8 @@ def check_source(name, url, source_type, max_age_hours):
                 return name, result
 
         try:
+            # Strip illegal XML control characters (e.g. \x1e from 36氪 feed)
+            text = re.sub(r'[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)
             root = ET.fromstring(text.encode("utf-8"))
         except ET.ParseError:
             result["error"] = "XML parse error"
