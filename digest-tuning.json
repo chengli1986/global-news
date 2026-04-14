@@ -1,5 +1,5 @@
 {
-  "dedup_similarity_threshold": 0.62,
+  "dedup_similarity_threshold": 0.70,
   "max_total_articles": 120,
   "target_article_count": 120,
   "freshness_weight": 0.90,
