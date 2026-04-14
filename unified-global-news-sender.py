@@ -999,7 +999,7 @@ class UnifiedNewsSender:
                 if not ok:
                     status_lines.append(f"&bull; {step}: <b style='color:#c0392b;'>FAILED</b> (降级为关键词/英文原文)")
                 elif prov and prov != "OpenAI":
-                    status_lines.append(f"&bull; {step}: <b style='color:#e67e22;'>FALLBACK</b> &rarr; {html.escape(prov)}")
+                    status_lines.append(f"&bull; {step}: <b style='color:#e67e22;'>FALLBACK</b> &rarr; {prov}")
             if status_lines:
                 html += f"""
 <tr><td style="padding:8px 30px;">
