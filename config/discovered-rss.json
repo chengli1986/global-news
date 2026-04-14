@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-14T04:18:08.477849+08:00",
+  "last_discovery": "2026-04-15T04:19:29.416949+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -116,7 +116,8 @@
         "final": 0.795
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "The Register",
@@ -499,7 +500,8 @@
         "final": 0.792
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "WSJ Markets",
@@ -1353,7 +1355,8 @@
         "final": 0.797
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "The Intercept",
@@ -2206,7 +2209,8 @@
         "final": 0.795
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "The Japan Times",
@@ -2235,7 +2239,8 @@
         "final": 0.793
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "EUobserver",
@@ -2737,6 +2742,331 @@
         "authority": 0.65,
         "uniqueness": 0.9,
         "final": 0.855
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Mother Jones",
+      "url": "https://www.motherjones.com/feed/",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 8.79,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 363,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.7,
+        "uniqueness": 0.7,
+        "final": 0.83
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Nautilus Magazine",
+      "url": "https://nautil.us/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 1.79,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 145,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.8,
+        "final": 0.836
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Conversation UK",
+      "url": "https://theconversation.com/uk/articles.atom",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 5.0,
+        "has_descriptions": false,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 0,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.25,
+        "content_depth": 0.0,
+        "authority": 0.65,
+        "uniqueness": 0.18,
+        "final": 0.544
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Free Malaysia Today",
+      "url": "https://www.freemalaysiatoday.com/feed/",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 4.34,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 132,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.6,
+        "uniqueness": 0.85,
+        "final": 0.83
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "El País English",
+      "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/english.elpais.com/portada",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 55,
+        "newest_age_hours": 2.65,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 180,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.92,
+        "content_depth": 0.6,
+        "authority": 0.8,
+        "uniqueness": 0.85,
+        "final": 0.89
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "The Hindu",
+      "url": "https://www.thehindu.com/feeder/default.rss",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 60,
+        "newest_age_hours": 0.21,
+        "has_descriptions": false,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 170,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.27,
+        "content_depth": 0.6,
+        "authority": 0.8,
+        "uniqueness": 0.9,
+        "final": 0.738
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "openDemocracy",
+      "url": "https://www.opendemocracy.net/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 101.33,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 109,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.77,
+        "content_depth": 0.6,
+        "authority": 0.65,
+        "uniqueness": 0.72,
+        "final": 0.631
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "New Scientist Health",
+      "url": "https://www.newscientist.com/subject/health/feed/",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 100,
+        "newest_age_hours": 4.28,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 176,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.52,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.15,
+        "final": 0.626
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Hakai Magazine",
+      "url": "https://www.hakaimagazine.com/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 11364.2,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 228,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.68,
+        "uniqueness": 0.8,
+        "final": 0.714
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Economic Times",
+      "url": "https://economictimes.indiatimes.com/rssfeedsdefault.cms",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 76,
+        "newest_age_hours": 5.49,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 231,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.6,
+        "content_depth": 1.0,
+        "authority": 0.72,
+        "uniqueness": 0.85,
+        "final": 0.786
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Asia Times",
+      "url": "https://asiatimes.com/feed/",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 1.5,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 453,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.75,
+        "final": 0.845
       },
       "promoted": false,
       "rejected": false
