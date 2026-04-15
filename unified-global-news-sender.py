@@ -304,6 +304,19 @@ class UnifiedNewsSender:
                     logging.exception("Thread failed fetching source %s", name)
                     self.news_data[name] = []
 
+        # Pre-filter: discard articles whose titles contain ETF fund codes (e.g. 512730)
+        # Pattern: 6-digit number inside parentheses, e.g. "(512730)" — signals advertorial soft content
+        _ETF_CODE_RE = re.compile(r'\(\d{6}\)')
+        for src_name in self.news_data:
+            before = len(self.news_data[src_name])
+            self.news_data[src_name] = [
+                item for item in self.news_data[src_name]
+                if not _ETF_CODE_RE.search(item[0])
+            ]
+            dropped = before - len(self.news_data[src_name])
+            if dropped:
+                print(f"  🗑️  {src_name}: 过滤 {dropped} 条基金代码软文")
+
         print(f"✅ 成功抓取 {sum(len(v) for v in self.news_data.values())} 条新闻\n")
 
     def _api_call_with_retry(self, url: str, api_key: str, payload: dict,
@@ -577,7 +590,9 @@ class UnifiedNewsSender:
             "- Articles about war's economic impact (oil prices, gold, supply chains) where the PRIMARY topic is the war/geopolitics → \"politics\"\n"
             "- Company earnings, stock market, business strategy → \"finance\"\n"
             "- An article about an AI product or tech company innovation → \"tech\"\n"
-            "- A non-tech company's organizational restructuring or business operations → \"finance\"\n\n"
+            "- A non-tech company's organizational restructuring or business operations → \"finance\"\n"
+            "- Consumer electronics product reviews, device specs, phone/tablet/monitor/storage product launches or hands-on reviews → NOT \"tech\"; classify as \"china\" if Chinese source, else \"finance\"\n"
+            "- Only classify as \"tech\" if the article discusses a genuine technical breakthrough, AI/software innovation, or industry-wide trend — not routine gadget/spec news\n\n"
             f"Titles ({len(to_classify)} total):\n{numbered_titles}"
         )
 
