@@ -37,3 +37,6 @@ legacy-411	0.7822	REVERTED	max_total 45→120 + region_quotas scaled 2.67x (raw 
 6587c61	n/a	CONFIG	raise max_total 100→120, region_quotas scaled ×1.2 (245 raw pool, 51% selection rate)
 67d5972	n/a	CONFIG	merge US&Europe quota into GLOBAL POLITICS (min 11+11=22, max 32); freshness_weight 1.0→0.42; enable --pipeline in cron (195 raw → 117 selected)
 31cc5a1	0.8111	BASELINE	post-BASELINE_RESET baseline (16 fixtures, current config: max_total=120, freshness_weight=0.90)
+863f8cc	0.8120	KEPT	lower target/max_total 120->116 to match natural selection (density fix, +0.0009)
+f859a42	0.8420	KEPT	rebalance region quotas max_sum=target=100: GLOBAL POLITICS min 22->15 max 32->22, Canada max 16->10, Economist max 16->8, others max->15 (+0.0300)
+022eeaa	0.8579	KEPT	uniform max=16 all 5 main regions (GLOBAL POLITICS max 22->16), target/max 100->98, balance ~0.70->0.77 (+0.0159)
