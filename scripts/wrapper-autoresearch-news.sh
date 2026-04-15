@@ -97,7 +97,7 @@ python3 /home/ubuntu/infra-scripts/sync-ar-history.py news "$REPO_DIR/autoresear
 echo "$LOG_PREFIX Sending AR progress report email..."
 export NEWS_RESULTS_TSV="$REPO_DIR/autoresearch/results.tsv"
 export CRA_RESULTS_TSV="/home/ubuntu/code-review-agent/autoresearch/results.tsv"
-export RECIPIENT="${NEWS_MAIL_TO:-${MAIL_TO:-}}"
+export RECIPIENT="${MAIL_TO:-}"  # AR report: owner only (ch_w10), not full NEWS_MAIL_TO list
 if [ -z "$RECIPIENT" ]; then
     echo "$LOG_PREFIX No recipient configured, skipping progress report"
 else
