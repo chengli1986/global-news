@@ -1,7 +1,7 @@
 {
   "dedup_similarity_threshold": 0.70,
-  "max_total_articles": 120,
-  "target_article_count": 120,
+  "max_total_articles": 116,
+  "target_article_count": 116,
   "freshness_weight": 0.90,
   "source_tiers": {
     "premium": ["FT", "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science", "Bloomberg", "Bloomberg Econ", "Bloomberg Politics", "界面新闻", "36氪"],

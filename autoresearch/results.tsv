@@ -36,3 +36,4 @@ legacy-411	0.7822	REVERTED	max_total 45→120 + region_quotas scaled 2.67x (raw 
 974e6c6	n/a	BASELINE_RESET	expand source limits avg-3→avg-6/8, max_total 45→100, region_quotas 2.2x — old fixtures cleared, AR baseline reset
 6587c61	n/a	CONFIG	raise max_total 100→120, region_quotas scaled ×1.2 (245 raw pool, 51% selection rate)
 67d5972	n/a	CONFIG	merge US&Europe quota into GLOBAL POLITICS (min 11+11=22, max 32); freshness_weight 1.0→0.42; enable --pipeline in cron (195 raw → 117 selected)
+31cc5a1	0.8111	BASELINE	post-BASELINE_RESET baseline (16 fixtures, current config: max_total=120, freshness_weight=0.90)
