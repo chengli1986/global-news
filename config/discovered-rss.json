@@ -22,11 +22,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.77,
+        "content_quality": 0.81,
         "content_depth": 0.6,
         "authority": 0.75,
         "uniqueness": 0.8,
-        "final": 0.807
+        "final": 0.818
       },
       "promoted": false,
       "rejected": false
@@ -51,11 +51,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.7,
-        "final": 0.875
+        "final": 0.895
       },
       "promoted": false,
       "rejected": false
@@ -169,11 +169,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 0.8,
-        "content_quality": 0.8,
+        "content_quality": 1.0,
         "content_depth": 0.0,
         "authority": 0.75,
         "uniqueness": 0.95,
-        "final": 0.815
+        "final": 0.865
       },
       "promoted": false,
       "rejected": false
@@ -258,11 +258,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.95,
-        "final": 0.89
+        "final": 0.91
       },
       "promoted": false,
       "rejected": false
@@ -287,11 +287,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.77,
+        "content_quality": 0.81,
         "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.8,
-        "final": 0.838
+        "final": 0.848
       },
       "promoted": false,
       "rejected": false
@@ -316,11 +316,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.77,
+        "content_quality": 0.81,
         "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.85,
-        "final": 0.853
+        "final": 0.863
       },
       "promoted": false,
       "rejected": false
@@ -375,11 +375,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.95,
-        "final": 0.91
+        "final": 0.93
       },
       "promoted": false,
       "rejected": false
@@ -434,11 +434,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 0.8,
-        "content_quality": 0.85,
+        "content_quality": 0.81,
         "content_depth": 1.0,
         "authority": 0.8,
         "uniqueness": 0.9,
-        "final": 0.853
+        "final": 0.843
       },
       "promoted": false,
       "rejected": false
@@ -938,11 +938,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 0.8,
-        "content_quality": 0.86,
+        "content_quality": 1.0,
         "content_depth": 0.3,
         "authority": 0.85,
         "uniqueness": 0.82,
-        "final": 0.854
+        "final": 0.889
       },
       "promoted": false,
       "rejected": false
@@ -967,11 +967,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.82,
         "uniqueness": 0.9,
-        "final": 0.906
+        "final": 0.926
       },
       "promoted": false,
       "rejected": false
@@ -1084,11 +1084,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.77,
+        "content_quality": 0.81,
         "content_depth": 0.6,
         "authority": 0.7,
         "uniqueness": 0.88,
-        "final": 0.808
+        "final": 0.819
       },
       "promoted": false,
       "rejected": false
@@ -1113,11 +1113,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.8,
+        "content_quality": 1.0,
         "content_depth": 0.0,
         "authority": 0.65,
         "uniqueness": 0.92,
-        "final": 0.809
+        "final": 0.859
       },
       "promoted": false,
       "rejected": false
@@ -1142,11 +1142,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.68,
         "uniqueness": 0.92,
-        "final": 0.848
+        "final": 0.868
       },
       "promoted": false,
       "rejected": false
@@ -1201,11 +1201,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 0.8,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.72,
         "uniqueness": 0.85,
-        "final": 0.836
+        "final": 0.856
       },
       "promoted": false,
       "rejected": false
@@ -1495,11 +1495,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.67,
+        "content_quality": 0.69,
         "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.75,
-        "final": 0.823
+        "final": 0.828
       },
       "promoted": false,
       "rejected": false
@@ -1554,11 +1554,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.67,
+        "content_quality": 0.69,
         "content_depth": 0.6,
         "authority": 0.85,
         "uniqueness": 0.92,
-        "final": 0.857
+        "final": 0.862
       },
       "promoted": false,
       "rejected": false
@@ -1583,11 +1583,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.88,
         "uniqueness": 0.85,
-        "final": 0.914
+        "final": 0.934
       },
       "promoted": false,
       "rejected": false
@@ -1789,11 +1789,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 0.8,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.68,
         "uniqueness": 0.9,
-        "final": 0.814
+        "final": 0.834
       },
       "promoted": false,
       "rejected": false
@@ -1906,11 +1906,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 0.5,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.72,
         "uniqueness": 0.92,
-        "final": 0.805
+        "final": 0.825
       },
       "promoted": false,
       "rejected": false
@@ -2291,11 +2291,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 0.8,
-        "content_quality": 0.86,
+        "content_quality": 1.0,
         "content_depth": 0.3,
         "authority": 0.72,
         "uniqueness": 0.75,
-        "final": 0.801
+        "final": 0.836
       },
       "promoted": false,
       "rejected": false
@@ -2678,11 +2678,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.68,
         "uniqueness": 0.75,
-        "final": 0.814
+        "final": 0.834
       },
       "promoted": false,
       "rejected": false
@@ -2795,11 +2795,11 @@
       "scores": {
         "reliability": 0.8,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.72,
         "uniqueness": 0.8,
-        "final": 0.836
+        "final": 0.856
       },
       "promoted": false,
       "rejected": false
@@ -2854,11 +2854,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.6,
         "uniqueness": 0.85,
-        "final": 0.83
+        "final": 0.85
       },
       "promoted": false,
       "rejected": false
@@ -2883,11 +2883,11 @@
       "scores": {
         "reliability": 1.0,
         "freshness": 1.0,
-        "content_quality": 0.92,
+        "content_quality": 1.0,
         "content_depth": 0.6,
         "authority": 0.8,
         "uniqueness": 0.85,
-        "final": 0.89
+        "final": 0.91
       },
       "promoted": false,
       "rejected": false

@@ -374,12 +374,16 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
     else:
         freshness = 0.0
 
-    # Content quality — metadata presence (0.80) + content depth (0.20)
-    # content_depth proxies full-text vs paywall teaser via avg description length:
-    #   >= 200 chars  → likely full text or rich summary  (1.0)
-    #   >= 100 chars  → decent summary                    (0.6)
-    #   >= 50 chars   → minimal teaser                    (0.3)
-    #   < 50 chars    → paywall stub / empty              (0.0)
+    # Content quality — metadata presence only (3 signals, normalised to 1.0)
+    # content_depth (RSS description length) is computed separately as an operational
+    # flag but does NOT affect the score. Rationale: description length reflects a
+    # publication's RSS formatting policy, not editorial quality. Good sources like
+    # Foreign Policy or 端传媒 use short RSS teasers by design; penalising them here
+    # conflates RSS format with content quality. Usability is validated during trial
+    # (7-day selected count) instead.
+    #   has_descriptions → 0.50  (most important: any summary at all)
+    #   has_authors      → 0.31  (bylines signal editorial accountability)
+    #   has_categories   → 0.19  (taxonomy signals structured editorial workflow)
     avg_desc_len = validation.get("avg_description_length", 0)
     if avg_desc_len >= 200:
         content_depth = 1.0
@@ -391,10 +395,9 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
         content_depth = 0.0
 
     content_quality = (
-        (0.40 if validation.get("has_descriptions") else 0.0)
-        + (0.25 if validation.get("has_authors") else 0.0)
-        + (0.15 if validation.get("has_categories") else 0.0)
-        + 0.20 * content_depth
+        (0.50 if validation.get("has_descriptions") else 0.0)
+        + (0.31 if validation.get("has_authors") else 0.0)
+        + (0.19 if validation.get("has_categories") else 0.0)
     )
 
     # Clamp authority and uniqueness
@@ -523,9 +526,18 @@ def generate_report_html(scored_candidates: list, existing_count: int) -> str:
         )
         article_count = c.get("validation", {}).get("article_count", "")
 
+        # content_depth operational flag — does NOT affect score, shown as trial reminder
+        depth = scores.get("content_depth", 1.0)
+        if depth == 0.0:
+            depth_flag = '<span style="color:#dc2626;font-size:11px;" title="RSS descriptions empty — likely paywall stub. Monitor selected count during trial.">⚠️ RSS空</span>'
+        elif depth <= 0.3:
+            depth_flag = '<span style="color:#d97706;font-size:11px;" title="RSS descriptions short (teaser only). Good sources like Foreign Policy use this style by design — watch selected count in trial.">⚠️ RSS短</span>'
+        else:
+            depth_flag = ""
+
         rows.append(
             f"<tr>"
-            f"<td>{_html_escape(c.get('name', ''))}</td>"
+            f"<td>{_html_escape(c.get('name', ''))}{(' ' + depth_flag) if depth_flag else ''}</td>"
             f"<td><a href=\"{_html_escape(c.get('url', ''))}\">{_html_escape(c.get('url', ''))}</a></td>"
             f"<td>{_html_escape(c.get('category', ''))}</td>"
             f"<td>{_html_escape(c.get('language', ''))}</td>"
@@ -536,9 +548,24 @@ def generate_report_html(scored_candidates: list, existing_count: int) -> str:
             f"</tr>"
         )
 
+    legend_html = """\
+<div style="margin:16px 0;padding:12px 16px;background:#f8fafc;border-left:4px solid #64748b;font-family:sans-serif;font-size:13px;line-height:1.7;">
+  <strong>如何读这份报告</strong><br>
+  <strong>Score（总分）</strong> 由 5 个维度加权得出：
+  <span title="可访问性：feed 能否正常解析、有多少文章"><u>R</u>eliability</span>（10%）·
+  <span title="更新频率：最新文章距今多久，考虑了低频专业媒体的发布节奏"><u>F</u>reshness</span>（15%）·
+  <span title="内容元数据：是否有摘要/署名/分类，不含RSS摘要长度"><u>Q</u>uality</span>（25%）·
+  <span title="权威性：AI 基于对出版物的知识打分，最重要的信号"><u>A</u>uthority</span>（30%）·
+  <span title="唯一性：这个源能带来现有池子里没有的覆盖角度吗"><u>U</u>niqueness</span>（20%）<br>
+  <strong>⚠️ RSS短 / RSS空</strong>：该源 RSS 摘要较短或为空，系编辑/付费墙策略所致，<em>不影响评分</em>。
+  进入 trial 后如果 7 天 selected 篇数过少会自然淘汰。<br>
+  <strong>晋级流程</strong>：Score ≥ 0.90 → 进入 7 天 trial（实测系统每天 selected 数）→ 7 天内 ≥ 5 篇入选 → 自动加入正式源
+</div>"""
+
     html = f"""\
 <h2>RSS Source Discovery Report</h2>
-<p>Generated: {now_bjt} | Existing sources: {existing_count} | New candidates: {len(above)}</p>
+<p>Generated: {now_bjt} | Existing sources: {existing_count} | New candidates shown: {len(above)}</p>
+{legend_html}
 <table border="1" cellpadding="6" cellspacing="0" style="border-collapse:collapse;font-family:sans-serif;">
 <tr style="background:#f3f4f6;">
   <th>Name</th><th>URL</th><th>Category</th><th>Language</th><th>Score</th><th>Rating</th><th>R/F/Q/A/U</th><th>Articles</th>
