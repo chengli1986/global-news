@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-17T04:21:01.235892+08:00",
+  "last_discovery": "2026-04-18T04:21:23.811778+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -1092,7 +1092,8 @@
         "final": 0.819
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "量子位",
@@ -1650,7 +1651,8 @@
         "final": 0.821
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "KFF Health News",
@@ -1914,7 +1916,8 @@
         "final": 0.825
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Dawn Pakistan",
@@ -3606,6 +3609,393 @@
         "authority": 0.95,
         "uniqueness": 0.85,
         "final": 0.68
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Christian Science Monitor",
+      "url": "https://rss.csmonitor.com/feeds/csm",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 0.42,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 215,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 1.0,
+        "authority": 0.72,
+        "uniqueness": 0.72,
+        "final": 0.792
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "The Texas Tribune",
+      "url": "https://www.texastribune.org/feed/",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 10.34,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 155,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.8,
+        "final": 0.846
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "WHO News",
+      "url": "https://www.who.int/rss-feeds/news-english.xml",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 25,
+        "newest_age_hours": 76.3,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 1205,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.5,
+        "content_depth": 1.0,
+        "authority": 0.88,
+        "uniqueness": 0.9,
+        "final": 0.699
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Import AI",
+      "url": "https://importai.substack.com/feed/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 106.3,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 47,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.81,
+        "content_depth": 0.0,
+        "authority": 0.72,
+        "uniqueness": 0.85,
+        "final": 0.689
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "ECFR Analysis",
+      "url": "https://ecfr.eu/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 25,
+        "newest_age_hours": 15.34,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 177,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.78,
+        "uniqueness": 0.85,
+        "final": 0.874
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "IPS News",
+      "url": "https://www.ipsnews.net/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 35,
+        "newest_age_hours": 3.2,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 351,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.68,
+        "uniqueness": 0.82,
+        "final": 0.868
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "OC Media",
+      "url": "https://oc-media.org/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 16,
+        "newest_age_hours": 8.13,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 149,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.62,
+        "uniqueness": 0.9,
+        "final": 0.816
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "InfoQ Architecture",
+      "url": "https://feed.infoq.com/architecture-design/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 15,
+        "newest_age_hours": 5.52,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 369,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.18,
+        "final": 0.711
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Jerusalem Post",
+      "url": "https://www.jpost.com/Rss/RssFeedsHeadlines.aspx",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 7323.68,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 0,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.5,
+        "content_depth": 0.0,
+        "authority": 0.65,
+        "uniqueness": 0.72,
+        "final": 0.564
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Science Alert",
+      "url": "https://www.sciencealert.com/feed",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 2.32,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 169,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.65,
+        "uniqueness": 0.72,
+        "final": 0.819
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "The Conversation Australia",
+      "url": "https://theconversation.com/au/articles.atom",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 50,
+        "newest_age_hours": 15.09,
+        "has_descriptions": false,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 0,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.31,
+        "content_depth": 0.0,
+        "authority": 0.7,
+        "uniqueness": 0.3,
+        "final": 0.567
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Global Issues",
+      "url": "https://www.globalissues.org/news/feed/rss",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": -3.8,
+        "has_descriptions": false,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 0,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.0,
+        "content_depth": 0.0,
+        "authority": 0.62,
+        "uniqueness": 0.78,
+        "final": 0.572
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Politico Playbook",
+      "url": "https://rss.politico.com/playbook.xml",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 10.17,
+        "has_descriptions": false,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 61,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.31,
+        "content_depth": 0.3,
+        "authority": 0.8,
+        "uniqueness": 0.18,
+        "final": 0.574
       },
       "promoted": false,
       "rejected": true,
