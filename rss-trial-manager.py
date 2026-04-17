@@ -197,6 +197,75 @@ def aggregate_today_stats(source_name: str) -> dict:
 
 # ── report generation ─────────────────────────────────────────────────────────
 
+SCORE_DIMENSIONS = {
+    "reliability": ("可靠性", "Feed 能否稳定访问、解析成功、文章数量充足（≥10 篇视为满分）"),
+    "freshness": ("时效性", "最新文章距当前的时间，1.5h 内满分，超过 24h 得分趋近 0"),
+    "content_quality": ("内容质量", "是否包含描述文本、作者、分类标签，描述越详细分越高"),
+    "content_depth": ("内容深度", "描述文本平均长度，反映文章是否有实质内容而非标题党"),
+    "authority": ("权威度", "基于来源知名度的固定评分，The Guardian 等主流媒体约 0.88"),
+    "uniqueness": ("独特性", "与现有 40 个源在话题/地区/语言上的差异化程度，越互补越高"),
+}
+
+
+def _load_candidate_detail(url: str) -> dict:
+    """Load candidate scores/validation from discovered-rss.json by URL."""
+    if not os.path.isfile(CANDIDATES_FILE):
+        return {}
+    try:
+        with open(CANDIDATES_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        for c in data.get("candidates", []):
+            if c.get("url") == url:
+                return c
+    except Exception:
+        pass
+    return {}
+
+
+def _build_score_rows(scores: dict) -> str:
+    rows = ""
+    dim_order = ["reliability", "freshness", "content_quality", "content_depth", "authority", "uniqueness"]
+    for dim in dim_order:
+        val = scores.get(dim)
+        if val is None:
+            continue
+        label, explanation = SCORE_DIMENSIONS.get(dim, (dim, ""))
+        bar_width = int(val * 80)
+        bar_color = "#2e7d32" if val >= 0.9 else "#f57c00" if val >= 0.7 else "#c62828"
+        rows += f"""
+        <tr>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;width:90px;"><strong>{label}</strong></td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;width:50px;text-align:center;font-weight:bold;color:{bar_color};">{val:.2f}</td>
+          <td style="padding:6px 10px;border-bottom:1px solid #eee;">
+            <div style="background:#eee;border-radius:3px;height:8px;margin-bottom:4px;">
+              <div style="background:{bar_color};border-radius:3px;height:8px;width:{bar_width}px;"></div>
+            </div>
+            <span style="color:#666;font-size:12px;">{_html_escape(explanation)}</span>
+          </td>
+        </tr>"""
+    return rows
+
+
+def _build_stats_rows(stats: list, normal_daily_limit: int = 3) -> str:
+    rows = ""
+    for d in stats:
+        date = _html_escape(d.get("date", ""))
+        fetched = d.get("fetched", 0)
+        selected = d.get("selected", 0)
+        rate = f"{selected/fetched*100:.0f}%" if fetched > 0 else "—"
+        anomaly = fetched > normal_daily_limit * 2
+        note = " <span style='color:#f57c00;font-size:11px;'>*</span>" if anomaly else ""
+        rows += (
+            f"<tr>"
+            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;'>{date}</td>"
+            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;text-align:center;'>{fetched}{note}</td>"
+            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;text-align:center;'>{selected}</td>"
+            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;text-align:center;color:#555;'>{rate}</td>"
+            f"</tr>"
+        )
+    return rows
+
+
 def generate_report_html(trial: dict) -> str:
     name = _html_escape(trial["name"])
     url = _html_escape(trial["url"])
@@ -207,20 +276,61 @@ def generate_report_html(trial: dict) -> str:
 
     total_fetched = sum(d.get("fetched", 0) for d in stats)
     total_selected = sum(d.get("selected", 0) for d in stats)
+    overall_rate = f"{total_selected/total_fetched*100:.0f}%" if total_fetched > 0 else "—"
+    has_anomaly = any(d.get("fetched", 0) > 6 for d in stats)
 
-    rows = ""
-    for d in stats:
-        date = _html_escape(d.get("date", ""))
-        fetched = d.get("fetched", 0)
-        selected = d.get("selected", 0)
-        rows += f"""
-        <tr>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;">{date}</td>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:center;">{fetched}</td>
-          <td style="padding:6px 12px;border-bottom:1px solid #eee;text-align:center;">{selected}</td>
-        </tr>"""
-
+    candidate = _load_candidate_detail(trial.get("url", ""))
+    scores = candidate.get("scores", {})
+    validation = candidate.get("validation", {})
+    score_rows = _build_score_rows(scores) if scores else ""
+    stats_rows = _build_stats_rows(stats)
     now_str = datetime.now(BJT).strftime("%Y-%m-%d %H:%M BJT")
+
+    validation_html = ""
+    if validation:
+        art_count = validation.get("article_count", "?")
+        newest_h = validation.get("newest_age_hours", "?")
+        avg_desc = validation.get("avg_description_length", "?")
+        validation_html = f"""
+<h3 style="color:#333;margin-top:24px;">发现时质量快照</h3>
+<p style="color:#555;font-size:13px;margin-top:0;">以下数据为 RSS 源首次被发现时的实测结果，用于衡量其入选试用的客观依据。</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:6px;padding:12px 16px;">
+  <tr>
+    <td style="padding:4px 8px;"><strong>可用文章数：</strong>{art_count} 篇（RSS feed 当时可抓取的总量）</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 8px;"><strong>最新文章时效：</strong>{newest_h:.1f}h 前发布（越低说明更新越及时）</td>
+  </tr>
+  <tr>
+    <td style="padding:4px 8px;"><strong>平均描述长度：</strong>{avg_desc:.0f} 字符（反映文章是否有实质摘要，而非空标题）</td>
+  </tr>
+</table>"""
+
+    anomaly_note = ""
+    if has_anomaly:
+        anomaly_note = """
+<p style="color:#f57c00;font-size:12px;margin-top:8px;">
+  * 标注日当天抓取数显著偏高，可能是该天 cron 多次触发或 feed 发布了大量补发文章，不代表常态。
+</p>"""
+
+    score_section = ""
+    if score_rows:
+        score_section = f"""
+<h3 style="color:#333;margin-top:24px;">发现评分解析（综合 {score:.3f}）</h3>
+<p style="color:#555;font-size:13px;margin-top:0;">
+  发现评分由 RSS 源发现系统在首次检测时自动计算，决定是否进入试用队列（门槛 ≥ 0.90）。
+</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;border-radius:4px;border-collapse:collapse;">
+  <thead>
+    <tr style="background:#1a1a2e;color:#fff;">
+      <th style="padding:8px 10px;text-align:left;">维度</th>
+      <th style="padding:8px 10px;text-align:center;">得分</th>
+      <th style="padding:8px 10px;text-align:left;">含义</th>
+    </tr>
+  </thead>
+  <tbody>{score_rows}
+  </tbody>
+</table>"""
 
     return f"""MIME-Version: 1.0
 Content-Type: text/html; charset=utf-8
@@ -230,7 +340,7 @@ From: RSS Trial Manager <no-reply@163.com>
 <!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
+<body style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#333;">
 
 <h2 style="color:#1a1a2e;border-bottom:2px solid #e8e8e8;padding-bottom:8px;">
   📊 RSS 试用源 7 天报告
@@ -238,50 +348,45 @@ From: RSS Trial Manager <no-reply@163.com>
 
 <table width="100%" cellpadding="0" cellspacing="0"
        style="background:#f8f9fa;border-radius:6px;padding:16px;margin-bottom:20px;">
-  <tr>
-    <td style="padding:4px 0;">
-      <strong>源名称：</strong>{name}
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:4px 0;">
-      <strong>RSS URL：</strong>
-      <a href="{url}" style="color:#0066cc;">{url}</a>
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:4px 0;">
-      <strong>发现评分：</strong>{score:.3f}
-      （reliability / freshness / content_quality / authority / uniqueness）
-    </td>
-  </tr>
-  <tr>
-    <td style="padding:4px 0;">
-      <strong>试用期：</strong>{start} → {end}（{TRIAL_DAYS} 天）
-    </td>
-  </tr>
+  <tr><td style="padding:4px 0;"><strong>源名称：</strong>{name}</td></tr>
+  <tr><td style="padding:4px 0;"><strong>RSS URL：</strong>
+    <a href="{url}" style="color:#0066cc;">{url}</a></td></tr>
+  <tr><td style="padding:4px 0;"><strong>类别：</strong>{_html_escape(trial.get("category","?"))} / {_html_escape(trial.get("language","?"))}</td></tr>
+  <tr><td style="padding:4px 0;"><strong>试用期：</strong>{start} → {end}（{TRIAL_DAYS} 天）</td></tr>
 </table>
 
-<h3 style="color:#333;margin-top:0;">每日贡献统计</h3>
+<h3 style="color:#333;margin-top:0;">7 天贡献统计</h3>
+<p style="color:#555;font-size:13px;margin-top:0;">
+  <strong>抓取数</strong>：每次 news 发送时（每日 3 次）从该源拉取的文章数，配置上限为 3 篇/次。<br>
+  <strong>入选数</strong>：通过 LLM 分类过滤、去重、配额竞争后真正出现在摘要邮件中的文章数。<br>
+  入选率反映该源在竞争 100 篇文章配额时的实际贡献价值，并非越高越好，而是要稳定。
+</p>
 <table width="100%" cellpadding="0" cellspacing="0"
        style="border:1px solid #ddd;border-radius:4px;border-collapse:collapse;">
   <thead>
     <tr style="background:#1a1a2e;color:#fff;">
       <th style="padding:8px 12px;text-align:left;">日期</th>
-      <th style="padding:8px 12px;text-align:center;">抓取文章数</th>
-      <th style="padding:8px 12px;text-align:center;">入选摘要数</th>
+      <th style="padding:8px 12px;text-align:center;">抓取数</th>
+      <th style="padding:8px 12px;text-align:center;">入选数</th>
+      <th style="padding:8px 12px;text-align:center;">入选率</th>
     </tr>
   </thead>
-  <tbody>{rows}
+  <tbody>{stats_rows}
   </tbody>
   <tfoot>
     <tr style="background:#f0f0f0;font-weight:bold;">
       <td style="padding:8px 12px;">7 天合计</td>
       <td style="padding:8px 12px;text-align:center;">{total_fetched}</td>
       <td style="padding:8px 12px;text-align:center;">{total_selected}</td>
+      <td style="padding:8px 12px;text-align:center;">{overall_rate}</td>
     </tr>
   </tfoot>
 </table>
+{anomaly_note}
+
+{validation_html}
+
+{score_section}
 
 <div style="margin-top:24px;padding:16px;background:#fff8e1;border-left:4px solid #f9a825;border-radius:0 4px 4px 0;">
   <strong>📋 下一步操作</strong><br><br>
@@ -320,23 +425,58 @@ def send_auto_decision_email(trial: dict, kept: bool, total_selected: int) -> bo
     score = trial.get("candidate_score", 0)
     start = trial.get("start_date", "?")
     stats = trial.get("daily_stats", [])
+    total_fetched = sum(d.get("fetched", 0) for d in stats)
+    overall_rate = f"{total_selected/total_fetched*100:.0f}%" if total_fetched > 0 else "—"
     now_str = datetime.now(BJT).strftime("%Y-%m-%d %H:%M BJT")
     decision_color = "#2e7d32" if kept else "#c62828"
     decision_label = "✅ 自动保留" if kept else "❌ 自动移除"
-    decision_reason = (
-        f"7 天内共 {total_selected} 篇入选（门槛 ≥ {AUTO_KEEP_MIN_SELECTED}）"
-        if kept else
-        f"7 天内仅 {total_selected} 篇入选（门槛 ≥ {AUTO_KEEP_MIN_SELECTED}）"
-    )
 
-    rows = ""
-    for d in stats:
-        rows += (
-            f"<tr><td style='padding:6px 12px;border-bottom:1px solid #eee;'>{_html_escape(d.get('date',''))}</td>"
-            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;text-align:center;'>{d.get('fetched',0)}</td>"
-            f"<td style='padding:6px 12px;border-bottom:1px solid #eee;text-align:center;'>{d.get('selected',0)}</td></tr>"
+    # Plain-language explanation of the decision
+    if kept:
+        decision_reason = (
+            f"7 天内共 <strong>{total_selected}</strong> 篇文章成功入选摘要邮件，"
+            f"超过保留门槛（≥ {AUTO_KEEP_MIN_SELECTED} 篇）。"
+            f"说明该源在与其他 40 个源的配额竞争中持续有贡献，内容质量达标。"
         )
-    total_fetched = sum(d.get("fetched", 0) for d in stats)
+    else:
+        decision_reason = (
+            f"7 天内仅 <strong>{total_selected}</strong> 篇文章入选摘要邮件，"
+            f"低于保留门槛（≥ {AUTO_KEEP_MIN_SELECTED} 篇）。"
+            f"说明该源内容与现有源重叠度高，或质量未达 LLM 分类标准，贡献不足。"
+        )
+
+    # Score breakdown
+    candidate = _load_candidate_detail(trial.get("url", ""))
+    scores = candidate.get("scores", {})
+    score_rows = _build_score_rows(scores) if scores else ""
+
+    score_section = ""
+    if score_rows:
+        score_section = f"""
+<h3 style="color:#333;margin-top:24px;">发现评分解析（综合 {score:.3f}）</h3>
+<p style="color:#555;font-size:13px;margin-top:0;">
+  发现评分决定了该源是否有资格进入试用队列（门槛 ≥ 0.90）。
+  综合评分高并不等于实际贡献大——试用期才是真实检验。
+</p>
+<table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;border-radius:4px;border-collapse:collapse;">
+  <thead>
+    <tr style="background:#1a1a2e;color:#fff;">
+      <th style="padding:8px 10px;text-align:left;">维度</th>
+      <th style="padding:8px 10px;text-align:center;">得分</th>
+      <th style="padding:8px 10px;text-align:left;">含义</th>
+    </tr>
+  </thead>
+  <tbody>{score_rows}</tbody>
+</table>"""
+
+    stats_rows = _build_stats_rows(stats)
+    has_anomaly = any(d.get("fetched", 0) > 6 for d in stats)
+    anomaly_note = ""
+    if has_anomaly:
+        anomaly_note = (
+            "<p style='color:#f57c00;font-size:12px;margin-top:6px;'>"
+            "* 标注日抓取数偏高，可能是当天 cron 多次触发或 feed 集中补发，不代表常态。</p>"
+        )
 
     html = f"""MIME-Version: 1.0
 Content-Type: text/html; charset=utf-8
@@ -346,32 +486,49 @@ To: {mail_to}
 
 <!DOCTYPE html>
 <html><head><meta charset="utf-8"></head>
-<body style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;">
-<h2 style="border-bottom:2px solid #e8e8e8;padding-bottom:8px;">📊 RSS 试用结果</h2>
-<div style="padding:12px 16px;background:{decision_color};color:#fff;border-radius:4px;font-size:16px;font-weight:bold;margin-bottom:20px;">
+<body style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#333;">
+
+<h2 style="border-bottom:2px solid #e8e8e8;padding-bottom:8px;">📊 RSS 7 天试用结果</h2>
+
+<div style="padding:14px 16px;background:{decision_color};color:#fff;border-radius:4px;font-size:17px;font-weight:bold;margin-bottom:16px;">
   {decision_label} — {name}
 </div>
-<p style="color:#555;">{decision_reason}</p>
-<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:6px;padding:16px;margin-bottom:20px;">
-  <tr><td style="padding:4px 0;"><strong>RSS URL：</strong><a href="{url}">{url}</a></td></tr>
-  <tr><td style="padding:4px 0;"><strong>发现评分：</strong>{score:.3f}</td></tr>
+
+<p style="color:#444;line-height:1.7;margin-bottom:20px;">{decision_reason}</p>
+
+<table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:6px;padding:14px 16px;margin-bottom:20px;">
+  <tr><td style="padding:4px 0;"><strong>RSS URL：</strong><a href="{url}" style="color:#0066cc;">{url}</a></td></tr>
+  <tr><td style="padding:4px 0;"><strong>发现评分：</strong>{score:.3f}（发现系统综合打分，≥ 0.90 才进入试用队列）</td></tr>
+  <tr><td style="padding:4px 0;"><strong>类别：</strong>{_html_escape(trial.get("category","?"))} / {_html_escape(trial.get("language","?"))}</td></tr>
   <tr><td style="padding:4px 0;"><strong>试用期：</strong>{start} → {_today()}（{TRIAL_DAYS} 天）</td></tr>
 </table>
-<h3>每日贡献统计</h3>
+
+<h3 style="margin-bottom:4px;">7 天贡献统计</h3>
+<p style="color:#555;font-size:13px;margin-top:0;">
+  <strong>抓取数</strong>：每次 news 发送（每日 3 次）从该源拉取的文章数，每次上限 3 篇。<br>
+  <strong>入选数</strong>：经 LLM 分类 + 去重 + 地区配额竞争后真正出现在邮件中的文章数。<br>
+  入选率衡量该源在 40 个源中的实际竞争力，稳定且高于 50% 是理想状态。
+</p>
 <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;border-collapse:collapse;">
   <thead><tr style="background:#1a1a2e;color:#fff;">
     <th style="padding:8px 12px;text-align:left;">日期</th>
-    <th style="padding:8px 12px;text-align:center;">抓取</th>
-    <th style="padding:8px 12px;text-align:center;">入选</th>
+    <th style="padding:8px 12px;text-align:center;">抓取数</th>
+    <th style="padding:8px 12px;text-align:center;">入选数</th>
+    <th style="padding:8px 12px;text-align:center;">入选率</th>
   </tr></thead>
-  <tbody>{rows}</tbody>
+  <tbody>{stats_rows}</tbody>
   <tfoot><tr style="background:#f0f0f0;font-weight:bold;">
-    <td style="padding:8px 12px;">合计</td>
+    <td style="padding:8px 12px;">7 天合计</td>
     <td style="padding:8px 12px;text-align:center;">{total_fetched}</td>
     <td style="padding:8px 12px;text-align:center;">{total_selected}</td>
+    <td style="padding:8px 12px;text-align:center;">{overall_rate}</td>
   </tr></tfoot>
 </table>
-<p style="color:#999;font-size:12px;margin-top:20px;">生成时间：{now_str} · RSS Trial Manager</p>
+{anomaly_note}
+
+{score_section}
+
+<p style="color:#999;font-size:12px;margin-top:24px;">生成时间：{now_str} · RSS Trial Manager · global-news</p>
 </body></html>"""
 
     fd, mail_file = tempfile.mkstemp(suffix=".eml")
