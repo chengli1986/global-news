@@ -289,8 +289,12 @@ def generate_report_html(trial: dict) -> str:
     validation_html = ""
     if validation:
         art_count = validation.get("article_count", "?")
-        newest_h = validation.get("newest_age_hours", "?")
-        avg_desc = validation.get("avg_description_length", "?")
+        newest_h = validation.get("newest_age_hours")
+        newest_h = newest_h if newest_h is not None else "?"
+        avg_desc = validation.get("avg_description_length")
+        avg_desc = avg_desc if avg_desc is not None else "?"
+        newest_h_str = f"{newest_h:.1f}" if isinstance(newest_h, (int, float)) else "未知"
+        avg_desc_str = f"{avg_desc:.0f}" if isinstance(avg_desc, (int, float)) else "未知"
         validation_html = f"""
 <h3 style="color:#333;margin-top:24px;">发现时质量快照</h3>
 <p style="color:#555;font-size:13px;margin-top:0;">以下数据为 RSS 源首次被发现时的实测结果，用于衡量其入选试用的客观依据。</p>
@@ -299,10 +303,10 @@ def generate_report_html(trial: dict) -> str:
     <td style="padding:4px 8px;"><strong>可用文章数：</strong>{art_count} 篇（RSS feed 当时可抓取的总量）</td>
   </tr>
   <tr>
-    <td style="padding:4px 8px;"><strong>最新文章时效：</strong>{newest_h:.1f}h 前发布（越低说明更新越及时）</td>
+    <td style="padding:4px 8px;"><strong>最新文章时效：</strong>{newest_h_str}h 前发布（越低说明更新越及时）</td>
   </tr>
   <tr>
-    <td style="padding:4px 8px;"><strong>平均描述长度：</strong>{avg_desc:.0f} 字符（反映文章是否有实质摘要，而非空标题）</td>
+    <td style="padding:4px 8px;"><strong>平均描述长度：</strong>{avg_desc_str} 字符（反映文章是否有实质摘要，而非空标题）</td>
   </tr>
 </table>"""
 
