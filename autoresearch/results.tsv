@@ -40,3 +40,4 @@ legacy-411	0.7822	REVERTED	max_total 45→120 + region_quotas scaled 2.67x (raw 
 863f8cc	0.8120	KEPT	lower target/max_total 120->116 to match natural selection (density fix, +0.0009)
 f859a42	0.8420	KEPT	rebalance region quotas max_sum=target=100: GLOBAL POLITICS min 22->15 max 32->22, Canada max 16->10, Economist max 16->8, others max->15 (+0.0300)
 022eeaa	0.8579	KEPT	uniform max=16 all 5 main regions (GLOBAL POLITICS max 22->16), target/max 100->98, balance ~0.70->0.77 (+0.0159)
+4706871	0.8644	FAILED	commodity tier_boost 0.6->0.4 (deprioritize stale sources)
