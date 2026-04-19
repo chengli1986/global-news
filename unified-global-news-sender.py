@@ -697,6 +697,39 @@ class UnifiedNewsSender:
         """
         self._classifications = {}  # (source, idx) -> classification dict (see docstring)
 
+        # ─────────────────────────────────────────────────────────────────
+        # Emergency kill switch (spec §9 Option B). Setting NEWS_CLASSIFIER_VERSION=v1
+        # in the cron environment skips Stages 2-4 and falls back to source-default
+        # routing only (Stage 1 hard locks still apply for monitoring consistency).
+        # Remaining articles will land in their REGION_GROUPS source-default region
+        # via _reclassify_article returning None — pipeline stays functional.
+        #
+        # Sunset: 2026-05-04 (file `~/global-news/.kill-switch-sunset` triggers
+        # the cron-wrapper warning if past this date and v1 still active).
+        #
+        # Usage policy (per spec §9):
+        #   1. Only when cron is about to send wrong emails AND no time for git revert
+        #   2. Switch is all-or-nothing — disables full new chain (Stages 2/3/4)
+        #   3. Must be followed by Option A (atomic git revert) the SAME DAY
+        # ─────────────────────────────────────────────────────────────────
+        if os.environ.get("NEWS_CLASSIFIER_VERSION", "v2") == "v1":
+            print("⚠️  NEWS_CLASSIFIER_VERSION=v1 — kill switch ACTIVE (spec §9 Option B)")
+            print("    Skipping Stages 2-4 (LLM, soft-lock, geo-keyword routing).")
+            print("    Articles route to REGION_GROUPS source-default only.")
+            print("    Per spec: this is for emergency-only use; complete Option A revert today.")
+            # Still populate Stage 1 hard locks so monitoring counts them
+            for src, articles in self.news_data.items():
+                if src not in self._LOCKED_SOURCES:
+                    continue
+                for idx, _item in enumerate(articles):
+                    self._classifications[(src, idx)] = {
+                        "region": None,
+                        "reason_code": f"source_lock:hard:{src}",
+                        "topic": None, "geo": None, "subtopic": None,
+                    }
+            self._print_routing_stats()
+            return
+
         # Stage 1 — Hard source lock: 6 sources whose region is fixed (no LLM, no keyword)
         # CBC Business / Globe & Mail → CANADA; Economist × 4 → ECONOMIST.
         # Pre-populate _classifications with reason_code so monitoring (Task 8) sees them.

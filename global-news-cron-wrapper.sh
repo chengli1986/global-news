@@ -28,6 +28,24 @@ else
     SMTP_PASS="${SMTP_PASS:-}"
 fi
 
+# Classifier version — explicit default to v2 (4-stage funnel + 10-zone REGION_GROUPS).
+# Set NEWS_CLASSIFIER_VERSION=v1 in ~/.stock-monitor.env as emergency kill switch
+# (spec §9 Option B). After firing, complete Option A (atomic git revert) the same day.
+export NEWS_CLASSIFIER_VERSION="${NEWS_CLASSIFIER_VERSION:-v2}"
+
+# Sunset reminder for kill-switch code path (~2 weeks after Task 11 deploy)
+SUNSET_FILE="$SCRIPT_DIR/.kill-switch-sunset"
+if [ -f "$SUNSET_FILE" ]; then
+    SUNSET_DATE=$(cat "$SUNSET_FILE" 2>/dev/null | head -1)
+    TODAY=$(date +%Y-%m-%d)
+    if [ -n "$SUNSET_DATE" ] && [ "$TODAY" \> "$SUNSET_DATE" ]; then
+        echo "[$(date '+%Y-%m-%d %H:%M:%S')] ⚠️  KILL-SWITCH SUNSET PASSED ($SUNSET_DATE)"
+        echo "    Remove _classify_articles_v1_legacy code path and this env-var check"
+        echo "    from unified-global-news-sender.py + global-news-cron-wrapper.sh"
+        echo "    Then delete $SUNSET_FILE"
+    fi
+fi
+
 # 日志函数 — writes to both stdout (captured by cron) and daily log file
 log() {
     local msg="[$(date '+%Y-%m-%d %H:%M:%S')] $*"

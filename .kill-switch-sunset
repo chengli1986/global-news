@@ -1,0 +1,11 @@
+2026-05-04
+# Sunset date for the NEWS_CLASSIFIER_VERSION kill switch (spec §9 Option B).
+# After this date, the cron wrapper will print a warning until the v1 code
+# path + env-var check are removed from:
+#   - unified-global-news-sender.py (top of classify_articles)
+#   - global-news-cron-wrapper.sh (export + sunset check)
+# Then delete this file.
+#
+# Reason for sunset: the kill switch is a safety belt, not a long-term config
+# knob. Maintaining two parallel code paths beyond 2 weeks of stable production
+# adds maintenance debt without proportional safety benefit.

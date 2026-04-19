@@ -954,3 +954,72 @@ class TestEvaluatorSoftLockConsistency:
                 f"Soft-lock mismatch for {src}: sender→{sender_region!r} "
                 f"(stripped {_strip_emoji(sender_region)!r}), evaluator→{eval_region!r}"
             )
+
+
+# ===== Task 11: Kill switch (Option B emergency safety belt) =====
+
+
+class TestKillSwitch:
+    """Spec §9 Option B: NEWS_CLASSIFIER_VERSION=v1 disables Stages 2-4.
+
+    Behavior expected:
+    - v2 (default): full 4-stage funnel runs (Stage 1+2+3+4 entries in _classifications)
+    - v1: only Stage 1 hard-lock entries populated; Stages 2-4 skipped entirely;
+      remaining articles fall back to source-default REGION_GROUPS region via
+      _reclassify_article returning None
+    """
+
+    def test_v2_default_runs_full_pipeline(self, monkeypatch):
+        """Without env var (or with v2), Stage 2 soft-lock fires for 界面新闻."""
+        monkeypatch.delenv("NEWS_CLASSIFIER_VERSION", raising=False)
+        sender = _make_sender_with_news({
+            "界面新闻": [("宁德时代财报", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("界面新闻", 0))
+        assert entry is not None
+        # Stage 2 soft lock fired → reason_code starts with source_lock:soft
+        assert entry["reason_code"].startswith("source_lock:soft"), (
+            f"Expected Stage 2 soft lock, got {entry['reason_code']!r}"
+        )
+
+    def test_v1_kill_switch_skips_stage_2(self, monkeypatch, capsys):
+        """With NEWS_CLASSIFIER_VERSION=v1, Stage 2 soft-lock does NOT fire."""
+        monkeypatch.setenv("NEWS_CLASSIFIER_VERSION", "v1")
+        sender = _make_sender_with_news({
+            "界面新闻": [("宁德时代财报", "u1", None, None)],
+        })
+        sender.classify_articles()
+        # 界面新闻 is NOT a hard-lock source, so v1 mode → no _classifications entry
+        assert ("界面新闻", 0) not in sender._classifications
+        # Warning message emitted
+        out = capsys.readouterr().out
+        assert "kill switch ACTIVE" in out
+        assert "spec §9 Option B" in out
+
+    def test_v1_still_populates_hard_lock(self, monkeypatch):
+        """v1 mode keeps Stage 1 hard-lock entries (for monitoring consistency)."""
+        monkeypatch.setenv("NEWS_CLASSIFIER_VERSION", "v1")
+        sender = _make_sender_with_news({
+            "CBC Business": [("Canadian biz news", "u1", None, None)],
+            "Bloomberg": [("Fed signals hold", "u2", None, None)],  # not locked
+        })
+        sender.classify_articles()
+        # CBC is hard-locked → entry exists with source_lock:hard reason_code
+        assert ("CBC Business", 0) in sender._classifications
+        assert sender._classifications[("CBC Business", 0)]["reason_code"] == "source_lock:hard:CBC Business"
+        # Bloomberg is NOT locked → no entry (v1 skips Stages 2-4)
+        assert ("Bloomberg", 0) not in sender._classifications
+
+    def test_v1_articles_fall_back_to_source_default(self, monkeypatch):
+        """v1 mode: non-hard-lock articles fall back to source-default REGION_GROUPS region."""
+        monkeypatch.setenv("NEWS_CLASSIFIER_VERSION", "v1")
+        sender = _make_sender_with_news({
+            "Bloomberg": [("Fed signals hold", "u1", None, None)],
+        })
+        sender.classify_articles()
+        # _reclassify_article should return None (no entry → keep in source default)
+        result = sender._reclassify_article("Fed signals hold", "Bloomberg", 0)
+        assert result is None
+        # Source default for Bloomberg is 市场/宏观 MACRO & MARKETS
+        assert sender._source_default_region("Bloomberg") == "📈 市场/宏观 MACRO & MARKETS"
