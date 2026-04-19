@@ -30,6 +30,19 @@ trap cleanup EXIT
 
 echo "$LOG_PREFIX Starting news autoresearch session..."
 
+# Sentinel pause: skip the entire AR cycle while ~/.news-ar-paused exists.
+# Used after major pipeline changes (e.g. 2026-04-20 4-stage funnel + 10-zone redesign)
+# to let fresh fixture data accumulate before resuming experiments. To resume:
+#   rm ~/.news-ar-paused
+PAUSE_FILE="$HOME/.news-ar-paused"
+if [ -f "$PAUSE_FILE" ]; then
+    PAUSE_REASON=$(cat "$PAUSE_FILE" 2>/dev/null | head -1)
+    echo "$LOG_PREFIX PAUSED — sentinel file $PAUSE_FILE present"
+    echo "$LOG_PREFIX Reason: ${PAUSE_REASON:-(no reason given)}"
+    echo "$LOG_PREFIX Resume by: rm $PAUSE_FILE"
+    exit 0
+fi
+
 # Cleanup fixtures older than 21 days before running experiments
 "$SCRIPT_DIR/cleanup-old-fixtures.sh" 21 2>&1 || echo "$LOG_PREFIX WARNING: fixture cleanup failed (non-fatal)"
 
