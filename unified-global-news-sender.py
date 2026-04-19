@@ -775,10 +775,12 @@ class UnifiedNewsSender:
                 to_classify.append((src, idx, title))
 
         if not to_classify:
+            self._print_routing_stats()
             return
 
         if not self._openai_key and not self._gemini_key:
             print("⚠️  No LLM API key set, skipping article classification")
+            self._print_routing_stats()
             return
 
         print(f"🏷️  Classifying {len(to_classify)} articles (Stage 4 LLM, 3-label)...")
@@ -913,6 +915,66 @@ class UnifiedNewsSender:
         except Exception as e:
             print(f"⚠️  Article classification failed ({e}), falling back to keyword-based routing")
             self._llm_status.append(("分类 Classification", None, False))
+
+        # Always print routing distribution at end (covers Stages 1-3 even if Stage 4 failed)
+        self._print_routing_stats()
+
+    def _print_routing_stats(self) -> None:
+        """Print per-stage routing distribution from _classifications.
+
+        Spec §6 Task 8 + §9 Monitoring: alert if Stage 4 (LLM) catches > 70% of
+        articles, indicating deterministic Stages 1-3 are missing the bulk of
+        routing decisions and the funnel is degenerating into a single LLM call.
+        """
+        if not getattr(self, '_classifications', None):
+            return
+
+        from collections import Counter
+
+        def _stage_label(reason_code: str) -> str:
+            if reason_code.startswith("source_lock:hard"):
+                return "Stage 1 (hard lock)"
+            if reason_code.startswith("source_lock:soft"):
+                return "Stage 2 (soft lock)"
+            if reason_code.startswith("soft_escape"):
+                return "Stage 2 (escape→LLM)"
+            if reason_code.startswith("geo_keyword"):
+                return "Stage 3 (geo keyword)"
+            if reason_code.startswith("llm:"):
+                return "Stage 4 (LLM)"
+            if reason_code.startswith("fallback:"):
+                return "Fallback"
+            return "Unknown"
+
+        counts = Counter(
+            _stage_label(entry["reason_code"])
+            for entry in self._classifications.values()
+        )
+        total = sum(counts.values())
+        if total == 0:
+            return
+
+        # Display in stage order for readability
+        order = [
+            "Stage 1 (hard lock)",
+            "Stage 2 (soft lock)",
+            "Stage 2 (escape→LLM)",
+            "Stage 3 (geo keyword)",
+            "Stage 4 (LLM)",
+            "Fallback",
+            "Unknown",
+        ]
+        print(f"📊 Routing distribution ({total} classifications):")
+        for stage in order:
+            cnt = counts.get(stage, 0)
+            if cnt > 0:
+                pct = 100.0 * cnt / total
+                print(f"   {stage:<24s}: {cnt:3d} ({pct:5.1f}%)")
+
+        # Compute Stage 4 LLM share for monitoring threshold
+        llm_share = counts.get("Stage 4 (LLM)", 0) / total
+        if llm_share > 0.70:
+            print(f"⚠️  Stage 4 LLM share {llm_share:.1%} > 70% — deterministic stages may be under-catching")
 
     @staticmethod
     def _parse_3label_response(parsed) -> dict:

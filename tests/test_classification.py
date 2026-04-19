@@ -723,3 +723,93 @@ class TestDigestTuningConfig:
 
         missing = eval_regions - tuning_keys
         assert not missing, f"evaluate_digest regions not in tuning: {missing}"
+
+
+# ===== Task 8: reason_code logging + per-stage stats =====
+
+
+class TestRoutingStats:
+    """Spec §6 Task 8 + §9 Monitoring: classify_articles prints per-stage
+    distribution at end, alert threshold at Stage 4 > 70%.
+    """
+
+    def test_stats_printed_after_classification(self, capsys):
+        """After classify_articles, '📊 Routing distribution' header appears in stdout."""
+        sender = _make_sender_with_news({
+            "CBC Business": [("Some Canadian biz", "u1", None, None)],
+            "界面新闻": [("宁德时代财报", "u2", None, None)],
+        })
+        sender.classify_articles()
+        out = capsys.readouterr().out
+        assert "📊 Routing distribution" in out
+
+    def test_stats_counts_stages(self, capsys):
+        """Stats show counts per stage label (Stage 1 hard lock + Stage 2 soft lock)."""
+        sender = _make_sender_with_news({
+            "CBC Business": [("Air Canada news", "u1", None, None)],   # Stage 1 hard
+            "Globe & Mail": [("Globe biz", "u2", None, None)],          # Stage 1 hard
+            "界面新闻": [("宁德时代财报", "u3", None, None)],            # Stage 2 soft
+            "南方周末": [("中国教育报告", "u4", None, None)],            # Stage 2 soft
+        })
+        sender.classify_articles()
+        out = capsys.readouterr().out
+        assert "Stage 1 (hard lock)" in out
+        assert "Stage 2 (soft lock)" in out
+        # Verify counts present (format: "Stage 1 (hard lock)        :   2")
+        # Two hard-locked + two soft-locked
+        import re
+        m1 = re.search(r"Stage 1 \(hard lock\)\s+:\s+(\d+)", out)
+        m2 = re.search(r"Stage 2 \(soft lock\)\s+:\s+(\d+)", out)
+        assert m1 and int(m1.group(1)) == 2
+        assert m2 and int(m2.group(1)) == 2
+
+    def test_stats_total_equals_classifications_size(self, capsys):
+        """The (N classifications) header matches len(_classifications)."""
+        sender = _make_sender_with_news({
+            "CBC Business": [
+                ("title 1", "u1", None, None),
+                ("title 2", "u2", None, None),
+                ("title 3", "u3", None, None),
+            ],
+        })
+        sender.classify_articles()
+        out = capsys.readouterr().out
+        import re
+        m = re.search(r"\((\d+) classifications\)", out)
+        assert m is not None
+        assert int(m.group(1)) == len(sender._classifications) == 3
+
+    def test_stats_no_print_when_empty(self, capsys):
+        """No '📊 Routing distribution' line when _classifications is empty."""
+        sender = _make_sender_with_news({})
+        sender.classify_articles()
+        out = capsys.readouterr().out
+        # Either no print or a degenerate empty stats — accept either
+        assert "📊 Routing distribution" not in out or "0 classifications" in out
+
+    def test_stage4_warning_when_llm_dominates(self, capsys):
+        """When Stage 4 share > 70%, a warning line is emitted."""
+        # Mock LLM to return 3-label for all 4 non-locked, non-soft-locked sources
+        sender = _make_sender_with_news({
+            "Bloomberg":      [("Fed signals hold", "u1", None, None)],
+            "BBC World":      [("UN summit Geneva", "u2", None, None)],
+            "Hacker News":    [("Programming language X 2.0 released", "u3", None, None)],
+            "The Guardian World": [("Global politics shift", "u4", None, None)],
+        })
+        sender._openai_key = "fake-key"
+        api_response = {"choices": [{"message": {"content": __import__("json").dumps({
+            "1": {"topic": "business", "geo": "us", "subtopic": "business_macro"},
+            "2": {"topic": "politics", "geo": "global"},
+            "3": {"topic": "tech", "geo": "global", "subtopic": "tech_ai"},
+            "4": {"topic": "politics", "geo": "global"},
+        })}}]}
+        def fake_call(payload, timeout=60):
+            sender._last_provider = "MockLLM"
+            return api_response
+        sender._llm_api_call = fake_call
+
+        sender.classify_articles()
+        out = capsys.readouterr().out
+        # All 4 routed via Stage 4 LLM = 100% > 70% threshold
+        assert "Stage 4 LLM share" in out
+        assert "70%" in out
