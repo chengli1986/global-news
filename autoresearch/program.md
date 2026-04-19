@@ -21,9 +21,11 @@ Higher is better.
 1. **NEVER edit** any file except `digest-tuning.json`
 2. **NEVER edit** evaluate_digest.py, digest_pipeline.py, or the sender
 3. **NEVER edit** these keys in `digest-tuning.json` (user-set policy, not optimization targets):
-   - `max_total_articles` — locked at 120 (email volume preference)
-   - `target_article_count` — locked at 120 (must match max_total)
-   - `region_quotas` — locked at current shape (sum_max ≈ 122 to deliver ~120 articles)
+   - `max_total_articles` — locked at 150 (email volume preference)
+   - `target_article_count` — locked at 150 (must match max_total)
+   - `region_quotas` — locked at current 10-zone shape (sum_max ≈ 154 to deliver ~150 articles)
+     - 10 zones: AI/前沿, 市场/宏观, POLITICS, CHINA, 公司/产业, 消费科技, ASIA-PAC, CANADA, ECONOMIST, SOCIETY
+     - Do not add or remove keys; do not modify min/max values
    You may still tune `freshness_weight`, `dedup_similarity_threshold`, `tier_boost`, and `source_tiers`.
 4. Before EACH experiment: `cd ~/global-news && git add -A && git commit -m "experiment: <description>"`
 5. Run the evaluate command and read the quality score
@@ -49,8 +51,8 @@ commit_hash	quality	status	description
 
 ## Constraints
 - digest-tuning.json must remain valid JSON
-- All 39 sources must appear in exactly one tier (36 RSS + 2 Sina + 1 HN)
-- Region quota min must be >= 1, max must be > min
+- All 40 sources must appear in exactly one tier (37 RSS + 2 Sina + 1 HN)
+- Region quota min must be >= 1, max must be > min (locked per Rule 3 — do not change)
 - dedup_similarity_threshold must be in [0.3, 0.9]
-- max_total_articles must be in [30, 150]
+- max_total_articles must be in [30, 200] (locked at 150 per Rule 3)
 - Post-reset baselines must be logged as a new cycle; old-cycle best scores are historical only

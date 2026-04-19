@@ -654,3 +654,72 @@ class TestRegionGroupsStructure:
         assert sender._source_default_region("Economist Finance") == "📕 经济学人 THE ECONOMIST"
         # Unknown source falls back to first region
         assert sender._source_default_region("Unknown Source") == "🧠 AI/前沿 AI FRONTIER"
+
+
+# ===== Task 7: digest-tuning.json + AR program.md sync =====
+
+
+class TestDigestTuningConfig:
+    """Spec §4.6 + F1: digest-tuning.json must encode 10-zone region_quotas with
+    max_total=150 and sum_max ≥ max_total (binding cap behavior).
+    """
+
+    @staticmethod
+    def _load_tuning():
+        import json
+        with open(os.path.expanduser("~/global-news/digest-tuning.json")) as f:
+            return json.load(f)
+
+    def test_max_total_is_150(self):
+        cfg = self._load_tuning()
+        assert cfg["max_total_articles"] == 150
+        assert cfg["target_article_count"] == 150
+        assert cfg["max_total_articles"] == cfg["target_article_count"]
+
+    def test_region_quotas_has_10_zones(self):
+        cfg = self._load_tuning()
+        assert len(cfg["region_quotas"]) == 10
+
+    def test_region_quotas_sum_bounds(self):
+        cfg = self._load_tuning()
+        sum_min = sum(q["min"] for q in cfg["region_quotas"].values())
+        sum_max = sum(q["max"] for q in cfg["region_quotas"].values())
+        # max_total=150 acts as binding cap; sum_max should be slightly above to allow flex
+        assert sum_max >= cfg["max_total_articles"], f"sum_max={sum_max} < max_total={cfg['max_total_articles']}"
+        assert sum_max <= 200, f"sum_max={sum_max} too generous"
+        # sum_min well below max_total — gives selection algo flexibility
+        assert sum_min < cfg["max_total_articles"]
+
+    def test_region_quotas_keys_match_sender_regions(self):
+        """Each digest-tuning region key must match a sender REGION_GROUPS region (no-emoji form)."""
+        cfg = self._load_tuning()
+        # Strip emoji from sender's REGION_GROUPS keys (matches _apply_pipeline logic)
+        def _strip_emoji(s):
+            for char in s:
+                if char.isalnum() or char in ' &':
+                    return s[s.index(char):].strip()
+            return s
+
+        sender_no_emoji = {_strip_emoji(r) for r, _ in UnifiedNewsSender.REGION_GROUPS}
+        for tuning_key in cfg["region_quotas"]:
+            assert tuning_key in sender_no_emoji, (
+                f"digest-tuning region key {tuning_key!r} does not match any sender "
+                f"REGION_GROUPS (after emoji strip): {sender_no_emoji}"
+            )
+
+    def test_evaluator_source_to_region_matches_tuning(self):
+        """evaluate_digest.py SOURCE_TO_REGION values must be a subset of tuning region_quotas keys."""
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "evaluate_digest",
+            os.path.expanduser("~/global-news/evaluate_digest.py"),
+        )
+        eval_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(eval_mod)
+
+        cfg = self._load_tuning()
+        tuning_keys = set(cfg["region_quotas"].keys())
+        eval_regions = set(eval_mod.SOURCE_TO_REGION.values())
+
+        missing = eval_regions - tuning_keys
+        assert not missing, f"evaluate_digest regions not in tuning: {missing}"

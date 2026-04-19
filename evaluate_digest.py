@@ -20,34 +20,63 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from digest_pipeline import deduplicate, jaccard_similarity, rank_and_select
 
-# --- Source-to-region mapping (matches REGION_GROUPS in sender) ---
+# --- Source-to-region mapping (matches REGION_GROUPS in sender, 10 zones, no-emoji form) ---
+# Used as a SIMULATION of the production funnel. The evaluator does not run the
+# full Stage 1-4 funnel (no LLM call) — it uses static source-default routing
+# only. CONSUMER_TECH and SOCIETY zones are LLM-fed in production but absent
+# here (no source defaults), which slightly under-counts coverage in evaluation.
+# Quality scores are an approximation of production behavior, useful for AR
+# parameter tuning but not a perfect prediction.
 
 SOURCE_TO_REGION: dict[str, str] = {
-    "中国科技/AI": "AI & 科技前沿 TECH & AI", "虎嗅": "AI & 科技前沿 TECH & AI",
-    "IT之家": "AI & 科技前沿 TECH & AI", "少数派": "AI & 科技前沿 TECH & AI",
-    "Solidot": "AI & 科技前沿 TECH & AI", "钛媒体": "AI & 科技前沿 TECH & AI",
-    "36氪": "AI & 科技前沿 TECH & AI", "TechCrunch": "AI & 科技前沿 TECH & AI",
-    "Hacker News": "AI & 科技前沿 TECH & AI", "Ars Technica": "AI & 科技前沿 TECH & AI",
-    "The Verge": "AI & 科技前沿 TECH & AI", "BBC Technology": "AI & 科技前沿 TECH & AI",
-    "NYT Technology": "AI & 科技前沿 TECH & AI",
-    "中国财经要闻": "全球财经 GLOBAL FINANCE", "CNBC": "全球财经 GLOBAL FINANCE",
-    "Bloomberg": "全球财经 GLOBAL FINANCE", "Bloomberg Econ": "全球财经 GLOBAL FINANCE",
-    "BBC Business": "全球财经 GLOBAL FINANCE", "FT": "全球财经 GLOBAL FINANCE",
-    "NYT Business": "全球财经 GLOBAL FINANCE",  # matches REGION_GROUPS; "美国&欧洲" quota removed
-    "纽约时报中文": "全球政治 GLOBAL POLITICS", "BBC中文": "全球政治 GLOBAL POLITICS",
-    "BBC World": "全球政治 GLOBAL POLITICS", "SCMP": "全球政治 GLOBAL POLITICS",
+    # AI/前沿 AI FRONTIER (13 sources — most tech sources)
+    "中国科技/AI": "AI/前沿 AI FRONTIER", "虎嗅": "AI/前沿 AI FRONTIER",
+    "IT之家": "AI/前沿 AI FRONTIER", "少数派": "AI/前沿 AI FRONTIER",
+    "Solidot": "AI/前沿 AI FRONTIER", "钛媒体": "AI/前沿 AI FRONTIER",
+    "36氪": "AI/前沿 AI FRONTIER", "TechCrunch": "AI/前沿 AI FRONTIER",
+    "Hacker News": "AI/前沿 AI FRONTIER", "Ars Technica": "AI/前沿 AI FRONTIER",
+    "The Verge": "AI/前沿 AI FRONTIER", "BBC Technology": "AI/前沿 AI FRONTIER",
+    "NYT Technology": "AI/前沿 AI FRONTIER",
+    # 市场/宏观 MACRO & MARKETS (4 sources — macro/markets-focused finance)
+    "Bloomberg Econ": "市场/宏观 MACRO & MARKETS",
+    "Bloomberg": "市场/宏观 MACRO & MARKETS",
+    "FT": "市场/宏观 MACRO & MARKETS",
+    "CNBC": "市场/宏观 MACRO & MARKETS",
+    # 全球政治 GLOBAL POLITICS (6 sources)
+    "BBC World": "全球政治 GLOBAL POLITICS",
+    "纽约时报中文": "全球政治 GLOBAL POLITICS",
+    "BBC中文": "全球政治 GLOBAL POLITICS",
     "Bloomberg Politics": "全球政治 GLOBAL POLITICS",
-    "界面新闻": "中国要闻 CHINA", "南方周末": "中国要闻 CHINA",
-    "日经中文": "亚太要闻 ASIA-PACIFIC", "CNA": "亚太要闻 ASIA-PACIFIC",
-    "RTHK中文": "亚太要闻 ASIA-PACIFIC", "Straits Times": "亚太要闻 ASIA-PACIFIC",
-    "HKFP": "亚太要闻 ASIA-PACIFIC", "SCMP Hong Kong": "亚太要闻 ASIA-PACIFIC",
-    "CBC Business": "加拿大 CANADA", "Globe & Mail": "加拿大 CANADA",
-    "Economist Leaders": "经济学人 THE ECONOMIST", "Economist Finance": "经济学人 THE ECONOMIST",
-    "Economist Business": "经济学人 THE ECONOMIST", "Economist Science": "经济学人 THE ECONOMIST",
+    "The Guardian World": "全球政治 GLOBAL POLITICS",
+    "SCMP": "全球政治 GLOBAL POLITICS",
+    # 中国要闻 CHINA (3 sources — Chinese-domestic-only sources;
+    # other Chinese sources are soft-locked at runtime via Stage 2)
+    "界面新闻": "中国要闻 CHINA",
+    "南方周末": "中国要闻 CHINA",
+    "中国财经要闻": "中国要闻 CHINA",
+    # 公司/产业 CORPORATE & INDUSTRY (2 sources — corporate-focused business)
+    "NYT Business": "公司/产业 CORPORATE & INDUSTRY",
+    "BBC Business": "公司/产业 CORPORATE & INDUSTRY",
+    # 亚太要闻 ASIA-PACIFIC (6 sources)
+    "日经中文": "亚太要闻 ASIA-PACIFIC",
+    "CNA": "亚太要闻 ASIA-PACIFIC",
+    "RTHK中文": "亚太要闻 ASIA-PACIFIC",
+    "Straits Times": "亚太要闻 ASIA-PACIFIC",
+    "HKFP": "亚太要闻 ASIA-PACIFIC",
+    "SCMP Hong Kong": "亚太要闻 ASIA-PACIFIC",
+    # 加拿大 CANADA (2 sources, hard-locked via Stage 1)
+    "CBC Business": "加拿大 CANADA",
+    "Globe & Mail": "加拿大 CANADA",
+    # 经济学人 THE ECONOMIST (4 sources, hard-locked via Stage 1)
+    "Economist Leaders": "经济学人 THE ECONOMIST",
+    "Economist Finance": "经济学人 THE ECONOMIST",
+    "Economist Business": "经济学人 THE ECONOMIST",
+    "Economist Science": "经济学人 THE ECONOMIST",
+    # 消费科技 CONSUMER TECH and 社会观察 SOCIETY are LLM-fed only — no source defaults
 }
 
 ALL_REGIONS = sorted(set(SOURCE_TO_REGION.values()))
-TOTAL_REGIONS = len(ALL_REGIONS)  # 7
+TOTAL_REGIONS = len(ALL_REGIONS)  # 8 source-default zones (CONSUMER_TECH + SOCIETY are LLM-fed)
 
 
 # --- Loaders ---
