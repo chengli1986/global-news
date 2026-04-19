@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "last_discovery": "2026-04-19T04:17:22.240727+08:00",
+  "last_discovery": "2026-04-20T04:20:26.744510+08:00",
   "candidates": [
     {
       "name": "MarketWatch Top Stories",
@@ -1445,7 +1445,8 @@
         "final": 0.825
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "The Paper (澎湃) English",
@@ -1504,7 +1505,8 @@
         "final": 0.828
       },
       "promoted": false,
-      "rejected": false
+      "rejected": true,
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Der Spiegel International",
@@ -4116,6 +4118,244 @@
         "authority": 0.6,
         "uniqueness": 0.78,
         "final": 0.761
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "GitHub Blog",
+      "url": "https://github.blog/feed/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 50.29,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 223,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.5,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.7,
+        "uniqueness": 0.65,
+        "final": 0.745
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Stack Overflow Blog",
+      "url": "https://stackoverflow.blog/feed/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 40,
+        "newest_age_hours": 60.62,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 218,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.5,
+        "final": 0.675
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "第一财经",
+      "url": "https://rsshub.rssforever.com/yicai/news",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 5.02,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 2065,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.8,
+        "uniqueness": 0.7,
+        "final": 0.88
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "Palladium Magazine",
+      "url": "https://palladiummag.com/feed/",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 18,
+        "newest_age_hours": 78.58,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 224,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.2,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.55,
+        "uniqueness": 0.8,
+        "final": 0.685
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Khaosod English",
+      "url": "https://www.khaosodenglish.com/feed/",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 5,
+        "newest_age_hours": 10.1,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 448,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.6,
+        "uniqueness": 0.9,
+        "final": 0.84
+      },
+      "promoted": false,
+      "rejected": false
+    },
+    {
+      "name": "EUobserver (alt)",
+      "url": "https://euobserver.com/rss/feed",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 8.3,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 262,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.72,
+        "uniqueness": 0.2,
+        "final": 0.726
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Politico US (alt)",
+      "url": "https://rss.politico.com/congress.xml",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 47.89,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 118,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.5,
+        "content_quality": 0.81,
+        "content_depth": 0.6,
+        "authority": 0.8,
+        "uniqueness": 0.15,
+        "final": 0.647
+      },
+      "promoted": false,
+      "rejected": true,
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Works in Progress (Substack)",
+      "url": "https://worksinprogress.substack.com/feed",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 56.87,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 99,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.81,
+        "content_depth": 0.3,
+        "authority": 0.65,
+        "uniqueness": 0.8,
+        "final": 0.688
       },
       "promoted": false,
       "rejected": true,
