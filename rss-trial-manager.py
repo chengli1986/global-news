@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-RSS Trial Manager — auto-promote high-scoring candidates into 7-day trials.
+RSS Trial Manager — auto-promote high-scoring candidates into TRIAL_DAYS-day trials.
 
 Daily flow (called from rss-source-discovery.sh after discovery):
   1. If active trial: aggregate today's stats from trial-source-log.jsonl
-     - If 7 days elapsed → send 7-day report email → mark trial ended
+     - If 3 days elapsed → send 3-day report email → mark trial ended
   2. If no active trial: pick highest-scoring candidate (score >= PROMOTE_THRESHOLD,
      not in history), add to news-sources-config.json, start trial
 
@@ -34,8 +34,8 @@ TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 PROMOTE_THRESHOLD = 0.90
-TRIAL_DAYS = 7
-AUTO_KEEP_MIN_SELECTED = 5  # auto-keep if ≥5 articles selected over 7-day trial
+TRIAL_DAYS = 3
+AUTO_KEEP_MIN_SELECTED = 3  # auto-keep if ≥3 articles selected over 3-day trial (stricter signal/time ratio than old 5/7)
 BJT = timezone(timedelta(hours=8))
 
 
@@ -338,7 +338,7 @@ def generate_report_html(trial: dict) -> str:
 
     return f"""MIME-Version: 1.0
 Content-Type: text/html; charset=utf-8
-Subject: [RSS试用报告] {trial['name']} — 7天试用结束
+Subject: [RSS试用报告] {trial['name']} — {TRIAL_DAYS}天试用结束
 From: RSS Trial Manager <no-reply@163.com>
 
 <!DOCTYPE html>
@@ -347,7 +347,7 @@ From: RSS Trial Manager <no-reply@163.com>
 <body style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#333;">
 
 <h2 style="color:#1a1a2e;border-bottom:2px solid #e8e8e8;padding-bottom:8px;">
-  📊 RSS 试用源 7 天报告
+  📊 RSS 试用源 {TRIAL_DAYS} 天报告
 </h2>
 
 <table width="100%" cellpadding="0" cellspacing="0"
@@ -359,7 +359,7 @@ From: RSS Trial Manager <no-reply@163.com>
   <tr><td style="padding:4px 0;"><strong>试用期：</strong>{start} → {end}（{TRIAL_DAYS} 天）</td></tr>
 </table>
 
-<h3 style="color:#333;margin-top:0;">7 天贡献统计</h3>
+<h3 style="color:#333;margin-top:0;">{TRIAL_DAYS} 天贡献统计</h3>
 <p style="color:#555;font-size:13px;margin-top:0;">
   <strong>抓取数</strong>：每次 news 发送时（每日 3 次）从该源拉取的文章数，配置上限为 3 篇/次。<br>
   <strong>入选数</strong>：通过 LLM 分类过滤、去重、配额竞争后真正出现在摘要邮件中的文章数。<br>
@@ -379,7 +379,7 @@ From: RSS Trial Manager <no-reply@163.com>
   </tbody>
   <tfoot>
     <tr style="background:#f0f0f0;font-weight:bold;">
-      <td style="padding:8px 12px;">7 天合计</td>
+      <td style="padding:8px 12px;">{TRIAL_DAYS} 天合计</td>
       <td style="padding:8px 12px;text-align:center;">{total_fetched}</td>
       <td style="padding:8px 12px;text-align:center;">{total_selected}</td>
       <td style="padding:8px 12px;text-align:center;">{overall_rate}</td>
@@ -394,7 +394,7 @@ From: RSS Trial Manager <no-reply@163.com>
 
 <div style="margin-top:24px;padding:16px;background:#fff8e1;border-left:4px solid #f9a825;border-radius:0 4px 4px 0;">
   <strong>📋 下一步操作</strong><br><br>
-  请根据 7 天实际邮件体验判断是否保留此源：<br><br>
+  请根据 {TRIAL_DAYS} 天实际邮件体验判断是否保留此源：<br><br>
   <code style="background:#f0f0f0;padding:2px 6px;border-radius:3px;">
     python3 ~/global-news/rss-trial-manager.py keep
   </code>
@@ -438,13 +438,13 @@ def send_auto_decision_email(trial: dict, kept: bool, total_selected: int) -> bo
     # Plain-language explanation of the decision
     if kept:
         decision_reason = (
-            f"7 天内共 <strong>{total_selected}</strong> 篇文章成功入选摘要邮件，"
+            f"{TRIAL_DAYS} 天内共 <strong>{total_selected}</strong> 篇文章成功入选摘要邮件，"
             f"超过保留门槛（≥ {AUTO_KEEP_MIN_SELECTED} 篇）。"
             f"说明该源在与其他 40 个源的配额竞争中持续有贡献，内容质量达标。"
         )
     else:
         decision_reason = (
-            f"7 天内仅 <strong>{total_selected}</strong> 篇文章入选摘要邮件，"
+            f"{TRIAL_DAYS} 天内仅 <strong>{total_selected}</strong> 篇文章入选摘要邮件，"
             f"低于保留门槛（≥ {AUTO_KEEP_MIN_SELECTED} 篇）。"
             f"说明该源内容与现有源重叠度高，或质量未达 LLM 分类标准，贡献不足。"
         )
@@ -492,7 +492,7 @@ To: {mail_to}
 <html><head><meta charset="utf-8"></head>
 <body style="font-family:Arial,sans-serif;max-width:640px;margin:0 auto;padding:20px;color:#333;">
 
-<h2 style="border-bottom:2px solid #e8e8e8;padding-bottom:8px;">📊 RSS 7 天试用结果</h2>
+<h2 style="border-bottom:2px solid #e8e8e8;padding-bottom:8px;">📊 RSS {TRIAL_DAYS} 天试用结果</h2>
 
 <div style="padding:14px 16px;background:{decision_color};color:#fff;border-radius:4px;font-size:17px;font-weight:bold;margin-bottom:16px;">
   {decision_label} — {name}
@@ -507,7 +507,7 @@ To: {mail_to}
   <tr><td style="padding:4px 0;"><strong>试用期：</strong>{start} → {_today()}（{TRIAL_DAYS} 天）</td></tr>
 </table>
 
-<h3 style="margin-bottom:4px;">7 天贡献统计</h3>
+<h3 style="margin-bottom:4px;">{TRIAL_DAYS} 天贡献统计</h3>
 <p style="color:#555;font-size:13px;margin-top:0;">
   <strong>抓取数</strong>：每次 news 发送（每日 3 次）从该源拉取的文章数，每次上限 3 篇。<br>
   <strong>入选数</strong>：经 LLM 分类 + 去重 + 地区配额竞争后真正出现在邮件中的文章数。<br>
@@ -522,7 +522,7 @@ To: {mail_to}
   </tr></thead>
   <tbody>{stats_rows}</tbody>
   <tfoot><tr style="background:#f0f0f0;font-weight:bold;">
-    <td style="padding:8px 12px;">7 天合计</td>
+    <td style="padding:8px 12px;">{TRIAL_DAYS} 天合计</td>
     <td style="padding:8px 12px;text-align:center;">{total_fetched}</td>
     <td style="padding:8px 12px;text-align:center;">{total_selected}</td>
     <td style="padding:8px 12px;text-align:center;">{overall_rate}</td>
