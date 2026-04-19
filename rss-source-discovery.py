@@ -37,7 +37,7 @@ FETCH_TIMEOUT = 15
 MAX_POOL_SIZE = 50  # keep only top-N pending candidates; auto-reject the rest
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB cap to prevent memory exhaustion
 SCORE_THRESHOLD = 0.60
-SCORE_EXCELLENT = 0.80
+SCORE_EXCELLENT = 0.90  # aligned with PROMOTE_THRESHOLD (rss-trial-manager.py): Excellent badge now means "will auto-promote to trial on next discovery run"
 BJT = timezone(timedelta(hours=8))
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
