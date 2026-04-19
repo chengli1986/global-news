@@ -297,10 +297,13 @@ class TestClassifyArticles:
         with patch("urllib.request.urlopen", return_value=mock_resp):
             sender.classify_articles()
 
+        # Post-Task-2 shape: _classifications stores dicts with region/reason_code/topic/geo/subtopic
         assert ("TechCrunch", 0) in sender._classifications
-        assert sender._classifications[("TechCrunch", 0)] == "🤖 AI & 科技前沿 TECH & AI"
+        assert sender._classifications[("TechCrunch", 0)]["region"] == "🤖 AI & 科技前沿 TECH & AI"
+        assert sender._classifications[("TechCrunch", 0)]["reason_code"] == "llm:topic:tech"
         assert ("BBC World", 0) in sender._classifications
-        assert sender._classifications[("BBC World", 0)] == "🏛 全球政治 GLOBAL POLITICS"
+        assert sender._classifications[("BBC World", 0)]["region"] == "🏛 全球政治 GLOBAL POLITICS"
+        assert sender._classifications[("BBC World", 0)]["reason_code"] == "llm:topic:politics"
 
     def test_classify_articles_fallback(self, sender):
         """On API failure, keyword fallback works via _reclassify_article."""

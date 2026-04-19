@@ -567,12 +567,34 @@ class UnifiedNewsSender:
     )
 
     def classify_articles(self):
-        """Classify articles from mixed-content sources into correct sections via GPT-4.1-mini.
-        Stores results in self._classifications: {(source, idx): region_title_or_None}.
-        Graceful fallback: on API failure, falls back to keyword-based reclassification."""
-        self._classifications = {}  # (source, idx) -> target region or None
+        """Classify articles into target sections via 4-stage funnel + LLM (gpt-4.1-mini).
 
-        to_classify = []  # (source, idx, title)
+        Stores results in self._classifications:
+            {(source, idx): {"region": str|None, "reason_code": str,
+                              "topic": str|None, "geo": str|None, "subtopic": str|None}}
+        - region=None means "keep article in its source-default region (REGION_GROUPS)"
+        - reason_code starts with one of REASON_PREFIXES; used by Task 8 monitoring stats
+
+        Spec: docs/superpowers/specs/2026-04-19-classification-redesign.md §4
+        """
+        self._classifications = {}  # (source, idx) -> classification dict (see docstring)
+
+        # Stage 1 — Hard source lock: 6 sources whose region is fixed (no LLM, no keyword)
+        # CBC Business / Globe & Mail → CANADA; Economist × 4 → ECONOMIST.
+        # Pre-populate _classifications with reason_code so monitoring (Task 8) sees them.
+        for src, articles in self.news_data.items():
+            if src not in self._LOCKED_SOURCES:
+                continue
+            for idx, _item in enumerate(articles):
+                self._classifications[(src, idx)] = {
+                    "region": None,  # None = stay in source-default REGION_GROUPS region
+                    "reason_code": f"source_lock:hard:{src}",
+                    "topic": None,
+                    "geo": None,
+                    "subtopic": None,
+                }
+
+        to_classify = []  # (source, idx, title) — articles that pass through Stage 1
         for src, articles in self.news_data.items():
             if src in self._LOCKED_SOURCES:
                 continue
@@ -652,7 +674,15 @@ class UnifiedNewsSender:
                 label = label_map.get(i)
                 if label and label in self._CATEGORY_TO_REGION:
                     target_region = self._CATEGORY_TO_REGION[label]
-                    self._classifications[(src, idx)] = target_region
+                    # Legacy 5-label LLM result wrapped in new dict shape; Task 5 will
+                    # replace this entire block with 3-label (topic/geo/subtopic) parsing.
+                    self._classifications[(src, idx)] = {
+                        "region": target_region,
+                        "reason_code": f"llm:topic:{label}",
+                        "topic": label,
+                        "geo": None,
+                        "subtopic": None,
+                    }
                     classified_count += 1
                     for region_title, source_names in self.REGION_GROUPS:
                         if src in source_names and target_region != region_title:
@@ -669,11 +699,22 @@ class UnifiedNewsSender:
 
     def _reclassify_article(self, title: str, source: str, source_idx: int) -> str | None:
         """Return target region for an article, or None to keep in original region.
-        Uses LLM classification if available, falls back to keyword matching."""
-        # LLM classification (set by classify_articles())
+
+        Reads new-style _classifications dict (post-Task-2 shape):
+            {(src, idx): {"region": str|None, "reason_code": str, ...}}
+        region=None means "keep in source-default REGION_GROUPS region" (used for
+        Stage 1 hard-lock entries, where the article belongs to its REGION_GROUPS
+        region by source-class definition).
+
+        Falls back to keyword-based reclassification if no LLM entry exists.
+        """
         if hasattr(self, '_classifications') and (source, source_idx) in self._classifications:
-            return self._classifications[(source, source_idx)]
-        # Keyword fallback for non-locked sources
+            entry = self._classifications[(source, source_idx)]
+            # Backward compat: tolerate legacy str-only entries during transition
+            if isinstance(entry, dict):
+                return entry.get("region")
+            return entry  # legacy str (pre-Task-2)
+        # Keyword fallback for non-locked sources without LLM entry
         if source not in self._LOCKED_SOURCES:
             if any(kw in title for kw in self._INTL_KEYWORDS):
                 return "🏛 全球政治 GLOBAL POLITICS"
