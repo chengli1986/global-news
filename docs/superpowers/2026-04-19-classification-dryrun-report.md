@@ -1,5 +1,5 @@
 # News Classification Dry-Run Diff Report
-**Generated**: 2026-04-19T17:17
+**Generated**: 2026-04-19T17:25
 **Fixtures examined**: 5 most recent
 **Pipeline**: 4-stage funnel + 2-axis labels (Tasks 1-9, commits cef7630..1a9f3be)
 **Mode**: Stages 1-3 deterministic + simulated Stage 4 (no LLM call).
@@ -20,16 +20,17 @@ Articles that would normally hit Stage 4 LLM in production fall back to their so
 | 市场/宏观 MACRO & MARKETS | 0 | 30 | 📈 +30 |
 | 经济学人 THE ECONOMIST | 26 | 27 | 📈 +1 |
 
-**Routing stats** (119 articles classified by Stages 1-3, rest fall back):
+**Routing stats** (235 total articles in fixture):
 
-| Stage | Count | % |
+| Stage | Count | % of total |
 |-------|------:|--:|
-| Stage 1 (hard lock) | 39 | 32.8% |
-| Stage 2 (soft lock) | 72 | 60.5% |
-| Stage 2 (escape→LLM) | 2 | 1.7% |
-| Stage 3 (geo keyword) | 6 | 5.0% |
+| Stage 1 (hard lock) | 39 | 16.6% |
+| Stage 2 (soft lock) | 72 | 30.6% |
+| Stage 2 (escape→LLM) | 2 | 0.9% |
+| Stage 3 (geo keyword) | 6 | 2.6% |
+| Stage 4 skipped (would hit LLM) | 116 | 49.4% |
 
-**Handled-by**: Deterministic 117 (98.3%), Hit LLM 2 (1.7%)
+**Handled-by (over 235 total)**: Deterministic Stage 1-3 = 117 (49.8%), Hit LLM (Stage 2 escape) = 2 (0.9%), Stage 4 skipped in dry-run = 116 (49.4%)
 
 ### Fixture `2026-04-19-08`
 | Region | Before | After | Δ |
@@ -45,16 +46,17 @@ Articles that would normally hit Stage 4 LLM in production fall back to their so
 | 市场/宏观 MACRO & MARKETS | 0 | 29 | 📈 +29 |
 | 经济学人 THE ECONOMIST | 26 | 27 | 📈 +1 |
 
-**Routing stats** (131 articles classified by Stages 1-3, rest fall back):
+**Routing stats** (241 total articles in fixture):
 
-| Stage | Count | % |
+| Stage | Count | % of total |
 |-------|------:|--:|
-| Stage 1 (hard lock) | 39 | 29.8% |
-| Stage 2 (soft lock) | 78 | 59.5% |
-| Stage 2 (escape→LLM) | 2 | 1.5% |
-| Stage 3 (geo keyword) | 12 | 9.2% |
+| Stage 1 (hard lock) | 39 | 16.2% |
+| Stage 2 (soft lock) | 78 | 32.4% |
+| Stage 2 (escape→LLM) | 2 | 0.8% |
+| Stage 3 (geo keyword) | 12 | 5.0% |
+| Stage 4 skipped (would hit LLM) | 110 | 45.6% |
 
-**Handled-by**: Deterministic 129 (98.5%), Hit LLM 2 (1.5%)
+**Handled-by (over 241 total)**: Deterministic Stage 1-3 = 129 (53.5%), Hit LLM (Stage 2 escape) = 2 (0.8%), Stage 4 skipped in dry-run = 110 (45.6%)
 
 ### Fixture `2026-04-19-14`
 | Region | Before | After | Δ |
@@ -70,16 +72,17 @@ Articles that would normally hit Stage 4 LLM in production fall back to their so
 | 市场/宏观 MACRO & MARKETS | 0 | 30 | 📈 +30 |
 | 经济学人 THE ECONOMIST | 26 | 27 | 📈 +1 |
 
-**Routing stats** (131 articles classified by Stages 1-3, rest fall back):
+**Routing stats** (240 total articles in fixture):
 
-| Stage | Count | % |
+| Stage | Count | % of total |
 |-------|------:|--:|
-| Stage 1 (hard lock) | 39 | 29.8% |
-| Stage 2 (soft lock) | 74 | 56.5% |
-| Stage 2 (escape→LLM) | 5 | 3.8% |
-| Stage 3 (geo keyword) | 13 | 9.9% |
+| Stage 1 (hard lock) | 39 | 16.2% |
+| Stage 2 (soft lock) | 74 | 30.8% |
+| Stage 2 (escape→LLM) | 5 | 2.1% |
+| Stage 3 (geo keyword) | 13 | 5.4% |
+| Stage 4 skipped (would hit LLM) | 109 | 45.4% |
 
-**Handled-by**: Deterministic 126 (96.2%), Hit LLM 5 (3.8%)
+**Handled-by (over 240 total)**: Deterministic Stage 1-3 = 126 (52.5%), Hit LLM (Stage 2 escape) = 5 (2.1%), Stage 4 skipped in dry-run = 109 (45.4%)
 
 ### Fixture `2026-04-19-16`
 | Region | Before | After | Δ |
@@ -95,16 +98,17 @@ Articles that would normally hit Stage 4 LLM in production fall back to their so
 | 市场/宏观 MACRO & MARKETS | 0 | 30 | 📈 +30 |
 | 经济学人 THE ECONOMIST | 26 | 26 | → +0 |
 
-**Routing stats** (129 articles classified by Stages 1-3, rest fall back):
+**Routing stats** (239 total articles in fixture):
 
-| Stage | Count | % |
+| Stage | Count | % of total |
 |-------|------:|--:|
-| Stage 1 (hard lock) | 38 | 29.5% |
-| Stage 2 (soft lock) | 76 | 58.9% |
-| Stage 2 (escape→LLM) | 4 | 3.1% |
-| Stage 3 (geo keyword) | 11 | 8.5% |
+| Stage 1 (hard lock) | 38 | 15.9% |
+| Stage 2 (soft lock) | 76 | 31.8% |
+| Stage 2 (escape→LLM) | 4 | 1.7% |
+| Stage 3 (geo keyword) | 11 | 4.6% |
+| Stage 4 skipped (would hit LLM) | 110 | 46.0% |
 
-**Handled-by**: Deterministic 125 (96.9%), Hit LLM 4 (3.1%)
+**Handled-by (over 239 total)**: Deterministic Stage 1-3 = 125 (52.3%), Hit LLM (Stage 2 escape) = 4 (1.7%), Stage 4 skipped in dry-run = 110 (46.0%)
 
 ### Fixture `2026-04-19-17`
 | Region | Before | After | Δ |
@@ -120,25 +124,27 @@ Articles that would normally hit Stage 4 LLM in production fall back to their so
 | 市场/宏观 MACRO & MARKETS | 0 | 30 | 📈 +30 |
 | 经济学人 THE ECONOMIST | 26 | 26 | → +0 |
 
-**Routing stats** (123 articles classified by Stages 1-3, rest fall back):
+**Routing stats** (234 total articles in fixture):
 
-| Stage | Count | % |
+| Stage | Count | % of total |
 |-------|------:|--:|
-| Stage 1 (hard lock) | 38 | 30.9% |
-| Stage 2 (soft lock) | 69 | 56.1% |
-| Stage 2 (escape→LLM) | 5 | 4.1% |
-| Stage 3 (geo keyword) | 11 | 8.9% |
+| Stage 1 (hard lock) | 38 | 16.2% |
+| Stage 2 (soft lock) | 69 | 29.5% |
+| Stage 2 (escape→LLM) | 5 | 2.1% |
+| Stage 3 (geo keyword) | 11 | 4.7% |
+| Stage 4 skipped (would hit LLM) | 111 | 47.4% |
 
-**Handled-by**: Deterministic 118 (95.9%), Hit LLM 5 (4.1%)
+**Handled-by (over 234 total)**: Deterministic Stage 1-3 = 118 (50.4%), Hit LLM (Stage 2 escape) = 5 (2.1%), Stage 4 skipped in dry-run = 111 (47.4%)
 
-## §2 Aggregate routing stats (all fixtures)
+## §2 Aggregate routing stats (all fixtures, % over total articles)
 
-| Stage | Total | % |
+| Stage | Total | % of all articles |
 |-------|------:|--:|
-| Stage 1 (hard lock) | 193 | 30.5% |
-| Stage 2 (soft lock) | 369 | 58.3% |
-| Stage 2 (escape→LLM) | 18 | 2.8% |
-| Stage 3 (geo keyword) | 53 | 8.4% |
+| Stage 1 (hard lock) | 193 | 16.2% |
+| Stage 2 (soft lock) | 369 | 31.0% |
+| Stage 2 (escape→LLM) | 18 | 1.5% |
+| Stage 3 (geo keyword) | 53 | 4.5% |
+| Stage 4 skipped (would hit LLM) | 556 | 46.8% |
 
 ## §3 Chinese sources back to CHINA (drift from old GLOBAL FINANCE etc.)
 
@@ -210,31 +216,33 @@ Articles that would normally hit Stage 4 LLM in production fall back to their so
 
 ## §5 New 10-zone population check
 
-| Region | Quota min-max | Avg articles/fixture | Sparse fixtures | Status |
+| Region | Quota min-max | Avg articles/fixture | Empty fixtures | Status |
 |--------|---:|---:|---|---|
 | AI/前沿 AI FRONTIER | 12-20 | 37.8 | 0/5 | ✓ healthy |
 | 市场/宏观 MACRO & MARKETS | 12-20 | 29.8 | 0/5 | ✓ healthy |
 | 全球政治 GLOBAL POLITICS | 14-22 | 27.2 | 0/5 | ✓ healthy |
 | 中国要闻 CHINA | 14-22 | 59.0 | 0/5 | ✓ healthy |
 | 公司/产业 CORPORATE & INDUSTRY | 10-16 | 12.0 | 0/5 | ✓ healthy |
-| 消费科技 CONSUMER TECH | 6-10 | 0.0 | 0/5 | 🔴 sparse |
+| 消费科技 CONSUMER TECH | 6-10 | 0.0 | 5/5 | 🔴 sparse / empty |
 | 亚太要闻 ASIA-PACIFIC | 8-14 | 31.8 | 0/5 | ✓ healthy |
 | 加拿大 CANADA | 6-12 | 13.6 | 0/5 | ✓ healthy |
 | 经济学人 THE ECONOMIST | 4-10 | 26.6 | 0/5 | ✓ healthy |
-| 社会观察 SOCIETY | 3-8 | 0.0 | 0/5 | 🔴 sparse |
+| 社会观察 SOCIETY | 3-8 | 0.0 | 5/5 | 🔴 sparse / empty |
 
 ## §6 Final verdict
 
-- **Deterministic routing share**: 97.2% (target ≥30%, ideal ≥50%)
+- **Total articles** (5 fixtures): 1189
+- **Deterministic routing share** (Stage 1+2+3 / total): 51.7% (target ≥30%, ideal ≥50%)
+- **Stage 4 skipped in dry-run** (would be LLM-classified in production): 556 articles (46.8%)
 - **Chinese-source drifters to CHINA**: 68 articles (spec target: 中国财经要闻 in old GLOBAL FINANCE drops 7→≤2)
 - **Geo-keyword recoveries**: 53 foreign-source articles now in CANADA/ASIA-PAC
-- **Sparse zones** (< qmin/2 in dry-run, expected for LLM-fed regions): 消费科技 CONSUMER TECH, 社会观察 SOCIETY
+- **Sparse zones in dry-run** (avg < qmin/2): 消费科技 CONSUMER TECH, 社会观察 SOCIETY — these are LLM-fed only (no Stage 1-3 routing path), production Stage 4 LLM expected to fill them.
 
 ### ✅ Recommendation: SHIP-READY for Task 11 deploy
 
 All three core acceptance criteria met:
-1. Deterministic stages route ≥30% (saves LLM cost)
+1. Deterministic stages route ≥30% of total articles (saves LLM cost)
 2. Chinese sources flow back to CHINA (resolves spec §2 anomaly)
 3. Foreign-source geographic articles reach proper geo regions
 
-Sparse LLM-fed zones (CONSUMER_TECH, SOCIETY, CORPORATE) will fill in production once Stage 4 LLM is live. Recommend proceeding to Task 11 with monitoring of first 3 sends to validate quota tuning.
+Sparse zones identified above (消费科技 CONSUMER TECH, 社会观察 SOCIETY) are LLM-fed only and will fill in production once Stage 4 LLM is live. Recommend proceeding to Task 11 with monitoring of first 3 sends to validate quota tuning.

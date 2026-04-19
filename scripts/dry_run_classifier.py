@@ -101,9 +101,15 @@ def reconstruct_news_data(fx_path: Path) -> dict[str, list[tuple]]:
     return result
 
 
-def run_new_pipeline(fx_path: Path) -> tuple[dict, dict, dict]:
+def run_new_pipeline(fx_path: Path) -> tuple[dict, dict, dict, int]:
     """Run Stages 1-3 of new pipeline (no LLM key → Stage 4 articles fall back
-    to source-default region). Returns (region_dist, classifications, stage_counts).
+    to source-default region in this dry-run).
+
+    Returns (region_dist, classifications, stage_counts, total_articles).
+    stage_counts is keyed over ALL articles (not just _classifications) — articles
+    that didn't get classified by Stages 1-3 are bucketed into 'Stage 4 skipped
+    (would hit LLM)' so verdict denominators reflect total articles, not the
+    classified subset (Codex review fix #1).
     """
     sender = UnifiedNewsSender()
     sender.news_data = reconstruct_news_data(fx_path)
@@ -118,10 +124,12 @@ def run_new_pipeline(fx_path: Path) -> tuple[dict, dict, dict]:
     with contextlib.redirect_stdout(buf):
         sender.classify_articles()
 
-    # Build region distribution
+    # Build region distribution + count total articles
     region_dist: dict[str, list[tuple[str, str]]] = defaultdict(list)
+    total_articles = 0
     for src, articles in sender.news_data.items():
         for idx, art in enumerate(articles):
+            total_articles += 1
             entry = sender._classifications.get((src, idx))
             if entry and entry.get("region"):
                 region = entry["region"]
@@ -130,7 +138,7 @@ def run_new_pipeline(fx_path: Path) -> tuple[dict, dict, dict]:
             title = art[0] if isinstance(art, tuple) else art
             region_dist[region].append((src, title))
 
-    # Stage counts from _classifications
+    # Stage labels
     def _stage_label(rc: str) -> str:
         if rc.startswith("source_lock:hard"): return "Stage 1 (hard lock)"
         if rc.startswith("source_lock:soft"): return "Stage 2 (soft lock)"
@@ -143,7 +151,14 @@ def run_new_pipeline(fx_path: Path) -> tuple[dict, dict, dict]:
     stage_counts = Counter(
         _stage_label(e["reason_code"]) for e in sender._classifications.values()
     )
-    return dict(region_dist), dict(sender._classifications), dict(stage_counts)
+    # Codex review fix #1: bucket unclassified articles into 'Stage 4 skipped'
+    # so percentages compute over total articles, not classified subset
+    classified_count = sum(stage_counts.values())
+    skipped = total_articles - classified_count
+    if skipped > 0:
+        stage_counts["Stage 4 skipped (would hit LLM)"] = skipped
+
+    return dict(region_dist), dict(sender._classifications), dict(stage_counts), total_articles
 
 
 # --- Diff analysis -------------------------------------------------------
@@ -234,7 +249,8 @@ def render_report(fixtures: list[Path]) -> str:
     all_new_dist: dict = defaultdict(list)
     all_drifters: list = []
     all_recoveries: list = []
-    sparse_zones_per_fixture: dict[str, set] = defaultdict(set)
+    # (sparse_zones_per_fixture removed in Codex review fix #2 — replaced by
+    # explicit walk over expected 10 zones in §5)
 
     out.append("## §1 Per-fixture region distribution (before → after)\n")
 
@@ -244,7 +260,7 @@ def render_report(fixtures: list[Path]) -> str:
         log_file = LOGS_DIR / f"news-sender-{date_only}.log"
 
         old_dist = parse_old_distribution(log_file)
-        new_dist, classifications, stage_counts = run_new_pipeline(fx)
+        new_dist, classifications, stage_counts, total_articles = run_new_pipeline(fx)
 
         out.append(f"### Fixture `{fx_date}`\n")
         if not old_dist:
@@ -264,33 +280,32 @@ def render_report(fixtures: list[Path]) -> str:
                 out.append(f"| {region} | {old_n} | {new_n} | {marker} {delta:+d} |\n")
             out.append("\n")
 
-        # Stage stats (provenance view)
-        total = sum(stage_counts.values())
-        out.append(f"**Routing stats** ({total} articles classified by Stages 1-3, rest fall back):\n\n")
-        out.append("| Stage | Count | % |\n|-------|------:|--:|\n")
+        # Stage stats — denominator = total_articles (Codex review fix #1)
+        # Now percentages reflect "% of all articles", not "% of classified subset"
+        out.append(f"**Routing stats** ({total_articles} total articles in fixture):\n\n")
+        out.append("| Stage | Count | % of total |\n|-------|------:|--:|\n")
         for stage in ["Stage 1 (hard lock)", "Stage 2 (soft lock)", "Stage 2 (escape→LLM)",
-                      "Stage 3 (geo keyword)", "Stage 4 (LLM)", "Fallback"]:
+                      "Stage 3 (geo keyword)", "Stage 4 (LLM)",
+                      "Stage 4 skipped (would hit LLM)", "Fallback"]:
             cnt = stage_counts.get(stage, 0)
             if cnt > 0:
-                pct = 100 * cnt / total
+                pct = 100 * cnt / max(total_articles, 1)
                 out.append(f"| {stage} | {cnt} | {pct:.1f}% |\n")
         out.append("\n")
 
-        # Handled-by view
+        # Handled-by view — denominator also total_articles
         det_prefixes = ("source_lock:hard", "source_lock:soft", "geo_keyword")
         llm_prefixes = ("soft_escape", "llm:")
         det = sum(1 for e in classifications.values()
                   if e["reason_code"].startswith(det_prefixes))
-        llm = sum(1 for e in classifications.values()
-                  if e["reason_code"].startswith(llm_prefixes))
-        if total > 0:
-            out.append(f"**Handled-by**: Deterministic {det} ({100*det/total:.1f}%), "
-                       f"Hit LLM {llm} ({100*llm/total:.1f}%)\n\n")
-
-        # Sparse zones (< 3 articles in new dist)
-        sparse = [r for r, articles in new_dist.items() if len(articles) < 3]
-        for r in sparse:
-            sparse_zones_per_fixture[emoji_strip(r)].add(fx_date)
+        llm_hit = sum(1 for e in classifications.values()
+                      if e["reason_code"].startswith(llm_prefixes))
+        skipped = stage_counts.get("Stage 4 skipped (would hit LLM)", 0)
+        if total_articles > 0:
+            out.append(f"**Handled-by (over {total_articles} total)**: "
+                       f"Deterministic Stage 1-3 = {det} ({100*det/total_articles:.1f}%), "
+                       f"Hit LLM (Stage 2 escape) = {llm_hit} ({100*llm_hit/total_articles:.1f}%), "
+                       f"Stage 4 skipped in dry-run = {skipped} ({100*skipped/total_articles:.1f}%)\n\n")
 
         # Aggregate
         all_stage_counts.update(stage_counts)
@@ -306,12 +321,13 @@ def render_report(fixtures: list[Path]) -> str:
                               for r in find_geo_keyword_recoveries(
                                   classifications, reconstruct_news_data(fx)))
 
-    # §2 Aggregate stage stats
+    # §2 Aggregate stage stats — include 'Stage 4 skipped' so % sums to 100%
     total = sum(all_stage_counts.values())
-    out.append("## §2 Aggregate routing stats (all fixtures)\n\n")
-    out.append("| Stage | Total | % |\n|-------|------:|--:|\n")
+    out.append("## §2 Aggregate routing stats (all fixtures, % over total articles)\n\n")
+    out.append("| Stage | Total | % of all articles |\n|-------|------:|--:|\n")
     for stage in ["Stage 1 (hard lock)", "Stage 2 (soft lock)", "Stage 2 (escape→LLM)",
-                  "Stage 3 (geo keyword)", "Stage 4 (LLM)", "Fallback"]:
+                  "Stage 3 (geo keyword)", "Stage 4 (LLM)",
+                  "Stage 4 skipped (would hit LLM)", "Fallback"]:
         cnt = all_stage_counts.get(stage, 0)
         if cnt > 0:
             out.append(f"| {stage} | {cnt} | {100*cnt/total:.1f}% |\n")
@@ -359,53 +375,69 @@ def render_report(fixtures: list[Path]) -> str:
         ("经济学人 THE ECONOMIST", 4, 10),
         ("社会观察 SOCIETY", 3, 8),
     ]
-    out.append("| Region | Quota min-max | Avg articles/fixture | Sparse fixtures | Status |\n")
+    # Codex review fix #2: walk all 10 expected zones explicitly (not just zones
+    # that appear in new_dist), so a fully-empty zone correctly shows N/N sparse
+    # rather than 0/N (which falsely implied "no fixture had it sparse").
+    out.append("| Region | Quota min-max | Avg articles/fixture | Empty fixtures | Status |\n")
     out.append("|--------|---:|---:|---|---|\n")
     n_fx = len(fixtures)
+    sparse_now: list[str] = []
     for region, qmin, qmax in new_zones:
         items = all_new_dist.get(region, [])
         avg = len(items) / n_fx if n_fx else 0
-        sparse_fxs = sparse_zones_per_fixture.get(region, set())
+        # Count fixtures where this region had < 3 articles by walking per-fixture data
+        fx_counts_for_region: dict[str, int] = defaultdict(int)
+        for entry in items:
+            fx_id = entry[0]  # (fx_date, src, title)
+            fx_counts_for_region[fx_id] += 1
+        empty_fxs = sum(1 for fx in fixtures if fx_counts_for_region.get(fx.stem, 0) < 3)
         if avg >= qmin:
             status = "✓ healthy"
         elif avg >= qmin / 2:
             status = "⚠️ below min"
         else:
-            status = "🔴 sparse"
-        sparse_note = f"{len(sparse_fxs)}/{n_fx}" if sparse_fxs else "0/" + str(n_fx)
-        out.append(f"| {region} | {qmin}-{qmax} | {avg:.1f} | {sparse_note} | {status} |\n")
+            status = "🔴 sparse / empty"
+            sparse_now.append(region)
+        out.append(f"| {region} | {qmin}-{qmax} | {avg:.1f} | {empty_fxs}/{n_fx} | {status} |\n")
     out.append("\n")
 
-    # §6 Verdict
+    # §6 Verdict — denominators corrected per Codex review #1
     out.append("## §6 Final verdict\n\n")
-    deterministic_pct = 100 * sum(
+    aggregate_total = sum(all_stage_counts.values())  # all articles across all fixtures
+    det_articles = sum(
         all_stage_counts.get(s, 0)
         for s in ["Stage 1 (hard lock)", "Stage 2 (soft lock)", "Stage 3 (geo keyword)"]
-    ) / max(total, 1)
-    out.append(f"- **Deterministic routing share**: {deterministic_pct:.1f}% "
-               f"(target ≥30%, ideal ≥50%)\n")
+    )
+    deterministic_pct = 100 * det_articles / max(aggregate_total, 1)
+    skipped_articles = all_stage_counts.get("Stage 4 skipped (would hit LLM)", 0)
+    skipped_pct = 100 * skipped_articles / max(aggregate_total, 1)
+
+    out.append(f"- **Total articles** (5 fixtures): {aggregate_total}\n")
+    out.append(f"- **Deterministic routing share** (Stage 1+2+3 / total): "
+               f"{deterministic_pct:.1f}% (target ≥30%, ideal ≥50%)\n")
+    out.append(f"- **Stage 4 skipped in dry-run** (would be LLM-classified in production): "
+               f"{skipped_articles} articles ({skipped_pct:.1f}%)\n")
     out.append(f"- **Chinese-source drifters to CHINA**: {len(all_drifters)} articles "
                f"(spec target: 中国财经要闻 in old GLOBAL FINANCE drops 7→≤2)\n")
     out.append(f"- **Geo-keyword recoveries**: {len(all_recoveries)} foreign-source articles "
                f"now in CANADA/ASIA-PAC\n")
-
-    sparse_zones = [r for r, qmin, qmax in new_zones
-                    if (len(all_new_dist.get(r, [])) / max(n_fx, 1)) < qmin / 2]
-    if sparse_zones:
-        out.append(f"- **Sparse zones** (< qmin/2 in dry-run, expected for LLM-fed regions): "
-                   f"{', '.join(sparse_zones)}\n")
+    if sparse_now:
+        out.append(f"- **Sparse zones in dry-run** (avg < qmin/2): "
+                   f"{', '.join(sparse_now)} — these are LLM-fed only "
+                   f"(no Stage 1-3 routing path), production Stage 4 LLM expected to fill them.\n")
     out.append("\n")
 
     if deterministic_pct >= 30 and len(all_drifters) > 0 and len(all_recoveries) > 0:
         out.append("### ✅ Recommendation: SHIP-READY for Task 11 deploy\n\n")
         out.append(
             "All three core acceptance criteria met:\n"
-            "1. Deterministic stages route ≥30% (saves LLM cost)\n"
+            "1. Deterministic stages route ≥30% of total articles (saves LLM cost)\n"
             "2. Chinese sources flow back to CHINA (resolves spec §2 anomaly)\n"
             "3. Foreign-source geographic articles reach proper geo regions\n\n"
-            "Sparse LLM-fed zones (CONSUMER_TECH, SOCIETY, CORPORATE) will fill in "
-            "production once Stage 4 LLM is live. Recommend proceeding to Task 11 "
-            "with monitoring of first 3 sends to validate quota tuning.\n"
+            f"Sparse zones identified above ({', '.join(sparse_now) if sparse_now else 'none'}) "
+            f"are LLM-fed only and will fill in production once Stage 4 LLM is live. "
+            f"Recommend proceeding to Task 11 with monitoring of first 3 sends to "
+            f"validate quota tuning.\n"
         )
     else:
         out.append("### ⚠️ Recommendation: TUNE QUOTAS / SOFT-LOCK BEFORE TASK 11\n\n")
