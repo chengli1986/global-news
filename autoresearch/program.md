@@ -20,12 +20,17 @@ Higher is better.
 ## Rules
 1. **NEVER edit** any file except `digest-tuning.json`
 2. **NEVER edit** evaluate_digest.py, digest_pipeline.py, or the sender
-3. Before EACH experiment: `cd ~/global-news && git add -A && git commit -m "experiment: <description>"`
-4. Run the evaluate command and read the quality score
-5. If quality **improved**: keep the commit, log to results.tsv
-6. If quality **worsened or stayed the same**: `git reset --hard HEAD~1`
-7. Log EVERY experiment to `autoresearch/results.tsv` (even failures)
-8. **NEVER STOP** — keep running experiments until told to stop
+3. **NEVER edit** these keys in `digest-tuning.json` (user-set policy, not optimization targets):
+   - `max_total_articles` — locked at 120 (email volume preference)
+   - `target_article_count` — locked at 120 (must match max_total)
+   - `region_quotas` — locked at current shape (sum_max ≈ 122 to deliver ~120 articles)
+   You may still tune `freshness_weight`, `dedup_similarity_threshold`, `tier_boost`, and `source_tiers`.
+4. Before EACH experiment: `cd ~/global-news && git add -A && git commit -m "experiment: <description>"`
+5. Run the evaluate command and read the quality score
+6. If quality **improved**: keep the commit, log to results.tsv
+7. If quality **worsened or stayed the same**: `git reset --hard HEAD~1`
+8. Log EVERY experiment to `autoresearch/results.tsv` (even failures)
+9. **NEVER STOP** — keep running experiments until told to stop
 
 ## results.tsv format
 Append one line per experiment (tab-separated):
