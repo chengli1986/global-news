@@ -763,30 +763,64 @@ class UnifiedNewsSender:
             print("⚠️  No LLM API key set, skipping article classification")
             return
 
-        print(f"🏷️  Classifying {len(to_classify)} articles...")
+        print(f"🏷️  Classifying {len(to_classify)} articles (Stage 4 LLM, 3-label)...")
 
         # Build numbered title list for reliable index mapping
         numbered_titles = "\n".join(f"{i+1}. {t[2]}" for i, t in enumerate(to_classify))
         prompt = (
-            "Classify each numbered news title into exactly one category. "
-            "Titles may be in Chinese or English.\n"
-            "Return a JSON object mapping each number (as string key) to its category label.\n"
-            f'Example format: {{"1": "tech", "2": "finance", "3": "politics"}}\n\n'
-            "Categories:\n"
-            "- \"tech\": technology, AI, software, hardware, gadgets, apps, startups, digital products, science\n"
-            "- \"finance\": business, markets, companies, earnings, IPO, real estate, economy, trade\n"
-            "- \"politics\": politics, military, diplomacy, international relations, geopolitics, war, protests, government policy\n"
-            "- \"china\": China domestic society, culture, education, lifestyle, social issues (NOT tech/finance/politics)\n"
-            "- \"asia\": Hong Kong, Singapore, Japan, Korea, Southeast Asia, Asia-Pacific regional news\n\n"
-            "Rules:\n"
-            "- Military operations, wars, airstrikes, missile attacks → \"politics\" always\n"
-            "- Protests, rallies, diplomatic summits → \"politics\" always\n"
-            "- Articles about war's economic impact (oil prices, gold, supply chains) where the PRIMARY topic is the war/geopolitics → \"politics\"\n"
-            "- Company earnings, stock market, business strategy → \"finance\"\n"
-            "- An article about an AI product or tech company innovation → \"tech\"\n"
-            "- A non-tech company's organizational restructuring or business operations → \"finance\"\n"
-            "- Consumer electronics product reviews, device specs, phone/tablet/monitor/storage product launches or hands-on reviews → NOT \"tech\"; classify as \"china\" if Chinese source, else \"finance\"\n"
-            "- Only classify as \"tech\" if the article discusses a genuine technical breakthrough, AI/software innovation, or industry-wide trend — not routine gadget/spec news\n\n"
+            "Classify each numbered news title with three labels: topic, geo, subtopic.\n"
+            "Titles may be in Chinese or English.\n\n"
+            "Topics (pick exactly one):\n"
+            "- \"politics\": government, military, diplomacy, war, elections, protests, civic, policy\n"
+            "- \"business\": companies, markets, economy, trade, finance\n"
+            "- \"tech\": AI, software, hardware, semiconductors, science breakthroughs (NOT consumer product reviews)\n"
+            "- \"consumer_tech\": gadget reviews, product launches/specs, app updates, smart home, lifestyle apps\n"
+            "- \"society\": culture, education, lifestyle, social issues, health\n\n"
+            "Geos (pick exactly one — the article's PRIMARY geographic focus):\n"
+            "- \"china\": primarily about mainland China\n"
+            "- \"canada\": primarily about Canada\n"
+            "- \"asia_other\": HK/SG/JP/KR/SEA/India/Australia/NZ/Taiwan/Mongolia\n"
+            "- \"us\": primarily about USA\n"
+            "- \"europe\": primarily about EU/UK\n"
+            "- \"global\": multi-country, no specific geo, or N/A\n\n"
+            "Subtopic (only required for topic in {tech, business}):\n"
+            "- For tech: \"tech_ai\" (research/platforms/infrastructure/AI products at platform level)"
+            " OR \"tech_consumer\" (reviews/specs/gadgets)\n"
+            "- For business: \"business_macro\" (Fed, GDP, indices, crypto market, trade war, currencies)"
+            " OR \"business_corp\" (earnings, M&A, individual company)\n"
+            "- For other topics: omit or set to null\n\n"
+            'Return JSON: {"1": {"topic":"...","geo":"...","subtopic":"..."}, "2": {...}, ...}\n\n'
+            "Examples (low-ambiguity):\n"
+            "- \"Fed signals April hold\" → {topic:\"business\", geo:\"us\", subtopic:\"business_macro\"}\n"
+            "- \"Apple Q4 earnings beat\" → {topic:\"business\", geo:\"us\", subtopic:\"business_corp\"}\n"
+            "- \"宁德时代为什么赚这么多钱\" → {topic:\"business\", geo:\"china\", subtopic:\"business_corp\"}\n"
+            "- \"iPhone 17 review\" → {topic:\"consumer_tech\", geo:\"us\"}\n"
+            "- \"Anthropic releases Claude 5\" → {topic:\"tech\", geo:\"us\", subtopic:\"tech_ai\"}\n"
+            "- \"OpenAI raises $100B\" → {topic:\"tech\", geo:\"us\", subtopic:\"tech_ai\"}\n"
+            "- \"Iran-Israel ceasefire\" → {topic:\"politics\", geo:\"global\"}\n"
+            "- \"卢特尼克对加拿大说糟透了\" → {topic:\"politics\", geo:\"canada\"}\n"
+            "- \"Guardian: 美国得州禁书法案\" → {topic:\"society\", geo:\"us\"}\n\n"
+            "Examples (high-ambiguity, explicitly resolved):\n"
+            "# china + tech_ai → topic region (NOT CHINA, per Q1B exemption)\n"
+            "- \"DeepSeek 训练成本下降 80%\" → {topic:\"tech\", geo:\"china\", subtopic:\"tech_ai\"}\n"
+            "- \"字节跳动 Sora 对标 OpenAI\" → {topic:\"tech\", geo:\"china\", subtopic:\"tech_ai\"}\n"
+            "# china + consumer_tech → CHINA (Chinese consumer products belong with China)\n"
+            "- \"小米 14 Ultra 评测\" → {topic:\"consumer_tech\", geo:\"china\"}\n"
+            "- \"华为 Mate60 销量超预期\" → {topic:\"consumer_tech\", geo:\"china\"}\n"
+            "# china + politics → POLITICS (politics topic wins for global comparison)\n"
+            "- \"中国发改委发布产能控制新规\" → {topic:\"politics\", geo:\"china\"}\n"
+            "- \"习近平赴莫斯科出席峰会\" → {topic:\"politics\", geo:\"china\"}\n"
+            "# asia_other + society → ASIA-PAC (geo dominates regardless of topic)\n"
+            "- \"日本少子化政策深度报告\" → {topic:\"society\", geo:\"asia_other\"}\n"
+            "- \"韩国年轻人婚育率创新低\" → {topic:\"society\", geo:\"asia_other\"}\n"
+            "# europe + business — distinguish macro vs corp\n"
+            "- \"ECB 维持利率不变\" → {topic:\"business\", geo:\"europe\", subtopic:\"business_macro\"}\n"
+            "- \"BMW Q3 销量同比下滑 12%\" → {topic:\"business\", geo:\"europe\", subtopic:\"business_corp\"}\n"
+            "# Multi-geo dominant — pick the article's primary geographic focus\n"
+            "- \"中印边境冲突升级\" → {topic:\"politics\", geo:\"asia_other\"} (India dominates non-China narrative)\n"
+            "- \"中俄联合军演谴责美国\" → {topic:\"politics\", geo:\"global\"} (multi-country)\n"
+            "- \"台积电赴日设厂\" → {topic:\"business\", geo:\"asia_other\", subtopic:\"business_corp\"}\n"
+            "- \"拜登访问东京会晤岸田文雄\" → {topic:\"politics\", geo:\"asia_other\"}\n\n"
             f"Titles ({len(to_classify)} total):\n{numbered_titles}"
         )
 
@@ -800,56 +834,133 @@ class UnifiedNewsSender:
             content = result["choices"][0]["message"]["content"]
             parsed = self._extract_json_from_text(content)
 
-            # Convert response to {int_index: label} mapping
-            label_map = {}  # 0-based index -> category label
-            if isinstance(parsed, dict):
-                for k, v in parsed.items():
-                    # Handle nested {"classifications": {"1": "tech", ...}} or flat {"1": "tech", ...}
-                    if isinstance(v, dict):
-                        for kk, vv in v.items():
-                            try:
-                                label_map[int(kk) - 1] = vv
-                            except (ValueError, TypeError):
-                                pass
-                    elif isinstance(v, str):
-                        try:
-                            label_map[int(k) - 1] = v
-                        except (ValueError, TypeError):
-                            pass
-            elif isinstance(parsed, list):
-                # Fallback: if LLM returns array anyway
-                for i, v in enumerate(parsed):
-                    if isinstance(v, str):
-                        label_map[i] = v
+            # Parse 3-label response into {0-based-idx: {topic, geo, subtopic}} dict.
+            # Tolerates flat {"1": {...}} or nested {"classifications": {"1": {...}}} shape.
+            label_map = self._parse_3label_response(parsed)
 
-            reclassified_count = 0
             classified_count = 0
+            dropped_count = 0
             for i, (src, idx, title) in enumerate(to_classify):
-                label = label_map.get(i)
-                if label and label in self._CATEGORY_TO_REGION:
-                    target_region = self._CATEGORY_TO_REGION[label]
-                    # Legacy 5-label LLM result wrapped in new dict shape; Task 5 will
-                    # replace this entire block with 3-label (topic/geo/subtopic) parsing.
-                    self._classifications[(src, idx)] = {
-                        "region": target_region,
-                        "reason_code": f"llm:topic:{label}",
-                        "topic": label,
-                        "geo": None,
-                        "subtopic": None,
-                    }
-                    classified_count += 1
-                    for region_title, source_names in self.REGION_GROUPS:
-                        if src in source_names and target_region != region_title:
-                            reclassified_count += 1
-                            break
+                labels = label_map.get(i)
+                if not labels:
+                    dropped_count += 1
+                    continue
+                topic = labels.get("topic")
+                geo = labels.get("geo")
+                subtopic = labels.get("subtopic")
+
+                # Validation: drop articles with invalid topic/geo (article stays in
+                # source-default region with no _classifications entry beyond what
+                # Stage 1-3 may have set)
+                if topic not in TOPIC_LABELS or geo not in GEO_LABELS:
+                    dropped_count += 1
+                    continue
+
+                # Default subtopic for tech/business if missing; warn via stdout
+                if topic in SUBTOPIC_LABELS:
+                    if subtopic not in SUBTOPIC_LABELS[topic]:
+                        default_subtopic = "tech_ai" if topic == "tech" else "business_macro"
+                        print(f"⚠️  Article {i+1} ({src}) topic={topic} missing/invalid subtopic"
+                              f" {subtopic!r} — defaulting to {default_subtopic!r}")
+                        subtopic = default_subtopic
+
+                # Determine region. NOTE: this is a temporary mapping using the current
+                # 7-zone REGION_GROUPS keys; Task 6 replaces with full _route() function
+                # producing 10-zone keys.
+                region = self._legacy_region_from_3label(topic, geo, subtopic)
+
+                # Preserve reason_code for soft_escape entries (Stage 2 marked them);
+                # otherwise tag as llm:topic:<topic> placeholder (Task 6 will refine).
+                existing = self._classifications.get((src, idx))
+                if existing and existing["reason_code"].startswith("soft_escape"):
+                    reason = existing["reason_code"]
+                else:
+                    reason = f"llm:topic:{topic}"
+
+                self._classifications[(src, idx)] = {
+                    "region": region,
+                    "reason_code": reason,
+                    "topic": topic,
+                    "geo": geo,
+                    "subtopic": subtopic,
+                }
+                classified_count += 1
 
             provider = getattr(self, "_last_provider", "unknown")
-            print(f"✅ Classified {classified_count}/{len(to_classify)} articles, {reclassified_count} reclassified to different sections (via {provider})")
+            print(f"✅ Classified {classified_count}/{len(to_classify)} articles "
+                  f"({dropped_count} dropped due to invalid labels) via {provider}")
             self._llm_status.append(("分类 Classification", provider, True))
 
         except Exception as e:
             print(f"⚠️  Article classification failed ({e}), falling back to keyword-based routing")
             self._llm_status.append(("分类 Classification", None, False))
+
+    @staticmethod
+    def _parse_3label_response(parsed) -> dict:
+        """Parse LLM response into {0-based-idx: {topic, geo, subtopic}} mapping.
+
+        Tolerates two top-level shapes:
+        - flat: {"1": {"topic":..., "geo":..., "subtopic":...}, "2": {...}, ...}
+        - nested: {"classifications": {"1": {...}, "2": {...}, ...}}
+
+        Returns empty dict if parsed is malformed (caller treats as zero classifications).
+        """
+        label_map = {}
+        if not isinstance(parsed, dict):
+            return label_map
+
+        # Detect nested shape: single top-level key whose value is a dict-of-dicts
+        candidate_root = parsed
+        if len(parsed) == 1:
+            sole_key, sole_val = next(iter(parsed.items()))
+            if isinstance(sole_val, dict) and any(isinstance(v, dict) for v in sole_val.values()):
+                candidate_root = sole_val
+
+        for k, v in candidate_root.items():
+            if not isinstance(v, dict):
+                continue
+            try:
+                idx = int(k) - 1  # convert "1"-based to 0-based
+            except (ValueError, TypeError):
+                continue
+            label_map[idx] = {
+                "topic": v.get("topic"),
+                "geo": v.get("geo"),
+                "subtopic": v.get("subtopic"),
+            }
+        return label_map
+
+    @staticmethod
+    def _legacy_region_from_3label(topic: str, geo: str, subtopic: str | None) -> str | None:
+        """Temporary 3-label → 7-zone REGION_GROUPS mapping bridge.
+
+        Replaced by full _route() function in Task 6 (which produces 10-zone keys).
+        Implements the spec §4.5 routing logic but mapped onto current region keys
+        so the pipeline stays functional during the Tasks 5→6 gap.
+        """
+        # Geo-priority for personal-context regions (Q1B exemption preview)
+        if geo == "canada":
+            return "🇨🇦 加拿大 CANADA"
+        if geo == "asia_other":
+            return "🌏 亚太要闻 ASIA-PACIFIC"
+        if geo == "china":
+            if topic in ("society", "business", "consumer_tech"):
+                return "🇨🇳 中国要闻 CHINA"
+            # china + tech/politics falls through to topic routing
+
+        # Topic routing using current 7-zone keys
+        if topic == "politics":
+            return "🏛 全球政治 GLOBAL POLITICS"
+        if topic == "business":
+            return "💰 全球财经 GLOBAL FINANCE"
+        if topic in ("tech", "consumer_tech"):
+            return "🤖 AI & 科技前沿 TECH & AI"
+        if topic == "society":
+            # Non-China society — temporary fallback to POLITICS until Task 6
+            # introduces the SOCIETY zone in REGION_GROUPS
+            return "🏛 全球政治 GLOBAL POLITICS"
+
+        return None  # Unknown topic — no reclassification
 
     def _reclassify_article(self, title: str, source: str, source_idx: int) -> str | None:
         """Return target region for an article, or None to keep in original region.

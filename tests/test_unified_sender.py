@@ -276,15 +276,19 @@ class TestClassifyArticles:
     """Tests for classify_articles and _reclassify_article methods."""
 
     def test_classify_articles_success(self, sender):
-        """Mock OpenAI API returns valid classification mapping."""
+        """Mock OpenAI API returns valid 3-label (topic/geo/subtopic) classification."""
         sender.news_data = {
             "TechCrunch": [("Apple releases new Vision Pro", "https://tc.com/1", None, None)],
             "BBC World": [("Russia-Ukraine war continues", "https://bbc.com/1", None, None)],
         }
+        # Post-Task-5 LLM output is 3-label per article
         api_response = json.dumps({
             "choices": [{
                 "message": {
-                    "content": json.dumps({"1": "tech", "2": "politics"})
+                    "content": json.dumps({
+                        "1": {"topic": "consumer_tech", "geo": "us"},
+                        "2": {"topic": "politics", "geo": "global"},
+                    })
                 }
             }]
         }).encode("utf-8")
@@ -297,13 +301,18 @@ class TestClassifyArticles:
         with patch("urllib.request.urlopen", return_value=mock_resp):
             sender.classify_articles()
 
-        # Post-Task-2 shape: _classifications stores dicts with region/reason_code/topic/geo/subtopic
+        # Post-Task-5 shape: _classifications stores dicts with region/reason_code/topic/geo/subtopic
         assert ("TechCrunch", 0) in sender._classifications
+        # consumer_tech routes to TECH zone via _legacy_region_from_3label (Task 6 will refine)
         assert sender._classifications[("TechCrunch", 0)]["region"] == "🤖 AI & 科技前沿 TECH & AI"
-        assert sender._classifications[("TechCrunch", 0)]["reason_code"] == "llm:topic:tech"
+        assert sender._classifications[("TechCrunch", 0)]["reason_code"] == "llm:topic:consumer_tech"
+        assert sender._classifications[("TechCrunch", 0)]["topic"] == "consumer_tech"
+        assert sender._classifications[("TechCrunch", 0)]["geo"] == "us"
         assert ("BBC World", 0) in sender._classifications
         assert sender._classifications[("BBC World", 0)]["region"] == "🏛 全球政治 GLOBAL POLITICS"
         assert sender._classifications[("BBC World", 0)]["reason_code"] == "llm:topic:politics"
+        assert sender._classifications[("BBC World", 0)]["topic"] == "politics"
+        assert sender._classifications[("BBC World", 0)]["geo"] == "global"
 
     def test_classify_articles_fallback(self, sender):
         """On API failure, keyword fallback works via _reclassify_article."""

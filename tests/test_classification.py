@@ -346,3 +346,156 @@ class TestStage3GeoKeyword:
         assert entry is not None
         # Hard lock wins — Stage 3 does NOT override
         assert entry["reason_code"] == "source_lock:hard:CBC Business"
+
+
+# ===== Task 5: LLM 3-label parser + simplified region mapping =====
+
+
+class TestParse3LabelResponse:
+    """Spec §5: parser tolerates flat / nested shapes; validates labels; defaults
+    missing subtopic for tech/business; drops invalid topic/geo entries.
+
+    Tests target the static helper _parse_3label_response directly (no LLM call).
+    """
+
+    def test_parse_well_formed_3label(self):
+        parsed = {
+            "1": {"topic": "tech", "geo": "us", "subtopic": "tech_ai"},
+            "2": {"topic": "business", "geo": "china", "subtopic": "business_corp"},
+        }
+        result = UnifiedNewsSender._parse_3label_response(parsed)
+        assert result == {
+            0: {"topic": "tech", "geo": "us", "subtopic": "tech_ai"},
+            1: {"topic": "business", "geo": "china", "subtopic": "business_corp"},
+        }
+
+    def test_parse_nested_classifications_shape(self):
+        # Some LLMs wrap output in a single top-level key
+        parsed = {
+            "classifications": {
+                "1": {"topic": "politics", "geo": "global"},
+                "2": {"topic": "society", "geo": "canada"},
+            }
+        }
+        result = UnifiedNewsSender._parse_3label_response(parsed)
+        assert 0 in result and result[0]["topic"] == "politics"
+        assert 1 in result and result[1]["geo"] == "canada"
+
+    def test_parse_malformed_returns_empty(self):
+        # parsed could be a list, string, or None on LLM error
+        assert UnifiedNewsSender._parse_3label_response("garbage") == {}
+        assert UnifiedNewsSender._parse_3label_response(None) == {}
+        assert UnifiedNewsSender._parse_3label_response([1, 2, 3]) == {}
+
+    def test_parse_skips_non_dict_values(self):
+        # Mixed shape: some entries are strings (legacy single-label), should be skipped
+        parsed = {
+            "1": {"topic": "tech", "geo": "us"},
+            "2": "tech",  # legacy single-label, not a dict — drop
+        }
+        result = UnifiedNewsSender._parse_3label_response(parsed)
+        assert 0 in result
+        assert 1 not in result
+
+
+class TestClassifyArticlesValidation:
+    """Spec §5: full classify_articles flow with mocked LLM, asserting validation +
+    region mapping + reason_code preservation.
+    """
+
+    def _mock_llm(self, sender, response_dict):
+        """Patch sender to return response_dict from the LLM call."""
+        sender._openai_key = "fake-key-for-test"
+        api_response = {"choices": [{"message": {"content": __import__("json").dumps(response_dict)}}]}
+
+        def fake_call(payload, timeout=60):
+            sender._last_provider = "MockLLM"
+            return api_response
+        sender._llm_api_call = fake_call
+
+    def test_missing_subtopic_for_tech_defaults(self, capsys):
+        """tech topic without subtopic → defaults to tech_ai with stdout warning."""
+        sender = _make_sender_with_news({
+            "TechCrunch": [("Some AI breakthrough", "u1", None, None)],
+        })
+        self._mock_llm(sender, {"1": {"topic": "tech", "geo": "us"}})  # no subtopic
+        sender.classify_articles()
+        entry = sender._classifications.get(("TechCrunch", 0))
+        assert entry is not None
+        assert entry["topic"] == "tech"
+        assert entry["subtopic"] == "tech_ai"  # defaulted
+        out = capsys.readouterr().out
+        assert "missing/invalid subtopic" in out
+
+    def test_missing_subtopic_for_politics_no_warning(self, capsys):
+        """politics topic without subtopic is fine (subtopic not required for politics)."""
+        sender = _make_sender_with_news({
+            "BBC World": [("Iran-Israel ceasefire", "u1", None, None)],
+        })
+        self._mock_llm(sender, {"1": {"topic": "politics", "geo": "global"}})
+        sender.classify_articles()
+        entry = sender._classifications.get(("BBC World", 0))
+        assert entry is not None
+        assert entry["topic"] == "politics"
+        out = capsys.readouterr().out
+        assert "missing/invalid subtopic" not in out
+
+    def test_invalid_topic_drops_article(self):
+        """topic='news' (not in TOPIC_LABELS) → article dropped, no _classifications entry."""
+        sender = _make_sender_with_news({
+            "Bloomberg": [("Some title", "u1", None, None)],
+        })
+        self._mock_llm(sender, {"1": {"topic": "news", "geo": "us"}})
+        sender.classify_articles()
+        # Bloomberg is non-locked → only entry source would be LLM. Dropped → no entry.
+        assert ("Bloomberg", 0) not in sender._classifications
+
+    def test_invalid_geo_drops_article(self):
+        """geo='mars' (not in GEO_LABELS) → article dropped."""
+        sender = _make_sender_with_news({
+            "Bloomberg": [("Some title", "u1", None, None)],
+        })
+        self._mock_llm(sender, {"1": {"topic": "business", "geo": "mars", "subtopic": "business_macro"}})
+        sender.classify_articles()
+        assert ("Bloomberg", 0) not in sender._classifications
+
+    def test_soft_escape_preserves_reason_code(self):
+        """界面 escape entry gets topic/geo set by LLM but keeps soft_escape reason_code."""
+        sender = _make_sender_with_news({
+            # Title triggers Stage 2 escape (Trump + no own-geo) AND no Stage 3 keyword
+            "界面新闻": [("特朗普签署 H1B 签证新规", "u1", None, None)],
+        })
+        self._mock_llm(sender, {"1": {"topic": "politics", "geo": "us"}})
+        sender.classify_articles()
+        entry = sender._classifications.get(("界面新闻", 0))
+        assert entry is not None
+        # reason_code preserved as soft_escape (set by Stage 2), topic/geo filled by LLM
+        assert entry["reason_code"] == "soft_escape:界面新闻"
+        assert entry["topic"] == "politics"
+        assert entry["geo"] == "us"
+        assert entry["region"] == "🏛 全球政治 GLOBAL POLITICS"
+
+    def test_region_mapping_china_business_to_china(self):
+        """China + business → CHINA region (Q1B exemption preview via _legacy_region_from_3label)."""
+        sender = _make_sender_with_news({
+            # NYT Business is not soft-locked, so falls through to Stage 4 LLM
+            "NYT Business": [("China consumer spending rises 3%", "u1", None, None)],
+        })
+        self._mock_llm(sender, {"1": {"topic": "business", "geo": "china", "subtopic": "business_corp"}})
+        sender.classify_articles()
+        entry = sender._classifications.get(("NYT Business", 0))
+        assert entry is not None
+        assert entry["region"] == "🇨🇳 中国要闻 CHINA"
+        assert entry["reason_code"] == "llm:topic:business"
+
+    def test_region_mapping_china_tech_falls_to_topic(self):
+        """China + tech → TECH zone (Q1B: tech topic wins for global comparison)."""
+        sender = _make_sender_with_news({
+            "NYT Business": [("DeepSeek 训练成本下降 80%", "u1", None, None)],
+        })
+        self._mock_llm(sender, {"1": {"topic": "tech", "geo": "china", "subtopic": "tech_ai"}})
+        sender.classify_articles()
+        entry = sender._classifications.get(("NYT Business", 0))
+        assert entry is not None
+        # china + tech does NOT route to CHINA — falls through to TECH zone
+        assert entry["region"] == "🤖 AI & 科技前沿 TECH & AI"
