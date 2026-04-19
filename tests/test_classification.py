@@ -151,3 +151,101 @@ class TestStage1HardLock:
             entry = sender._classifications.get((src, 0))
             assert entry is not None, f"{src} missing _classifications entry"
             assert entry["reason_code"].startswith("source_lock:hard"), f"{src} wrong prefix"
+
+
+# ===== Task 3: Stage 2 soft lock + escape =====
+
+
+class TestStage2SoftLock:
+    """Spec §4.1 Stage 2: 14 soft-lock sources (9 CHINA-bias + 5 ASIA-bias) default
+    to their geographic region; escape to LLM when external geo dominates title.
+    """
+
+    def test_jiemian_china_topic_stays(self):
+        """界面 article about Chinese company stays in CHINA (no escape)."""
+        sender = _make_sender_with_news({
+            "界面新闻": [("宁德时代为什么赚这么多钱", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("界面新闻", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "source_lock:soft:界面新闻"
+        assert entry["region"] == "🇨🇳 中国要闻 CHINA"
+
+    def test_jiemian_us_topic_escapes(self):
+        """界面 article about Trump/US (no Chinese keyword) escapes to LLM."""
+        sender = _make_sender_with_news({
+            "界面新闻": [("拜登签署对台法案引发关注", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("界面新闻", 0))
+        # Wait — "对台法案" mentions 台 but our own_geo regex matches 台湾 not 台
+        # Actually the title has 拜登 (escape) but no own-geo keyword → should escape
+        assert entry is not None
+        assert entry["reason_code"] == "soft_escape:界面新闻"
+        assert entry["region"] is None  # LLM will set region in Task 5
+
+    def test_jiemian_mixed_keeps(self):
+        """界面 article mentioning both Trump and 中国 keeps soft-lock (own-geo wins)."""
+        sender = _make_sender_with_news({
+            "界面新闻": [("中国回应特朗普对华关税升级", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("界面新闻", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "source_lock:soft:界面新闻"
+        assert entry["region"] == "🇨🇳 中国要闻 CHINA"
+
+    def test_scmp_hk_asian_topic_stays(self):
+        """SCMP HK article about Singapore stays in ASIA-PAC."""
+        sender = _make_sender_with_news({
+            "SCMP Hong Kong": [("Singapore housing prices surge 8%", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("SCMP Hong Kong", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "source_lock:soft:SCMP Hong Kong"
+        assert entry["region"] == "🌏 亚太要闻 ASIA-PACIFIC"
+
+    def test_scmp_hk_us_topic_escapes(self):
+        """SCMP HK article about Putin meeting Trump (no Asia keyword) escapes."""
+        sender = _make_sender_with_news({
+            "SCMP Hong Kong": [("Putin meets Trump in Washington", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("SCMP Hong Kong", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "soft_escape:SCMP Hong Kong"
+        assert entry["region"] is None
+
+    def test_huxiu_pure_tech_stays(self):
+        """虎嗅 article about Chinese tech company stays in CHINA."""
+        sender = _make_sender_with_news({
+            "虎嗅": [("国产 GPU 厂商完成新一轮融资", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("虎嗅", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "source_lock:soft:虎嗅"
+        assert entry["region"] == "🇨🇳 中国要闻 CHINA"
+
+    def test_non_softlock_source_no_stage2_entry(self):
+        """Bloomberg (not soft-locked) → no Stage 2 entry, falls to to_classify."""
+        sender = _make_sender_with_news({
+            "Bloomberg": [("Fed signals April hold", "u1", None, None)],
+        })
+        sender.classify_articles()
+        # Without LLM, no Stage 2 entry should exist for Bloomberg
+        assert ("Bloomberg", 0) not in sender._classifications
+
+    def test_36kr_chinese_company_no_external_keyword_stays(self):
+        """36氪 article about ByteDance with no external geo keyword stays in CHINA."""
+        sender = _make_sender_with_news({
+            "36氪": [("字节跳动发布新一代大模型", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("36氪", 0))
+        assert entry is not None
+        # 字节跳动 / 大模型 has no external geo keyword in title → no escape, stays CHINA
+        assert entry["reason_code"] == "source_lock:soft:36氪"
+        assert entry["region"] == "🇨🇳 中国要闻 CHINA"

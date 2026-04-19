@@ -56,6 +56,54 @@ REASON_PREFIXES = frozenset({
     "fallback:source_default",
 })
 
+# Stage 2 — Soft source lock + escape rule (spec §4.1 Stage 2)
+# Sources whose default region is geographically tied to their content type, but
+# may publish about external geos occasionally (escape valve to LLM in that case).
+_SOFT_LOCKS = {
+    # Chinese-domestic sources → CHINA region by default
+    "界面新闻":         "🇨🇳 中国要闻 CHINA",
+    "南方周末":         "🇨🇳 中国要闻 CHINA",
+    "中国财经要闻":      "🇨🇳 中国要闻 CHINA",
+    "中国科技/AI":       "🇨🇳 中国要闻 CHINA",
+    "36氪":             "🇨🇳 中国要闻 CHINA",
+    "虎嗅":             "🇨🇳 中国要闻 CHINA",
+    "钛媒体":           "🇨🇳 中国要闻 CHINA",
+    "IT之家":           "🇨🇳 中国要闻 CHINA",
+    "少数派":           "🇨🇳 中国要闻 CHINA",
+    # Asia-Pacific sources → ASIA-PAC region by default
+    "SCMP Hong Kong":   "🌏 亚太要闻 ASIA-PACIFIC",
+    "RTHK中文":         "🌏 亚太要闻 ASIA-PACIFIC",
+    "HKFP":             "🌏 亚太要闻 ASIA-PACIFIC",
+    "Straits Times":    "🌏 亚太要闻 ASIA-PACIFIC",
+    "日经中文":         "🌏 亚太要闻 ASIA-PACIFIC",
+}
+
+# External geo signals (presence in title suggests article is NOT about source's own region).
+# When this matches AND the source's own-geo regex does NOT match → escape to LLM.
+_ESCAPE_EXTERNAL_GEO = re.compile(
+    r"(Trump|Biden|Putin|Zelensky|Macron|Merkel|Modi|Sunak|Carney|Trudeau|"
+    r"Washington|Brussels|Moscow|Kyiv|Berlin|Paris|London|Ottawa|"
+    r"美国|华盛顿|联邦|白宫|拜登|特朗普|"
+    r"俄罗斯|乌克兰|普京|"
+    r"欧盟|英国|德国|法国|"
+    r"加拿大|渥太华|多伦多|温哥华)",
+    re.IGNORECASE,
+)
+
+# Own-geo signals per soft-lock target region. Presence cancels escape — article
+# is genuinely about the source's natural region even if external geo is mentioned
+# (e.g. "中国回应特朗普关税" mentions Trump but is about China's response).
+_OWN_GEO_PER_REGION = {
+    "🇨🇳 中国要闻 CHINA": re.compile(
+        r"(中国|大陆|北京|上海|深圳|习近平|央行|国务院|人民币|A股|港股|沪深|国产|发改委)"
+    ),
+    "🌏 亚太要闻 ASIA-PACIFIC": re.compile(
+        r"(香港|新加坡|日本|韩国|越南|泰国|印尼|马来|缅甸|台湾|印度|澳大利亚|新西兰|"
+        r"首尔|东京|HK|Hong Kong|Singapore|Japan|Korea|Tokyo|Seoul|Taiwan|India)",
+        re.IGNORECASE,
+    ),
+}
+
 def _is_english_source(name: str) -> bool:
     return not any('\u4e00' <= c <= '\u9fff' for c in name)
 
@@ -566,6 +614,25 @@ class UnifiedNewsSender:
         "洛杉矶", "纽约", "伦敦", "巴黎", "柏林", "东京",
     )
 
+    def _stage2_check(self, source: str, title: str) -> tuple[str | None, str] | None:
+        """Stage 2 soft-lock + escape rule. Returns:
+          - (soft_region, "source_lock:soft:<src>") if source is soft-locked AND no escape
+          - (None, "soft_escape:<src>") if source is soft-locked AND title escapes (defer to LLM)
+          - None if source is not in soft-lock list (defer to Stage 3/4)
+        Spec: §4.1 Stage 2.
+        """
+        if source not in _SOFT_LOCKS:
+            return None
+        soft_region = _SOFT_LOCKS[source]
+        own_geo_re = _OWN_GEO_PER_REGION[soft_region]
+        has_external = bool(_ESCAPE_EXTERNAL_GEO.search(title))
+        has_own = bool(own_geo_re.search(title))
+        if has_external and not has_own:
+            # Escape: title is dominated by external geo with no own-geo anchor → LLM decides
+            return (None, f"soft_escape:{source}")
+        # Otherwise stay in soft-lock region
+        return (soft_region, f"source_lock:soft:{source}")
+
     def classify_articles(self):
         """Classify articles into target sections via 4-stage funnel + LLM (gpt-4.1-mini).
 
@@ -594,11 +661,40 @@ class UnifiedNewsSender:
                     "subtopic": None,
                 }
 
-        to_classify = []  # (source, idx, title) — articles that pass through Stage 1
+        # Stage 2 — Soft source lock + escape rule. 14 sources (9 Chinese + 5 Asia-Pac)
+        # default to their geographic region; escape to LLM if title is dominated by
+        # external geo with no own-geo anchor.
         for src, articles in self.news_data.items():
             if src in self._LOCKED_SOURCES:
                 continue
             for idx, item in enumerate(articles):
+                title = item[0] if isinstance(item, tuple) else item
+                stage2 = self._stage2_check(src, title)
+                if stage2 is None:
+                    continue  # not soft-locked — defer to later stages
+                region, reason = stage2
+                self._classifications[(src, idx)] = {
+                    "region": region,         # soft_region (no escape) OR None (escape)
+                    "reason_code": reason,    # source_lock:soft:<src> OR soft_escape:<src>
+                    "topic": None,
+                    "geo": None,
+                    "subtopic": None,
+                }
+                # NOTE: escape entries (region=None) still need LLM to fill topic/geo/subtopic;
+                # they're added to to_classify below. Non-escape entries are skipped from LLM.
+
+        # Build to_classify list for LLM, excluding articles already fully classified
+        # by Stage 1 (hard lock) and Stage 2 non-escape (soft lock).
+        to_classify = []
+        for src, articles in self.news_data.items():
+            if src in self._LOCKED_SOURCES:
+                continue
+            for idx, item in enumerate(articles):
+                existing = self._classifications.get((src, idx))
+                if existing and existing["reason_code"].startswith("source_lock:soft"):
+                    # Stage 2 non-escape — skip LLM, region already set
+                    continue
+                # All others (no Stage 2 entry, OR Stage 2 escape) need LLM
                 title = item[0] if isinstance(item, tuple) else item
                 to_classify.append((src, idx, title))
 
