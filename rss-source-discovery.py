@@ -380,7 +380,7 @@ def compute_scores(validation: dict, authority: float, uniqueness: float,
     # publication's RSS formatting policy, not editorial quality. Good sources like
     # Foreign Policy or 端传媒 use short RSS teasers by design; penalising them here
     # conflates RSS format with content quality. Usability is validated during trial
-    # (7-day selected count) instead.
+    # (3-day selected count) instead.
     #   has_descriptions → 0.50  (most important: any summary at all)
     #   has_authors      → 0.31  (bylines signal editorial accountability)
     #   has_categories   → 0.19  (taxonomy signals structured editorial workflow)
@@ -558,8 +558,8 @@ def generate_report_html(scored_candidates: list, existing_count: int) -> str:
   <span title="权威性：AI 基于对出版物的知识打分，最重要的信号"><u>A</u>uthority</span>（30%）·
   <span title="唯一性：这个源能带来现有池子里没有的覆盖角度吗"><u>U</u>niqueness</span>（20%）<br>
   <strong>⚠️ RSS短 / RSS空</strong>：该源 RSS 摘要较短或为空，系编辑/付费墙策略所致，<em>不影响评分</em>。
-  进入 trial 后如果 7 天 selected 篇数过少会自然淘汰。<br>
-  <strong>晋级流程</strong>：Score ≥ 0.90 → 进入 7 天 trial（实测系统每天 selected 数）→ 7 天内 ≥ 5 篇入选 → 自动加入正式源
+  进入 trial 后如果 3 天 selected 篇数过少会自然淘汰。<br>
+  <strong>晋级流程</strong>：Score ≥ 0.90 → 进入 3 天 trial（实测系统每天 selected 数）→ 3 天内 ≥ 3 篇入选 → 自动加入正式源
 </div>"""
 
     html = f"""\
