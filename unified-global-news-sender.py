@@ -38,6 +38,24 @@ SMTP_TIMEOUT = 30
 JACCARD_SIMILARITY_THRESHOLD = 0.70  # fallback for cross-send dedup; runtime value loaded from digest-tuning.json
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
+# Classification taxonomy — see docs/superpowers/specs/2026-04-19-classification-redesign.md §4.2-§4.4
+# These vocabularies are the contract between the LLM prompt (§5), the routing matrix (§4.5),
+# and the test suite. Keep in sync if any future spec revision changes them.
+TOPIC_LABELS = frozenset({"politics", "business", "tech", "consumer_tech", "society"})
+GEO_LABELS = frozenset({"china", "canada", "asia_other", "us", "europe", "global"})
+SUBTOPIC_LABELS = {
+    "tech": frozenset({"tech_ai", "tech_consumer"}),
+    "business": frozenset({"business_macro", "business_corp"}),
+}
+# reason_code prefix vocabulary used by Stage 1-4 + fallback. Validation set for
+# monitoring (Task 8) — every reason_code emitted by the pipeline must start with one of these.
+REASON_PREFIXES = frozenset({
+    "source_lock:hard", "source_lock:soft", "soft_escape",
+    "geo_keyword:canada", "geo_keyword:asia_pac",
+    "llm:china", "llm:topic", "llm:geo",
+    "fallback:source_default",
+})
+
 def _is_english_source(name: str) -> bool:
     return not any('\u4e00' <= c <= '\u9fff' for c in name)
 
