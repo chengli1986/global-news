@@ -35,7 +35,7 @@ BJT = timezone(timedelta(hours=8))
 
 FETCH_TIMEOUT = 10
 SMTP_TIMEOUT = 30
-JACCARD_SIMILARITY_THRESHOLD = 0.62  # matches dedup_similarity_threshold in digest-tuning.json
+JACCARD_SIMILARITY_THRESHOLD = 0.70  # fallback for cross-send dedup; runtime value loaded from digest-tuning.json
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
 
 def _is_english_source(name: str) -> bool:
@@ -749,14 +749,17 @@ class UnifiedNewsSender:
             except (ValueError, TypeError):
                 pass
 
-        # Load premium sources from tuning config
+        # Load premium sources + dedup threshold from tuning config (so cross-send
+        # stays consistent with the intra-fetch dedup threshold optimized by AR)
         tuning_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "digest-tuning.json")
         premium_sources = set()
+        dedup_threshold = JACCARD_SIMILARITY_THRESHOLD
         if os.path.exists(tuning_path):
             try:
                 with open(tuning_path) as f:
                     tuning = json.load(f)
                 premium_sources = set(tuning.get("source_tiers", {}).get("premium", []))
+                dedup_threshold = tuning.get("dedup_similarity_threshold", JACCARD_SIMILARITY_THRESHOLD)
             except Exception:
                 pass
 
@@ -787,7 +790,7 @@ class UnifiedNewsSender:
                 already_sent = False
                 if url and url in sent_urls:
                     already_sent = True
-                elif any(jaccard_similarity(title, st) > JACCARD_SIMILARITY_THRESHOLD for st in sent_titles):
+                elif any(jaccard_similarity(title, st) > dedup_threshold for st in sent_titles):
                     already_sent = True
 
                 if already_sent:
@@ -1032,9 +1035,8 @@ class UnifiedNewsSender:
         # Apply digest pipeline (dedup + rank + quota) if available
         all_region_articles = self._apply_pipeline(all_region_articles)
 
-        # Cross-send dedup: only for regular sends (not AR-Preview which is independent)
-        if not self._use_pipeline:
-            all_region_articles = self._cross_send_dedup(all_region_articles)
+        # Cross-send dedup: filter articles already sent in earlier sends today
+        all_region_articles = self._cross_send_dedup(all_region_articles)
 
         # Record final article list for post-send logging
         self._last_sent_articles = []
@@ -1277,12 +1279,11 @@ class UnifiedNewsSender:
 
             print(f"✅ 邮件已成功发送至 {', '.join(recipients)}")
 
-            # Record sent articles for cross-send dedup (regular sends only)
-            if not self._use_pipeline:
-                send_time = datetime.now(timezone.utc).isoformat()
-                for record in getattr(self, '_last_sent_articles', []):
-                    record["send_time"] = send_time
-                self._save_sent_today(getattr(self, '_last_sent_articles', []))
+            # Record sent articles for cross-send dedup
+            send_time = datetime.now(timezone.utc).isoformat()
+            for record in getattr(self, '_last_sent_articles', []):
+                record["send_time"] = send_time
+            self._save_sent_today(getattr(self, '_last_sent_articles', []))
 
             return True
         
