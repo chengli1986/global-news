@@ -455,13 +455,12 @@ Use 5 most recent fixtures (`2026-04-19-*.json`):
 2. Each task includes its own tests; CI must pass before next task
 3. Final commit triggers next 00:10 BJT cron with new pipeline
 
-### Rollback (per Codex review point #3 — must cover entry-point changes too)
+### Rollback
 
-The classification entry point is mutated by **Tasks 3 (Stage 2 soft lock), 4 (Stage 3 geo keyword), 5 (LLM prompt + 3-label parser), 6 (routing + REGION_GROUPS), 7 (digest-tuning + AR Rule 3)**. A partial revert that only touches Task 6/7 would leave the new soft-lock and geo-keyword paths active against an old routing dict that doesn't recognize their outputs — broken intermediate state.
+The classification entry point is mutated by **Tasks 3 (Stage 2 soft lock), 4 (Stage 3 geo keyword), 5 (LLM prompt + 3-label parser), 6 (routing + REGION_GROUPS), 7 (digest-tuning + AR Rule 3)**. A partial revert that only touches Task 6/7 would leave the new soft-lock and geo-keyword paths active against an old routing dict that doesn't recognize their outputs — broken intermediate state. So rollback must operate on the **full Task 3-7 boundary**.
 
-**Two equivalent rollback options**, pick one at incident time:
+#### Primary: Option A — Atomic git revert (default rollback path)
 
-**Option A — Full atomic revert** (preferred for clean rollback):
 ```bash
 cd ~/global-news
 git revert --no-commit <task7-commit> <task6-commit> <task5-commit> \
@@ -469,18 +468,32 @@ git revert --no-commit <task7-commit> <task6-commit> <task5-commit> \
 git commit -m "rollback: classifier redesign — full revert Task 3-7"
 git push
 ```
+
 After push, next cron picks up old 7-zone classifier. Tasks 1-2 (data structures + hard lock) are safe to keep — they don't change behavior.
 
-**Option B — Kill switch via env var** (faster, but leaves both code paths in repo):
+**Why this is the primary path** (per user decision 2026-04-19):
+1. **Symmetric with delivery**: Tasks 3-7 are inter-dependent and were merged at the commit-boundary level; rollback should travel the same boundary
+2. **Auditability**: when investigating "why did this email change?", commit history (revert + push) is more legible than env-var state changes
+3. **No long-term maintenance debt**: avoids carrying two complete classifier code paths in the codebase
 
-Implement in Task 11 (Production deploy) a top-of-`classify_articles()` check:
+#### Emergency-only: Option B — env-var kill switch (do not default to this)
+
+Implement in Task 11 a top-of-`classify_articles()` check **with explicit constraints**:
+
 ```python
+# Emergency kill switch — see §9 for usage policy.
+# Setting NEWS_CLASSIFIER_VERSION=v1 disables the ENTIRE new classification chain
+# (Stages 2/3/4 + new routing + 10-zone REGION_GROUPS) and falls back to the
+# pre-redesign code path. Not for partial-stage skipping.
 if os.environ.get("NEWS_CLASSIFIER_VERSION", "v2") == "v1":
-    return self._classify_articles_v1_legacy(...)  # old code preserved
+    return self._classify_articles_v1_legacy(...)
 ```
-Cron wrapper exports `NEWS_CLASSIFIER_VERSION=v2` by default after deploy. To roll back, set to `v1` in `~/.stock-monitor.env` and next cron uses old path immediately. Useful for fast incident response (<1 min vs git-revert + push cycle). Trade-off: doubles maintained code surface for the kill-switch lifetime.
 
-**Recommendation**: implement Option B's kill switch in Task 11 *as a safety belt*; use Option A as the formal rollback when incident is confirmed. Remove v1 code path 2 weeks after stable production.
+**Strict usage constraints**:
+1. **Only when**: cron is about to send wrong emails AND there is no time to complete the git revert + push cycle (<5 min before next cron fires)
+2. **Switch semantics is all-or-nothing**: setting to `v1` MUST disable the full new classification chain (Stages 2/3/4 + routing + 10-zone REGION_GROUPS). It is NOT a flag for partial stage skipping; do not introduce per-stage toggles
+3. **Use is followed by Option A**: once the immediate fire is out, complete the proper Option A revert + push within the same day. The kill switch is a fuse, not a config knob
+4. **Sunset**: Option B code path removed 2 weeks after stable production (Task 11 includes a calendar reminder to delete `_classify_articles_v1_legacy` + the env-var check)
 
 **Other rollback notes**:
 - Task 8 (reason_code logging) and Task 9 (docs.sinostor) are display-only, safe to leave even after rollback — they degrade gracefully
@@ -514,22 +527,24 @@ These don't block the spec but should be revisited after 1-2 weeks of new pipeli
 
 ## §11 Implementation Trigger
 
-This spec is ready for plan generation when:
+This spec is ready for plan generation:
 - [x] User reviews Q1-Q5 + F1-F3 decisions and any open issues
 - [x] Task ordering reviewed (Codex review point #1: Task 6+7 merged into atomic Task 6 — see §6)
 - [x] reason_code naming unified (Codex review point #2: single `reason_code` everywhere)
-- [x] Rollback covers entry-point changes (Codex review point #3: §9 explicit Task 3-7 atomic revert + optional kill-switch)
-- [x] §5 LLM prompt examples cover high-ambiguity cases (Codex review point #4: 4 new example blocks added)
-- [ ] User confirms revised spec — specifically the rollback strategy (Option A vs B in §9) and the high-ambiguity example outputs
+- [x] Rollback covers entry-point changes (Codex review point #3: §9 explicit Task 3-7 atomic revert; user chose Option A as default with Option B emergency-only)
+- [x] §5 LLM prompt examples cover high-ambiguity cases (Codex review point #4: 12 new example outputs across 6 boundary categories)
 
-After final confirmation: I'll generate the implementation plan (`docs/superpowers/plans/2026-04-19-classification-redesign.md`) breaking each Task into concrete code changes + tests, then execute task-by-task with checkpoints.
+**Status**: ✅ Sign-off complete 2026-04-19. Ready to generate implementation plan.
+
+Next file: `docs/superpowers/plans/2026-04-19-classification-redesign.md` — breaks each Task 1-11 into concrete code changes + tests + commit message templates, executes task-by-task with checkpoints.
 
 ---
 
 ## Revision Log
 
 - **2026-04-19 v1**: Initial spec (commit `7099359`)
-- **2026-04-19 v2**: Codex review fixes — Task 6+7 merged atomic; reason_code naming unified; §9 rollback covers Task 3-7 with optional kill-switch; §5 added 4 high-ambiguity example blocks (china+tech_ai, china+consumer_tech, china+politics, asia_other+society, europe+macro/corp, multi-geo dominant)
+- **2026-04-19 v2** (commit `d01658e`): Codex review fixes — Task 6+7 merged atomic; reason_code naming unified; §9 rollback covers Task 3-7 with optional kill-switch; §5 added 12 high-ambiguity examples across 6 boundary categories
+- **2026-04-19 v3**: Rollback strategy finalized — Option A (atomic git revert) is the **default** path; Option B (env-var kill switch) demoted to emergency-only with strict usage constraints (must be all-or-nothing, must be followed by Option A revert same-day, sunsets 2 weeks after stable production)
 
 ---
 
