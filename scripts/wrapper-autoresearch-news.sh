@@ -78,8 +78,76 @@ else
     echo "$LOG_PREFIX News autoresearch finished successfully"
 fi
 
-# Push any kept commits
+# Reconcile results.tsv against git log: Claude AR session sometimes commits
+# experiment: changes but forgets to append to results.tsv (Rule 7), leaving
+# the dashboard stale. Append any missing kept commits, parse quality from
+# this session's log block when possible.
 cd "$REPO_DIR"
+echo "$LOG_PREFIX Reconciling results.tsv against git log..."
+SESSION_LOG="${HOME}/logs/news-autoresearch.log"
+REPO_DIR_ENV="$REPO_DIR" SESSION_LOG_ENV="$SESSION_LOG" python3 << 'PYEOF'
+import os, re, subprocess
+from pathlib import Path
+
+REPO = Path(os.environ["REPO_DIR_ENV"])
+TSV = REPO / "autoresearch" / "results.tsv"
+LOG = Path(os.environ["SESSION_LOG_ENV"])
+
+existing = set()
+if TSV.exists():
+    for ln in TSV.read_text().splitlines()[1:]:
+        h = ln.split("\t", 1)[0].strip()
+        if h:
+            existing.add(h[:7])
+
+git_log = subprocess.run(
+    ["git", "-C", str(REPO), "log", "--format=%h\t%s", "-50"],
+    capture_output=True, text=True, timeout=10,
+)
+missing = []
+for ln in git_log.stdout.splitlines():
+    h, _, msg = ln.partition("\t")
+    if not msg.startswith("experiment:"):
+        continue
+    short = h[:7]
+    if short in existing:
+        break
+    missing.append((short, msg[len("experiment:"):].strip()))
+missing.reverse()
+
+if not missing:
+    print("results.tsv in sync with git, no rows to append")
+    raise SystemExit(0)
+
+quality_map = {}
+if LOG.exists():
+    text = LOG.read_text(errors="replace")
+    last_start = text.rfind("Starting news autoresearch session...")
+    block = text[last_start:] if last_start >= 0 else text
+    for line in block.splitlines():
+        if "|" not in line:
+            continue
+        parts = [c.strip().strip("*") for c in line.split("|")]
+        short_h = next((p[:7] for p in parts if re.fullmatch(r"[0-9a-fA-F]{7,}", p)), None)
+        score = next((p for p in parts if re.fullmatch(r"\d\.\d{4}", p)), None)
+        if short_h and score:
+            quality_map[short_h] = score
+
+with TSV.open("a") as f:
+    for short, desc in missing:
+        score = quality_map.get(short, "n/a")
+        f.write(f"{short}\t{score}\tKEPT\t{desc}\n")
+
+subprocess.run(["git", "-C", str(REPO), "add", "autoresearch/results.tsv"], check=False)
+subprocess.run(
+    ["git", "-C", str(REPO), "commit", "-m",
+     f"data(autoresearch): auto-sync {len(missing)} kept experiment row(s) into results.tsv"],
+    check=False, capture_output=True,
+)
+print(f"Auto-sync appended {len(missing)} row(s): " + ", ".join(s for s, _ in missing))
+PYEOF
+
+# Push any kept commits (incl. auto-sync commit above)
 REMOTE_HEAD=$(git rev-parse origin/main 2>/dev/null || echo "")
 LOCAL_HEAD=$(git rev-parse HEAD 2>/dev/null || echo "")
 if [ -n "$REMOTE_HEAD" ] && [ "$REMOTE_HEAD" != "$LOCAL_HEAD" ]; then
