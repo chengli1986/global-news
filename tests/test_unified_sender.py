@@ -301,10 +301,10 @@ class TestClassifyArticles:
         with patch("urllib.request.urlopen", return_value=mock_resp):
             sender.classify_articles()
 
-        # Post-Task-5 shape: _classifications stores dicts with region/reason_code/topic/geo/subtopic
+        # Post-Task-6 shape: _classifications routed via _route() to 10-zone REGION_GROUPS
         assert ("TechCrunch", 0) in sender._classifications
-        # consumer_tech routes to TECH zone via _legacy_region_from_3label (Task 6 will refine)
-        assert sender._classifications[("TechCrunch", 0)]["region"] == "🤖 AI & 科技前沿 TECH & AI"
+        # consumer_tech routes to dedicated CONSUMER_TECH zone (Q2B split)
+        assert sender._classifications[("TechCrunch", 0)]["region"] == "📱 消费科技 CONSUMER TECH"
         assert sender._classifications[("TechCrunch", 0)]["reason_code"] == "llm:topic:consumer_tech"
         assert sender._classifications[("TechCrunch", 0)]["topic"] == "consumer_tech"
         assert sender._classifications[("TechCrunch", 0)]["geo"] == "us"

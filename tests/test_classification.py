@@ -476,7 +476,7 @@ class TestClassifyArticlesValidation:
         assert entry["region"] == "🏛 全球政治 GLOBAL POLITICS"
 
     def test_region_mapping_china_business_to_china(self):
-        """China + business → CHINA region (Q1B exemption preview via _legacy_region_from_3label)."""
+        """China + business → CHINA region (Q1B exemption via _route)."""
         sender = _make_sender_with_news({
             # NYT Business is not soft-locked, so falls through to Stage 4 LLM
             "NYT Business": [("China consumer spending rises 3%", "u1", None, None)],
@@ -486,10 +486,11 @@ class TestClassifyArticlesValidation:
         entry = sender._classifications.get(("NYT Business", 0))
         assert entry is not None
         assert entry["region"] == "🇨🇳 中国要闻 CHINA"
-        assert entry["reason_code"] == "llm:topic:business"
+        # Post-Task-6 reason_code: llm:china+<topic> for Q1B routing branches
+        assert entry["reason_code"] == "llm:china+business"
 
     def test_region_mapping_china_tech_falls_to_topic(self):
-        """China + tech → TECH zone (Q1B: tech topic wins for global comparison)."""
+        """China + tech → AI/前沿 zone (Q1B: tech topic wins for global comparison)."""
         sender = _make_sender_with_news({
             "NYT Business": [("DeepSeek 训练成本下降 80%", "u1", None, None)],
         })
@@ -497,5 +498,159 @@ class TestClassifyArticlesValidation:
         sender.classify_articles()
         entry = sender._classifications.get(("NYT Business", 0))
         assert entry is not None
-        # china + tech does NOT route to CHINA — falls through to TECH zone
-        assert entry["region"] == "🤖 AI & 科技前沿 TECH & AI"
+        # china + tech does NOT route to CHINA — falls through to AI/前沿 zone
+        assert entry["region"] == "🧠 AI/前沿 AI FRONTIER"
+
+
+# ===== Task 6: Routing matrix + 10-zone REGION_GROUPS =====
+
+
+class TestRouteMatrix:
+    """Spec §4.5 routing matrix. Each test exercises one branch of _route().
+
+    _route is a static method, so tests don't need a sender instance.
+    """
+
+    @staticmethod
+    def _route(topic, geo, subtopic=None):
+        return UnifiedNewsSender._route(topic, geo, subtopic)
+
+    def test_china_business_corp_to_china(self):
+        """china + business → CHINA (Q1B: china+business goes to CHINA, not topic)."""
+        region, reason = self._route("business", "china", "business_corp")
+        assert region == "🇨🇳 中国要闻 CHINA"
+        assert reason == "llm:china+business"
+
+    def test_china_society_to_china(self):
+        """china + society → CHINA (Q1B)."""
+        region, reason = self._route("society", "china", None)
+        assert region == "🇨🇳 中国要闻 CHINA"
+        assert reason == "llm:china+society"
+
+    def test_china_consumer_tech_to_china(self):
+        """china + consumer_tech → CHINA (per spec routing matrix)."""
+        region, reason = self._route("consumer_tech", "china", None)
+        assert region == "🇨🇳 中国要闻 CHINA"
+        assert reason == "llm:china+consumer_tech"
+
+    def test_china_tech_ai_to_ai_frontier(self):
+        """china + tech_ai → AI/前沿 (Q1B exemption: tech wins for global comparison)."""
+        region, reason = self._route("tech", "china", "tech_ai")
+        assert region == "🧠 AI/前沿 AI FRONTIER"
+        assert reason == "llm:topic:tech_ai"
+
+    def test_china_politics_to_politics(self):
+        """china + politics → POLITICS (Q1B exemption: politics wins for global comparison)."""
+        region, reason = self._route("politics", "china", None)
+        assert region == "🏛 全球政治 GLOBAL POLITICS"
+        assert reason == "llm:topic:politics"
+
+    def test_canada_society_to_canada(self):
+        """canada geo wins over topic for personal-context region."""
+        region, reason = self._route("society", "canada", None)
+        assert region == "🇨🇦 加拿大 CANADA"
+        assert reason == "llm:geo:canada"
+
+    def test_asia_other_society_to_asia_pac(self):
+        """asia_other geo wins over topic for personal-context region."""
+        region, reason = self._route("society", "asia_other", None)
+        assert region == "🌏 亚太要闻 ASIA-PACIFIC"
+        assert reason == "llm:geo:asia_other"
+
+    def test_us_business_macro_to_macro(self):
+        """us + business + business_macro → 市场/宏观."""
+        region, reason = self._route("business", "us", "business_macro")
+        assert region == "📈 市场/宏观 MACRO & MARKETS"
+        assert reason == "llm:topic:business_macro"
+
+    def test_us_business_corp_to_corp(self):
+        """us + business + business_corp → 公司/产业."""
+        region, reason = self._route("business", "us", "business_corp")
+        assert region == "🏢 公司/产业 CORPORATE & INDUSTRY"
+        assert reason == "llm:topic:business_corp"
+
+    def test_us_society_to_society(self):
+        """us + society → SOCIETY (new Q4 zone for non-geo society)."""
+        region, reason = self._route("society", "us", None)
+        assert region == "🌐 社会观察 SOCIETY"
+        assert reason == "llm:topic:society"
+
+    def test_global_politics_to_politics(self):
+        """global politics → POLITICS."""
+        region, reason = self._route("politics", "global", None)
+        assert region == "🏛 全球政治 GLOBAL POLITICS"
+        assert reason == "llm:topic:politics"
+
+    def test_us_consumer_tech_to_consumer_tech(self):
+        """us + consumer_tech (or tech+tech_consumer subtopic) → 消费科技."""
+        # Direct topic="consumer_tech"
+        region1, reason1 = self._route("consumer_tech", "us", None)
+        assert region1 == "📱 消费科技 CONSUMER TECH"
+        # Via tech topic with tech_consumer subtopic
+        region2, reason2 = self._route("tech", "us", "tech_consumer")
+        assert region2 == "📱 消费科技 CONSUMER TECH"
+
+    def test_missing_topic_returns_fallback(self):
+        """None topic → (None, fallback:source_default)."""
+        region, reason = self._route(None, "us", None)
+        assert region is None
+        assert reason == "fallback:source_default"
+
+    def test_invalid_topic_returns_fallback(self):
+        """Unknown topic → (None, fallback:source_default)."""
+        region, reason = self._route("news", "us", None)
+        assert region is None
+        assert reason == "fallback:source_default"
+
+
+class TestRegionGroupsStructure:
+    """Spec §4.6: 10-zone REGION_GROUPS in display order per F3."""
+
+    def test_region_groups_has_10_zones(self):
+        assert len(UnifiedNewsSender.REGION_GROUPS) == 10
+
+    def test_all_routed_regions_in_region_groups(self):
+        """Every region key emitted by _route must exist in REGION_GROUPS."""
+        region_keys = {r for r, _sources in UnifiedNewsSender.REGION_GROUPS}
+        # Walk a representative set of routing inputs
+        test_cases = [
+            ("business", "china", "business_corp"),
+            ("society", "china", None),
+            ("consumer_tech", "china", None),
+            ("tech", "china", "tech_ai"),
+            ("politics", "china", None),
+            ("society", "canada", None),
+            ("society", "asia_other", None),
+            ("business", "us", "business_macro"),
+            ("business", "us", "business_corp"),
+            ("society", "us", None),
+            ("politics", "global", None),
+            ("consumer_tech", "us", None),
+            ("tech", "us", "tech_consumer"),
+        ]
+        for topic, geo, subtopic in test_cases:
+            region, _reason = UnifiedNewsSender._route(topic, geo, subtopic)
+            if region is not None:
+                assert region in region_keys, f"{(topic, geo, subtopic)} → {region!r} not in REGION_GROUPS"
+
+    def test_region_display_order_per_f3(self):
+        """First 4 zones per F3 display priority: AI → Markets → POLITICS → CHINA."""
+        keys = [r for r, _ in UnifiedNewsSender.REGION_GROUPS]
+        assert keys[0] == "🧠 AI/前沿 AI FRONTIER"
+        assert keys[1] == "📈 市场/宏观 MACRO & MARKETS"
+        assert keys[2] == "🏛 全球政治 GLOBAL POLITICS"
+        assert keys[3] == "🇨🇳 中国要闻 CHINA"
+        # Last 4 per F3: ASIA-PAC → CANADA → ECONOMIST → SOCIETY
+        assert keys[-1] == "🌐 社会观察 SOCIETY"
+        assert keys[-2] == "📕 经济学人 THE ECONOMIST"
+        assert keys[-3] == "🇨🇦 加拿大 CANADA"
+        assert keys[-4] == "🌏 亚太要闻 ASIA-PACIFIC"
+
+    def test_source_default_region_lookup(self):
+        """_source_default_region returns the REGION_GROUPS region containing the source."""
+        sender = _make_sender_with_news({})
+        assert sender._source_default_region("CBC Business") == "🇨🇦 加拿大 CANADA"
+        assert sender._source_default_region("Bloomberg Econ") == "📈 市场/宏观 MACRO & MARKETS"
+        assert sender._source_default_region("Economist Finance") == "📕 经济学人 THE ECONOMIST"
+        # Unknown source falls back to first region
+        assert sender._source_default_region("Unknown Source") == "🧠 AI/前沿 AI FRONTIER"

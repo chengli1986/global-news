@@ -56,26 +56,41 @@ REASON_PREFIXES = frozenset({
     "fallback:source_default",
 })
 
+# 10-zone region keys (spec §4.6). String values are the section titles rendered
+# in the email HTML and the JSON keys in digest-tuning.json region_quotas.
+# Display order matches F3: AI → Markets → POLITICS → CHINA → Corp → Consumer →
+# ASIA-PAC → CANADA → ECONOMIST → SOCIETY.
+REGION_AI_FRONTIER   = "🧠 AI/前沿 AI FRONTIER"
+REGION_MACRO_MARKETS = "📈 市场/宏观 MACRO & MARKETS"
+REGION_POLITICS      = "🏛 全球政治 GLOBAL POLITICS"
+REGION_CHINA         = "🇨🇳 中国要闻 CHINA"
+REGION_CORP_INDUSTRY = "🏢 公司/产业 CORPORATE & INDUSTRY"
+REGION_CONSUMER_TECH = "📱 消费科技 CONSUMER TECH"
+REGION_ASIA_PAC      = "🌏 亚太要闻 ASIA-PACIFIC"
+REGION_CANADA        = "🇨🇦 加拿大 CANADA"
+REGION_ECONOMIST     = "📕 经济学人 THE ECONOMIST"
+REGION_SOCIETY       = "🌐 社会观察 SOCIETY"
+
 # Stage 2 — Soft source lock + escape rule (spec §4.1 Stage 2)
 # Sources whose default region is geographically tied to their content type, but
 # may publish about external geos occasionally (escape valve to LLM in that case).
 _SOFT_LOCKS = {
     # Chinese-domestic sources → CHINA region by default
-    "界面新闻":         "🇨🇳 中国要闻 CHINA",
-    "南方周末":         "🇨🇳 中国要闻 CHINA",
-    "中国财经要闻":      "🇨🇳 中国要闻 CHINA",
-    "中国科技/AI":       "🇨🇳 中国要闻 CHINA",
-    "36氪":             "🇨🇳 中国要闻 CHINA",
-    "虎嗅":             "🇨🇳 中国要闻 CHINA",
-    "钛媒体":           "🇨🇳 中国要闻 CHINA",
-    "IT之家":           "🇨🇳 中国要闻 CHINA",
-    "少数派":           "🇨🇳 中国要闻 CHINA",
+    "界面新闻":         REGION_CHINA,
+    "南方周末":         REGION_CHINA,
+    "中国财经要闻":      REGION_CHINA,
+    "中国科技/AI":       REGION_CHINA,
+    "36氪":             REGION_CHINA,
+    "虎嗅":             REGION_CHINA,
+    "钛媒体":           REGION_CHINA,
+    "IT之家":           REGION_CHINA,
+    "少数派":           REGION_CHINA,
     # Asia-Pacific sources → ASIA-PAC region by default
-    "SCMP Hong Kong":   "🌏 亚太要闻 ASIA-PACIFIC",
-    "RTHK中文":         "🌏 亚太要闻 ASIA-PACIFIC",
-    "HKFP":             "🌏 亚太要闻 ASIA-PACIFIC",
-    "Straits Times":    "🌏 亚太要闻 ASIA-PACIFIC",
-    "日经中文":         "🌏 亚太要闻 ASIA-PACIFIC",
+    "SCMP Hong Kong":   REGION_ASIA_PAC,
+    "RTHK中文":         REGION_ASIA_PAC,
+    "HKFP":             REGION_ASIA_PAC,
+    "Straits Times":    REGION_ASIA_PAC,
+    "日经中文":         REGION_ASIA_PAC,
 }
 
 # External geo signals (presence in title suggests article is NOT about source's own region).
@@ -94,10 +109,10 @@ _ESCAPE_EXTERNAL_GEO = re.compile(
 # is genuinely about the source's natural region even if external geo is mentioned
 # (e.g. "中国回应特朗普关税" mentions Trump but is about China's response).
 _OWN_GEO_PER_REGION = {
-    "🇨🇳 中国要闻 CHINA": re.compile(
+    REGION_CHINA: re.compile(
         r"(中国|大陆|北京|上海|深圳|习近平|央行|国务院|人民币|A股|港股|沪深|国产|发改委)"
     ),
-    "🌏 亚太要闻 ASIA-PACIFIC": re.compile(
+    REGION_ASIA_PAC: re.compile(
         r"(香港|新加坡|日本|韩国|越南|泰国|印尼|马来|缅甸|台湾|印度|澳大利亚|新西兰|"
         r"首尔|东京|HK|Hong Kong|Singapore|Japan|Korea|Tokyo|Seoul|Taiwan|India)",
         re.IGNORECASE,
@@ -578,35 +593,44 @@ class UnifiedNewsSender:
             print(f"⚠️  Title translation failed ({e}), keeping original English titles")
             self._llm_status.append(("翻译 Translation", None, False))
 
-    # Region grouping: source name → (region_key, display_source_label)
+    # Region grouping (10 zones, display order per spec F3):
+    # Source-default placement determines fallback region when LLM/keyword routing
+    # produces no decision. Most articles flow via Stage 1-4 → routing matrix; the
+    # source-list here is the safety net.
+    # Sources marked "(LLM-fed)" expect most articles to arrive via Stage 4 LLM
+    # routing (e.g. CONSUMER_TECH, SOCIETY zones). REGION_GROUPS source membership
+    # for those is sparse and exists only to satisfy _source_default_region lookup.
     REGION_GROUPS = [
-        ("🤖 AI & 科技前沿 TECH & AI", [
-            "中国科技/AI", "虎嗅", "IT之家", "少数派", "Solidot", "钛媒体", "36氪",
-            "TechCrunch", "Hacker News", "Ars Technica", "The Verge", "BBC Technology",
-            "NYT Technology",
+        (REGION_AI_FRONTIER, [
+            "中国科技/AI", "TechCrunch", "Hacker News", "Ars Technica",
+            "BBC Technology", "NYT Technology", "Solidot", "The Verge",
+            "36氪", "钛媒体", "IT之家", "少数派", "虎嗅",
         ]),
-        ("💰 全球财经 GLOBAL FINANCE", [
-            "中国财经要闻",
-            "CNBC", "Bloomberg", "Bloomberg Econ", "BBC Business", "FT",
-            "NYT Business",
+        (REGION_MACRO_MARKETS, [
+            "Bloomberg Econ", "Bloomberg", "FT", "CNBC",
         ]),
-        ("🏛 全球政治 GLOBAL POLITICS", [
-            "纽约时报中文", "BBC中文",
-            "BBC World", "SCMP", "Bloomberg Politics", "The Guardian World",
+        (REGION_POLITICS, [
+            "BBC World", "纽约时报中文", "BBC中文", "Bloomberg Politics",
+            "The Guardian World", "SCMP",
         ]),
-        ("🇨🇳 中国要闻 CHINA", [
-            "界面新闻", "南方周末",
+        (REGION_CHINA, [
+            "界面新闻", "南方周末", "中国财经要闻",
         ]),
-        ("🌏 亚太要闻 ASIA-PACIFIC", [
-            "日经中文", "CNA",
-            "SCMP Hong Kong", "RTHK中文", "HKFP", "Straits Times",
+        (REGION_CORP_INDUSTRY, [
+            "NYT Business", "BBC Business",
         ]),
-        ("🇨🇦 加拿大 CANADA", [
-            "CBC Business", "Globe & Mail",
+        (REGION_CONSUMER_TECH, []),  # LLM-fed (consumer reviews routed via Stage 4)
+        (REGION_ASIA_PAC, [
+            "日经中文", "CNA", "SCMP Hong Kong", "RTHK中文", "HKFP", "Straits Times",
         ]),
-        ("📕 经济学人 THE ECONOMIST", [
-            "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science",
+        (REGION_CANADA, [
+            "CBC Business", "Globe & Mail",  # LOCKED via Stage 1
         ]),
+        (REGION_ECONOMIST, [
+            "Economist Leaders", "Economist Finance",
+            "Economist Business", "Economist Science",  # LOCKED via Stage 1
+        ]),
+        (REGION_SOCIETY, []),  # LLM-fed (society topic in non-geo regions)
     ]
 
     # Sources locked to their sections — skip LLM classification
@@ -615,14 +639,8 @@ class UnifiedNewsSender:
         "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science",
     }
 
-    # LLM category label → region title mapping
-    _CATEGORY_TO_REGION = {
-        "tech":     "🤖 AI & 科技前沿 TECH & AI",
-        "finance":  "💰 全球财经 GLOBAL FINANCE",
-        "politics": "🏛 全球政治 GLOBAL POLITICS",
-        "china":    "🇨🇳 中国要闻 CHINA",
-        "asia":     "🌏 亚太要闻 ASIA-PACIFIC",
-    }
+    # NOTE: _CATEGORY_TO_REGION removed in Task 6. Stage 4 LLM now uses 3-label
+    # output (topic, geo, subtopic) routed via _route() per spec §4.5.
 
     # Keyword fallback when LLM classification unavailable
     _INTL_KEYWORDS = (
@@ -661,9 +679,9 @@ class UnifiedNewsSender:
         Spec: §4.1 Stage 3. Canada keyword wins over Asia-Pac if both match (rare).
         """
         if _CANADA_KEYWORDS.search(title):
-            return ("🇨🇦 加拿大 CANADA", "geo_keyword:canada")
+            return (REGION_CANADA, "geo_keyword:canada")
         if _ASIA_PAC_KEYWORDS.search(title):
-            return ("🌏 亚太要闻 ASIA-PACIFIC", "geo_keyword:asia_pac")
+            return (REGION_ASIA_PAC, "geo_keyword:asia_pac")
         return None
 
     def classify_articles(self):
@@ -864,18 +882,19 @@ class UnifiedNewsSender:
                               f" {subtopic!r} — defaulting to {default_subtopic!r}")
                         subtopic = default_subtopic
 
-                # Determine region. NOTE: this is a temporary mapping using the current
-                # 7-zone REGION_GROUPS keys; Task 6 replaces with full _route() function
-                # producing 10-zone keys.
-                region = self._legacy_region_from_3label(topic, geo, subtopic)
+                # Stage 4 routing per spec §4.5 routing matrix.
+                region, reason = self._route(topic, geo, subtopic)
+                if region is None:
+                    # Unrecognized topic/geo — fall back to source's default region
+                    # so the article still appears somewhere rather than being lost.
+                    region = self._source_default_region(src)
 
-                # Preserve reason_code for soft_escape entries (Stage 2 marked them);
-                # otherwise tag as llm:topic:<topic> placeholder (Task 6 will refine).
+                # Preserve reason_code for soft_escape entries (Stage 2 marked them
+                # as escapes; the reason_code carries that provenance even after LLM
+                # fills topic/geo/subtopic).
                 existing = self._classifications.get((src, idx))
                 if existing and existing["reason_code"].startswith("soft_escape"):
                     reason = existing["reason_code"]
-                else:
-                    reason = f"llm:topic:{topic}"
 
                 self._classifications[(src, idx)] = {
                     "region": region,
@@ -931,36 +950,62 @@ class UnifiedNewsSender:
         return label_map
 
     @staticmethod
-    def _legacy_region_from_3label(topic: str, geo: str, subtopic: str | None) -> str | None:
-        """Temporary 3-label → 7-zone REGION_GROUPS mapping bridge.
+    def _route(topic: str | None, geo: str | None, subtopic: str | None) -> tuple[str | None, str]:
+        """Stage 4 routing: map LLM (topic, geo, subtopic) → (region, reason_code).
 
-        Replaced by full _route() function in Task 6 (which produces 10-zone keys).
-        Implements the spec §4.5 routing logic but mapped onto current region keys
-        so the pipeline stays functional during the Tasks 5→6 gap.
+        Implements spec §4.5 routing matrix as a function with early-return
+        semantics (each article matches exactly one branch). Stages 1-3 run as
+        pre-population in classify_articles before this is called; this function
+        is purely the post-LLM routing.
+
+        Returns (None, "fallback:source_default") for any unrecognized
+        topic/geo combination; caller should then use _source_default_region().
         """
-        # Geo-priority for personal-context regions (Q1B exemption preview)
+        # Defensive: malformed LLM output
+        if topic is None or geo is None:
+            return (None, "fallback:source_default")
+
+        # 4a — Geo-priority for personal-context regions (Q1B exemption applied)
         if geo == "canada":
-            return "🇨🇦 加拿大 CANADA"
+            return (REGION_CANADA, "llm:geo:canada")
         if geo == "asia_other":
-            return "🌏 亚太要闻 ASIA-PACIFIC"
+            return (REGION_ASIA_PAC, "llm:geo:asia_other")
         if geo == "china":
             if topic in ("society", "business", "consumer_tech"):
-                return "🇨🇳 中国要闻 CHINA"
-            # china + tech/politics falls through to topic routing
+                return (REGION_CHINA, f"llm:china+{topic}")
+            # china + tech/politics falls through to 4b (topic-priority)
 
-        # Topic routing using current 7-zone keys
-        if topic == "politics":
-            return "🏛 全球政治 GLOBAL POLITICS"
+        # 4b — Topic-priority for global-comparison regions
+        if topic == "tech":
+            if subtopic == "tech_consumer":
+                return (REGION_CONSUMER_TECH, "llm:topic:tech_consumer")
+            return (REGION_AI_FRONTIER, "llm:topic:tech_ai")
+        if topic == "consumer_tech":
+            return (REGION_CONSUMER_TECH, "llm:topic:consumer_tech")
         if topic == "business":
-            return "💰 全球财经 GLOBAL FINANCE"
-        if topic in ("tech", "consumer_tech"):
-            return "🤖 AI & 科技前沿 TECH & AI"
+            if subtopic == "business_corp":
+                return (REGION_CORP_INDUSTRY, "llm:topic:business_corp")
+            return (REGION_MACRO_MARKETS, "llm:topic:business_macro")
+        if topic == "politics":
+            return (REGION_POLITICS, "llm:topic:politics")
         if topic == "society":
-            # Non-China society — temporary fallback to POLITICS until Task 6
-            # introduces the SOCIETY zone in REGION_GROUPS
-            return "🏛 全球政治 GLOBAL POLITICS"
+            # canada/china/asia_other already handled in 4a; this is us/europe/global
+            return (REGION_SOCIETY, "llm:topic:society")
 
-        return None  # Unknown topic — no reclassification
+        # Unknown topic — defensive fallback
+        return (None, "fallback:source_default")
+
+    def _source_default_region(self, source: str) -> str:
+        """Find the region that lists `source` in REGION_GROUPS.
+
+        Used as a fallback when _route() returns None (unrecognized labels) or
+        when an article reaches rendering with no _classifications entry. Falls
+        back to the first REGION_GROUPS entry if source is not listed anywhere.
+        """
+        for region, sources in self.REGION_GROUPS:
+            if source in sources:
+                return region
+        return self.REGION_GROUPS[0][0]
 
     def _reclassify_article(self, title: str, source: str, source_idx: int) -> str | None:
         """Return target region for an article, or None to keep in original region.
