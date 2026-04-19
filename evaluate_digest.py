@@ -20,24 +20,34 @@ sys.path.insert(0, str(SCRIPT_DIR))
 
 from digest_pipeline import deduplicate, jaccard_similarity, rank_and_select
 
-# --- Source-to-region mapping (matches REGION_GROUPS in sender, 10 zones, no-emoji form) ---
-# Used as a SIMULATION of the production funnel. The evaluator does not run the
-# full Stage 1-4 funnel (no LLM call) — it uses static source-default routing
-# only. CONSUMER_TECH and SOCIETY zones are LLM-fed in production but absent
-# here (no source defaults), which slightly under-counts coverage in evaluation.
-# Quality scores are an approximation of production behavior, useful for AR
-# parameter tuning but not a perfect prediction.
+# --- Source-to-region mapping: simulates the production funnel's POST-Stage-2 view ---
+# Matches the EFFECTIVE region after Stage 1 (hard lock) + Stage 2 (soft lock,
+# non-escape) routing. The 9 Chinese soft-lock sources (中国科技/AI, 36氪, 虎嗅,
+# 钛媒体, IT之家, 少数派) are mapped to CHINA here even though their source-
+# default REGION_GROUPS region is AI/前沿 — because in production, Stage 2 always
+# routes them to CHINA when the title has no external geo escape signal.
+#
+# This means evaluator quality scores reflect production routing for ~95% of
+# articles (Stage 2 escape and Stage 3 geo-keyword routing are NOT simulated).
+# CONSUMER_TECH and SOCIETY zones are LLM-fed only — no source defaults exist.
 
 SOURCE_TO_REGION: dict[str, str] = {
-    # AI/前沿 AI FRONTIER (13 sources — most tech sources)
-    "中国科技/AI": "AI/前沿 AI FRONTIER", "虎嗅": "AI/前沿 AI FRONTIER",
-    "IT之家": "AI/前沿 AI FRONTIER", "少数派": "AI/前沿 AI FRONTIER",
-    "Solidot": "AI/前沿 AI FRONTIER", "钛媒体": "AI/前沿 AI FRONTIER",
-    "36氪": "AI/前沿 AI FRONTIER", "TechCrunch": "AI/前沿 AI FRONTIER",
-    "Hacker News": "AI/前沿 AI FRONTIER", "Ars Technica": "AI/前沿 AI FRONTIER",
-    "The Verge": "AI/前沿 AI FRONTIER", "BBC Technology": "AI/前沿 AI FRONTIER",
-    "NYT Technology": "AI/前沿 AI FRONTIER",
-    # 市场/宏观 MACRO & MARKETS (4 sources — macro/markets-focused finance)
+    # 中国要闻 CHINA — 3 source-default + 9 Stage-2 soft-locked Chinese sources
+    "界面新闻":      "中国要闻 CHINA",
+    "南方周末":      "中国要闻 CHINA",
+    "中国财经要闻":   "中国要闻 CHINA",
+    "中国科技/AI":   "中国要闻 CHINA",   # soft-locked (REGION_GROUPS default: AI/前沿)
+    "36氪":          "中国要闻 CHINA",   # soft-locked
+    "虎嗅":          "中国要闻 CHINA",   # soft-locked
+    "钛媒体":        "中国要闻 CHINA",   # soft-locked
+    "IT之家":        "中国要闻 CHINA",   # soft-locked
+    "少数派":        "中国要闻 CHINA",   # soft-locked
+    # AI/前沿 AI FRONTIER (7 non-Chinese tech sources — Chinese tech sources moved to CHINA above)
+    "TechCrunch": "AI/前沿 AI FRONTIER", "Hacker News": "AI/前沿 AI FRONTIER",
+    "Ars Technica": "AI/前沿 AI FRONTIER", "The Verge": "AI/前沿 AI FRONTIER",
+    "BBC Technology": "AI/前沿 AI FRONTIER", "NYT Technology": "AI/前沿 AI FRONTIER",
+    "Solidot": "AI/前沿 AI FRONTIER",
+    # 市场/宏观 MACRO & MARKETS (4 sources)
     "Bloomberg Econ": "市场/宏观 MACRO & MARKETS",
     "Bloomberg": "市场/宏观 MACRO & MARKETS",
     "FT": "市场/宏观 MACRO & MARKETS",
@@ -49,15 +59,10 @@ SOURCE_TO_REGION: dict[str, str] = {
     "Bloomberg Politics": "全球政治 GLOBAL POLITICS",
     "The Guardian World": "全球政治 GLOBAL POLITICS",
     "SCMP": "全球政治 GLOBAL POLITICS",
-    # 中国要闻 CHINA (3 sources — Chinese-domestic-only sources;
-    # other Chinese sources are soft-locked at runtime via Stage 2)
-    "界面新闻": "中国要闻 CHINA",
-    "南方周末": "中国要闻 CHINA",
-    "中国财经要闻": "中国要闻 CHINA",
-    # 公司/产业 CORPORATE & INDUSTRY (2 sources — corporate-focused business)
+    # 公司/产业 CORPORATE & INDUSTRY (2 sources)
     "NYT Business": "公司/产业 CORPORATE & INDUSTRY",
     "BBC Business": "公司/产业 CORPORATE & INDUSTRY",
-    # 亚太要闻 ASIA-PACIFIC (6 sources)
+    # 亚太要闻 ASIA-PACIFIC (6 sources, soft-locked via Stage 2 — same as REGION_GROUPS default)
     "日经中文": "亚太要闻 ASIA-PACIFIC",
     "CNA": "亚太要闻 ASIA-PACIFIC",
     "RTHK中文": "亚太要闻 ASIA-PACIFIC",

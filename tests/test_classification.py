@@ -788,7 +788,7 @@ class TestRoutingStats:
         assert "📊 Routing distribution" not in out or "0 classifications" in out
 
     def test_stage4_warning_when_llm_dominates(self, capsys):
-        """When Stage 4 share > 70%, a warning line is emitted."""
+        """When LLM-hit share > 70%, a warning line is emitted."""
         # Mock LLM to return 3-label for all 4 non-locked, non-soft-locked sources
         sender = _make_sender_with_news({
             "Bloomberg":      [("Fed signals hold", "u1", None, None)],
@@ -811,5 +811,146 @@ class TestRoutingStats:
         sender.classify_articles()
         out = capsys.readouterr().out
         # All 4 routed via Stage 4 LLM = 100% > 70% threshold
-        assert "Stage 4 LLM share" in out
+        assert "LLM-hit share" in out
         assert "70%" in out
+
+
+class TestRoutingStatsCodexFix:
+    """Codex review fix: soft_escape entries DO hit LLM; the 'handled by' view
+    must count them as LLM-hit, not as deterministic Stage 2.
+    """
+
+    def test_soft_escape_counted_as_llm_hit_not_deterministic(self, capsys):
+        """界面 article that escapes Stage 2 + LLM returns topic/geo: should
+        appear in BOTH '📊 Stage 2 (escape→LLM)' provenance row AND in
+        'Hit LLM' summary, NOT in 'Deterministic'.
+        """
+        sender = _make_sender_with_news({
+            # Title triggers Stage 2 escape (Trump, no own-geo) AND no Stage 3 keyword
+            "界面新闻": [("特朗普签署 H1B 签证新规", "u1", None, None)],
+        })
+        sender._openai_key = "fake-key"
+        api_response = {"choices": [{"message": {"content": __import__("json").dumps({
+            "1": {"topic": "politics", "geo": "us"},
+        })}}]}
+        def fake_call(payload, timeout=60):
+            sender._last_provider = "MockLLM"
+            return api_response
+        sender._llm_api_call = fake_call
+
+        sender.classify_articles()
+        out = capsys.readouterr().out
+        # Provenance view: shows as Stage 2 (escape→LLM)
+        assert "Stage 2 (escape→LLM)" in out
+        # Handled-by view: counts as Hit LLM=1, Deterministic=0
+        import re
+        m_det = re.search(r"Deterministic \(no LLM\)\s+:\s+(\d+)", out)
+        m_llm = re.search(r"Hit LLM[^:]*:\s+(\d+)", out)
+        assert m_det is not None and int(m_det.group(1)) == 0
+        assert m_llm is not None and int(m_llm.group(1)) == 1
+
+    def test_handled_by_view_split_correct(self, capsys):
+        """Mix of stages: 1 hard, 2 soft, 1 escape, 1 geo, 2 LLM →
+        Deterministic=4 (1 hard + 2 soft + 1 geo), Hit LLM=3 (1 escape + 2 Stage 4).
+        """
+        sender = _make_sender_with_news({
+            "CBC Business":    [("Canadian biz news", "u1", None, None)],   # Stage 1
+            "界面新闻":        [("宁德时代财报", "u2", None, None)],          # Stage 2 soft
+            "南方周末":        [("中国教育报告", "u3", None, None)],          # Stage 2 soft
+            "界面新闻 (escape)": [("特朗普签新规", "u4", None, None)],        # Stage 2 escape (different src)
+            "FT":              [("Trudeau announces budget", "u5", None, None)],  # Stage 3
+            "Bloomberg":       [("Fed signals hold", "u6", None, None)],     # Stage 4
+            "BBC World":       [("UN summit", "u7", None, None)],            # Stage 4
+        })
+        # Note: "界面新闻 (escape)" isn't a real soft-lock source, so it falls through
+        # to LLM as Stage 4. Adjust: use a different soft-lock source with escape title
+        sender.news_data = {
+            "CBC Business":    [("Canadian biz news", "u1", None, None)],   # Stage 1 hard
+            "界面新闻":        [("宁德时代财报", "u2", None, None),           # Stage 2 soft
+                                ("特朗普签新规", "u3", None, None)],          # Stage 2 escape (no own-geo)
+            "南方周末":        [("教育部发布报告", "u4", None, None)],         # Stage 2 soft (no escape kw)
+            "FT":              [("Trudeau announces budget", "u5", None, None)],  # Stage 3
+            "Bloomberg":       [("Fed signals hold", "u6", None, None)],     # Stage 4
+            "BBC World":       [("UN summit", "u7", None, None)],            # Stage 4
+        }
+        sender._openai_key = "fake-key"
+        # Mock returns 3 LLM results: 1 escape + 2 fresh Stage 4
+        api_response = {"choices": [{"message": {"content": __import__("json").dumps({
+            "1": {"topic": "politics", "geo": "us"},  # escape (界面 idx=1)
+            "2": {"topic": "business", "geo": "us", "subtopic": "business_macro"},  # Bloomberg
+            "3": {"topic": "politics", "geo": "global"},  # BBC World
+        })}}]}
+        def fake_call(payload, timeout=60):
+            sender._last_provider = "MockLLM"
+            return api_response
+        sender._llm_api_call = fake_call
+
+        sender.classify_articles()
+        out = capsys.readouterr().out
+
+        # Expected handled-by counts:
+        #   Deterministic = 1 (CBC) + 2 (界面 idx=0 + 南方周末) + 1 (FT geo_keyword) = 4
+        #   Hit LLM = 1 (界面 idx=1 escape) + 2 (Bloomberg + BBC) = 3
+        import re
+        m_det = re.search(r"Deterministic \(no LLM\)\s+:\s+(\d+)", out)
+        m_llm = re.search(r"Hit LLM[^:]*:\s+(\d+)", out)
+        assert m_det is not None, f"missing deterministic line in: {out}"
+        assert m_llm is not None, f"missing Hit LLM line in: {out}"
+        assert int(m_det.group(1)) == 4, f"deterministic count wrong, got {m_det.group(1)}"
+        assert int(m_llm.group(1)) == 3, f"Hit LLM count wrong, got {m_llm.group(1)}"
+
+
+class TestEvaluatorSoftLockConsistency:
+    """Codex review fix: evaluator SOURCE_TO_REGION must mirror sender's
+    POST-Stage-2 effective routing for soft-lock sources.
+    """
+
+    def _load_evaluator(self):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "evaluate_digest",
+            os.path.expanduser("~/global-news/evaluate_digest.py"),
+        )
+        eval_mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(eval_mod)
+        return eval_mod
+
+    def test_chinese_soft_lock_sources_route_to_china_in_evaluator(self):
+        """All 9 Chinese soft-lock sources must map to 中国要闻 CHINA in evaluator."""
+        eval_mod = self._load_evaluator()
+        chinese_soft_lock = [
+            "界面新闻", "南方周末", "中国财经要闻",
+            "中国科技/AI", "36氪", "虎嗅", "钛媒体", "IT之家", "少数派",
+        ]
+        for src in chinese_soft_lock:
+            assert eval_mod.SOURCE_TO_REGION.get(src) == "中国要闻 CHINA", (
+                f"{src} → {eval_mod.SOURCE_TO_REGION.get(src)!r} "
+                f"(expected '中国要闻 CHINA' to mirror sender's Stage 2 soft-lock)"
+            )
+
+    def test_asia_soft_lock_sources_route_to_asia_in_evaluator(self):
+        """5 Asia-Pac soft-lock sources route to ASIA-PAC in evaluator (matches sender)."""
+        eval_mod = self._load_evaluator()
+        asia_soft_lock = ["SCMP Hong Kong", "RTHK中文", "HKFP", "Straits Times", "日经中文"]
+        for src in asia_soft_lock:
+            assert eval_mod.SOURCE_TO_REGION.get(src) == "亚太要闻 ASIA-PACIFIC"
+
+    def test_evaluator_matches_sender_soft_lock_table(self):
+        """Sender's _SOFT_LOCKS map must agree with evaluator's SOURCE_TO_REGION
+        (after stripping emoji from sender's region constants).
+        """
+        from unified_global_news_sender import _SOFT_LOCKS
+        eval_mod = self._load_evaluator()
+
+        def _strip_emoji(s):
+            for char in s:
+                if char.isalnum() or char in ' &':
+                    return s[s.index(char):].strip()
+            return s
+
+        for src, sender_region in _SOFT_LOCKS.items():
+            eval_region = eval_mod.SOURCE_TO_REGION.get(src)
+            assert eval_region == _strip_emoji(sender_region), (
+                f"Soft-lock mismatch for {src}: sender→{sender_region!r} "
+                f"(stripped {_strip_emoji(sender_region)!r}), evaluator→{eval_region!r}"
+            )

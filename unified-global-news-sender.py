@@ -919,12 +919,22 @@ class UnifiedNewsSender:
         # Always print routing distribution at end (covers Stages 1-3 even if Stage 4 failed)
         self._print_routing_stats()
 
+    # Stage labels grouped by whether the article actually hit the LLM API.
+    # Important: a soft_escape entry has reason_code="soft_escape:<src>" indicating
+    # WHERE the routing provenance came from (Stage 2), but it WAS sent to the LLM
+    # to fill topic/geo/subtopic. So for the "did this article hit LLM?" metric,
+    # soft_escape counts as LLM-hit, not as deterministic Stage 2.
+    _DETERMINISTIC_REASON_PREFIXES = ("source_lock:hard", "source_lock:soft", "geo_keyword")
+    _LLM_HIT_REASON_PREFIXES = ("soft_escape", "llm:")
+
     def _print_routing_stats(self) -> None:
         """Print per-stage routing distribution from _classifications.
 
-        Spec §6 Task 8 + §9 Monitoring: alert if Stage 4 (LLM) catches > 70% of
-        articles, indicating deterministic Stages 1-3 are missing the bulk of
-        routing decisions and the funnel is degenerating into a single LLM call.
+        Spec §6 Task 8 + §9 Monitoring: shows BOTH the reason_code provenance view
+        (where each article's reason came from) AND the deterministic-vs-LLM view
+        (whether the article actually hit the LLM API). The 70% alert threshold
+        uses the LLM-hit view so soft_escape entries (which DO hit LLM) count
+        toward the alarm — fixes the under-count noted in Codex review.
         """
         if not getattr(self, '_classifications', None):
             return
@@ -971,10 +981,24 @@ class UnifiedNewsSender:
                 pct = 100.0 * cnt / total
                 print(f"   {stage:<24s}: {cnt:3d} ({pct:5.1f}%)")
 
-        # Compute Stage 4 LLM share for monitoring threshold
-        llm_share = counts.get("Stage 4 (LLM)", 0) / total
-        if llm_share > 0.70:
-            print(f"⚠️  Stage 4 LLM share {llm_share:.1%} > 70% — deterministic stages may be under-catching")
+        # Second view: deterministic vs LLM-hit (handled-by-stage, not provenance)
+        deterministic = sum(
+            1 for entry in self._classifications.values()
+            if entry["reason_code"].startswith(self._DETERMINISTIC_REASON_PREFIXES)
+        )
+        llm_hit = sum(
+            1 for entry in self._classifications.values()
+            if entry["reason_code"].startswith(self._LLM_HIT_REASON_PREFIXES)
+        )
+        det_pct = 100.0 * deterministic / total
+        llm_pct = 100.0 * llm_hit / total
+        print(f"   ─── handled by ───")
+        print(f"   Deterministic (no LLM)  : {deterministic:3d} ({det_pct:5.1f}%)")
+        print(f"   Hit LLM (Stage 2 escape + Stage 4) : {llm_hit:3d} ({llm_pct:5.1f}%)")
+
+        # Alert uses true LLM-hit share (not just Stage 4 — soft_escape also hits LLM)
+        if llm_hit / total > 0.70:
+            print(f"⚠️  LLM-hit share {llm_pct:.1f}% > 70% — deterministic stages under-catching")
 
     @staticmethod
     def _parse_3label_response(parsed) -> dict:
