@@ -155,38 +155,61 @@ Used to route within already-decided region (TECH/FINANCE split):
 
 ### §4.5 Routing Matrix
 
-Priority order (top match wins):
+Mutually-exclusive ordered checks; **first match wins, function returns immediately**:
 
+```python
+def route(source, title, topic, geo, subtopic) -> tuple[str, str]:
+    """Returns (region, reason_code). Each article matches exactly one branch."""
+
+    # Stage 1 — Hard source lock (deterministic, no LLM signal needed)
+    if source in HARD_LOCK:
+        return HARD_LOCK[source], f"source_lock:hard:{source}"
+
+    # Stage 2 — Soft source lock with escape rule
+    if source in SOFT_LOCK:
+        if not has_escape_signal(title):  # external geo keyword AND no own-geo keyword
+            return SOFT_LOCK[source], f"source_lock:soft:{source}"
+        # else: fall through to LLM (escape)
+
+    # Stage 3 — Geo keyword funnel (deterministic, before LLM)
+    if has_strong_canada_keyword(title):
+        return CANADA, "geo_keyword:canada"
+    if has_strong_asia_pac_keyword(title):
+        return ASIA_PAC, "geo_keyword:asia_pac"
+
+    # Stage 4 — LLM-driven (topic, geo, subtopic) routing
+    # 4a. Geo-priority for personal-context regions (Q1 B applied)
+    if geo == "canada":
+        return CANADA, "llm:geo:canada"
+    if geo == "asia_other":
+        return ASIA_PAC, "llm:geo:asia_other"
+    if geo == "china":
+        if topic in ("society", "business", "consumer_tech"):
+            return CHINA, f"llm:china+{topic}"
+        # china + tech (subtopic tech_ai) or politics → falls to 4b for global comparison
+
+    # 4b. Topic-priority for global-comparison regions
+    if topic == "tech":
+        if subtopic == "tech_consumer":
+            return CONSUMER_TECH, "llm:topic:tech_consumer"
+        return AI_FRONTIER, "llm:topic:tech_ai"
+    if topic == "consumer_tech":  # safety net if topic emitted directly (rare)
+        return CONSUMER_TECH, "llm:topic:consumer_tech"
+    if topic == "business":
+        if subtopic == "business_corp":
+            return CORP_INDUSTRY, "llm:topic:business_corp"
+        return MACRO_MARKETS, "llm:topic:business_macro"
+    if topic == "politics":
+        return POLITICS, "llm:topic:politics"
+    if topic == "society":
+        # canada/china/asia_other already handled in 4a; this is us/europe/global only
+        return SOCIETY, "llm:topic:society"
+
+    # Fallback — LLM emitted unrecognized topic, or all upstream stages failed
+    return source_default_region(source), "fallback:source_default"
 ```
-IF source ∈ HARD_LOCK:                   → that region (Stage 1)
-IF source ∈ SOFT_LOCK AND not escaped:   → that region (Stage 2)
-IF geo_keyword ∈ {canada, asia_other}:   → that region (Stage 3)
 
-# After Stage 4 LLM (topic, geo, subtopic):
-
-# Geo-priority for non-global-comparison regions
-IF geo == "canada":                      → 🇨🇦 CANADA
-IF geo == "asia_other":                  → 🌏 ASIA-PAC
-IF geo == "china":
-    IF topic IN {"society", "business"}: → 🇨🇳 CHINA          # Q1 B
-    ELIF topic == "consumer_tech":       → 🇨🇳 CHINA          # Chinese consumer products belong w/ China
-    # else (china + tech/politics) falls through to topic routing
-
-# Topic-priority for global-comparison regions
-IF topic == "tech":
-    IF subtopic == "tech_consumer":      → 📱 消费科技
-    ELSE:                                → 🧠 AI/前沿
-IF topic == "business":
-    IF subtopic == "business_corp":      → 🏢 公司/产业
-    ELSE:                                → 📈 市场/宏观
-IF topic == "politics":                  → 🏛 POLITICS
-IF topic == "society":
-    IF geo IN {"china", "canada", "asia_other"}: → that geo region
-    ELSE:                                        → 🌐 SOCIETY  # Q4 C
-
-# Fallback (LLM failure or no match)
-ELSE:                                    → source default region (REGION_GROUPS)
-```
+**Why this form**: original spec had `IF` blocks that visually looked like fall-through but routing must be one-region-per-article. Pseudocode-as-function makes the early-return semantics explicit and audit-friendly.
 
 ### §4.6 Region Structure (10 zones, in display order per F3)
 
@@ -245,7 +268,7 @@ Subtopic (only required for topic in {tech, business}):
 
 Return JSON: {"1": {"topic":"...","geo":"...","subtopic":"..."}, "2": {...}, ...}
 
-Examples:
+Examples (low-ambiguity):
 - "Fed signals April hold" → {topic:"business", geo:"us", subtopic:"business_macro"}
 - "Apple Q4 earnings beat" → {topic:"business", geo:"us", subtopic:"business_corp"}
 - "宁德时代为什么赚这么多钱" → {topic:"business", geo:"china", subtopic:"business_corp"}
@@ -255,6 +278,33 @@ Examples:
 - "Iran-Israel ceasefire" → {topic:"politics", geo:"global"}
 - "卢特尼克对加拿大说糟透了" → {topic:"politics", geo:"canada"}
 - "Guardian: 美国得州禁书法案" → {topic:"society", geo:"us"}
+
+Examples (high-ambiguity, explicitly resolved per routing matrix):
+# china + tech_ai → topic region (NOT CHINA, per Q1 B exemption)
+- "DeepSeek 训练成本下降 80%" → {topic:"tech", geo:"china", subtopic:"tech_ai"}
+- "字节跳动 Sora 对标 OpenAI" → {topic:"tech", geo:"china", subtopic:"tech_ai"}
+
+# china + consumer_tech → CHINA (Chinese consumer products belong with China)
+- "小米 14 Ultra 评测" → {topic:"consumer_tech", geo:"china"}
+- "华为 Mate60 销量超预期" → {topic:"consumer_tech", geo:"china"}
+
+# china + politics → POLITICS (Q1 B: politics topic wins over geo for global comparison)
+- "中国发改委发布产能控制新规" → {topic:"politics", geo:"china"}
+- "习近平赴莫斯科出席峰会" → {topic:"politics", geo:"china"}
+
+# asia_other + society → ASIA-PAC (geo dominates regardless of topic)
+- "日本少子化政策深度报告" → {topic:"society", geo:"asia_other"}
+- "韩国年轻人婚育率创新低" → {topic:"society", geo:"asia_other"}
+
+# europe + business — distinguish macro vs corp
+- "ECB 维持利率不变" → {topic:"business", geo:"europe", subtopic:"business_macro"}
+- "BMW Q3 销量同比下滑 12%" → {topic:"business", geo:"europe", subtopic:"business_corp"}
+
+# Multi-geo dominant — pick the article's primary geographic focus
+- "中印边境冲突升级" → {topic:"politics", geo:"asia_other"} (India dominates non-China narrative)
+- "中俄联合军演谴责美国" → {topic:"politics", geo:"global"} (multi-country, no single dominant)
+- "台积电赴日设厂" → {topic:"business", geo:"asia_other", subtopic:"business_corp"} (TW + JP both asia_other)
+- "拜登访问东京会晤岸田文雄" → {topic:"politics", geo:"asia_other"} (Japan is host, focus is JP-US relations)
 
 Titles ({N} total):
 1. ...
@@ -276,71 +326,71 @@ Titles ({N} total):
 
 (Order matters — each task should leave the system functional)
 
+**Naming convention** (per Codex review): the article-level provenance field is `reason_code` everywhere — fixture column, in-pipeline attribute, log keys, monitoring metric. No `region_reason` or `_reason_code` aliases.
+
 ### Task 1: Add subtopic + geo data structures (no behavior change)
 - New constants: `TOPIC_LABELS`, `GEO_LABELS`, `SUBTOPIC_LABELS`
-- New fixture column: `region_reason` (str)
+- New fixture column: `reason_code` (str)
 - Tests: validate label vocabularies are well-formed
 
 ### Task 2: Implement Stage 1 (Hard Lock — no change in scope)
 - Already done (`_LOCKED_SOURCES`)
-- Add `reason_code = "source_lock:hard"`
+- Add `reason_code = "source_lock:hard:<source>"`
 - Tests: 6 sources skip LLM, end up in CANADA/ECONOMIST
 
 ### Task 3: Implement Stage 2 (Soft Lock + Escape)
 - New constant `_SOFT_LOCKS` mapping source → default region
-- New constant `_ESCAPE_KEYWORDS` for external geo (Trump|Washington|Putin|Brussels|...)
-- New constant `_OWN_GEO_KEYWORDS` for the soft-lock's own geo (中国|大陆|...)
-- Logic: if source in _SOFT_LOCKS → check escape rule → either route or fall through
+- New constants `_ESCAPE_EXTERNAL_GEO` (Trump|Washington|Putin|Brussels|...) and `_OWN_GEO_PER_SOFT_LOCK` (CHINA→{中国|大陆|北京}, ASIA→{香港|日本|韩国})
+- Logic: if source in _SOFT_LOCKS → check escape rule → either route (with `reason_code = "source_lock:soft:..."`) or fall through (with `reason_code = "soft_escape:..."`)
 - Tests: 界面 article about CATL stays in CHINA; 界面 article about "拜登签法案" escapes to LLM
 
 ### Task 4: Implement Stage 3 (Geo Keyword Funnel)
 - New constants `_CANADA_KEYWORDS`, `_ASIA_PAC_KEYWORDS`
 - Apply to articles that fell through Stages 1-2
+- `reason_code = "geo_keyword:<region>"`
 - Tests: SCMP article with "加拿大" → CANADA; Bloomberg article with "Hong Kong" → ASIA-PAC
 
 ### Task 5: Update LLM prompt + parsing (Stage 4)
-- New prompt template (§5)
-- Parse 3-label JSON output
-- Backward compat: handle old single-label response gracefully (during deploy)
-- Tests: parse various JSON shapes, fallback on malformed
+- New prompt template (§5) including the high-ambiguity examples block
+- Parse 3-label JSON output `{topic, geo, subtopic}`
+- Backward compat: tolerate missing `subtopic` for non-tech/business topics
+- `reason_code = "llm:<topic>:<geo>"` or `"llm:china+<topic>"` for the Q1B branches
+- Tests: parse various JSON shapes, fallback on malformed; verify all 6 high-ambiguity examples in §5 yield expected (topic, geo, subtopic) when run against gpt-4.1-mini
 
-### Task 6: Implement routing matrix (§4.5)
-- Replace `_CATEGORY_TO_REGION` with new `_ROUTING_MATRIX` function
-- Returns (region, reason_code) tuple
-- Tests: 30 fixture cases covering all routing branches
+### Task 6: Routing matrix + REGION_GROUPS expansion (atomic, replaces old Tasks 6+7)
+**Why atomic** (Codex point #1): the routing function returns new region keys (AI/前沿, 市场/宏观, 公司/产业, 消费科技, SOCIETY) that don't exist in the 7-zone REGION_GROUPS. Doing routing first would create a window where rendering crashes on unknown region keys. Doing REGION_GROUPS first would create a window where new regions exist but receive no articles. Must land together.
+- Replace `_CATEGORY_TO_REGION` dict with `_route(source, title, topic, geo, subtopic)` function (§4.5 pseudocode)
+- Function returns `(region_key, reason_code)`
+- Replace 7-zone REGION_GROUPS with 10-zone version (§4.6)
+- Add new emoji + region titles in display order per F3
+- Tests: 40 fixture cases covering all routing branches × all 10 region keys exist in REGION_GROUPS
 
-### Task 7: Update REGION_GROUPS for 10 zones
-- Replace 7-zone REGION_GROUPS with 10-zone version
-- Add new emoji + region titles
-- Update display order per F3
-- Tests: render test with 10 sections, all source assignments
-
-### Task 8: Update digest-tuning.json
+### Task 7: Update digest-tuning.json
 - New region_quotas (10 zones, weights per §4.6)
 - max_total_articles = 150, target_article_count = 150
 - AR Rule 3 in program.md: lock new keys + new max value
 - Tests: validate JSON, sum bounds
 
-### Task 9: Implement reason_code logging + display
-- Each article carries `_reason_code` field through pipeline
-- Optional: render "[reason]" tooltip in HTML email (debug mode)
-- Add reason_code distribution stats to send log
+### Task 8: Implement reason_code logging + display
+- Each article carries `reason_code` field through pipeline (no underscore prefix)
+- Optional: render "[reason]" tooltip in HTML email (debug mode only)
+- Add reason_code distribution stats to send log: `Stage1: N (M%) | Stage2: N (M%) | Stage3: N (M%) | Stage4: N (M%) | Fallback: N (M%)`
 
-### Task 10: Update docs.sinostor.com.cn page
+### Task 9: Update docs.sinostor.com.cn page
 - Section 9 (`#app-news`) reflect 10 zones
 - Update region count cards, source allocation diagram
-- Update "唯一可调旋钮" current values
+- Update "唯一可调旋钮" current values (max_total 120→150)
 
-### Task 11: Dry-run on 5 fixtures + before/after diff
-- Run new classifier on 5 recent fixtures
+### Task 10: Dry-run on 5 fixtures + before/after diff
+- Run new classifier on 5 recent fixtures (mock LLM with deterministic dict)
 - Compare region distribution to current emails
-- Flag any article that moved unexpectedly
+- Flag any article whose region moved unexpectedly
 - User reviews diff before deploying
 
-### Task 12: Production deploy + monitoring
+### Task 11: Production deploy + monitoring
 - Push to main; next 00:10 BJT cron picks up
-- Add alert: if reclassification rate > 30% (vs target <15%), email warning
-- Watch first 3 sends, validate user feels less duplication
+- Add alert: if Stage 4 (LLM) rate > 70% of articles, email warning (deterministic stages should catch ≥30%)
+- Watch first 3 sends, validate user feels less duplication and no empty/unknown sections
 
 ---
 
@@ -352,7 +402,7 @@ Titles ({N} total):
 | 消费科技 zone too sparse (no consumer-tech articles in many sends) | High | Empty section in email | Region quota min=6 with hide-if-empty rendering |
 | SOCIETY zone too sparse (similar) | High | Empty section | Same hide-if-empty |
 | Soft-lock escape too aggressive (界面 articles flowing to politics often) | Low-Med | Chinese sources scatter (back to current bug) | Escape requires NO own-geo keywords; conservative threshold |
-| AR tries to revert quota changes | High | volume re-shrinks | Already locked via Rule 3 (existing) — extend lock to new keys in Task 8 |
+| AR tries to revert quota changes | High | volume re-shrinks | Already locked via Rule 3 (existing) — extend lock to new keys in Task 7 |
 | Cross-send dedup state file path mismatch (just fixed in `da7177b`) | Low | History resets | Already verified on 2026-04-19 |
 | Token budget overshoot on big-fetch days | Low | LLM call timeout | Same fallback as today: keyword classifier |
 | User-visible region change without warning | Med | Confusion | Send 1 manual email with diff annotation before regular cron picks up |
@@ -401,21 +451,45 @@ Use 5 most recent fixtures (`2026-04-19-*.json`):
 
 ### Forward migration
 
-1. All commits land on `main` in dependency order (Tasks 1-12)
+1. All commits land on `main` in dependency order (Tasks 1-11, was 1-12 before Task 6/7 merge)
 2. Each task includes its own tests; CI must pass before next task
 3. Final commit triggers next 00:10 BJT cron with new pipeline
 
-### Rollback
+### Rollback (per Codex review point #3 — must cover entry-point changes too)
 
-- `git revert <task6-commit>` reverts routing matrix change (most likely revert target)
-- `git revert <task7-commit>` reverts REGION_GROUPS to 7 zones
-- `git revert <task8-commit>` reverts digest-tuning.json
-- digest-tuning.json reverts also need AR program.md Rule 3 lock value rollback
+The classification entry point is mutated by **Tasks 3 (Stage 2 soft lock), 4 (Stage 3 geo keyword), 5 (LLM prompt + 3-label parser), 6 (routing + REGION_GROUPS), 7 (digest-tuning + AR Rule 3)**. A partial revert that only touches Task 6/7 would leave the new soft-lock and geo-keyword paths active against an old routing dict that doesn't recognize their outputs — broken intermediate state.
+
+**Two equivalent rollback options**, pick one at incident time:
+
+**Option A — Full atomic revert** (preferred for clean rollback):
+```bash
+cd ~/global-news
+git revert --no-commit <task7-commit> <task6-commit> <task5-commit> \
+                       <task4-commit> <task3-commit>
+git commit -m "rollback: classifier redesign — full revert Task 3-7"
+git push
+```
+After push, next cron picks up old 7-zone classifier. Tasks 1-2 (data structures + hard lock) are safe to keep — they don't change behavior.
+
+**Option B — Kill switch via env var** (faster, but leaves both code paths in repo):
+
+Implement in Task 11 (Production deploy) a top-of-`classify_articles()` check:
+```python
+if os.environ.get("NEWS_CLASSIFIER_VERSION", "v2") == "v1":
+    return self._classify_articles_v1_legacy(...)  # old code preserved
+```
+Cron wrapper exports `NEWS_CLASSIFIER_VERSION=v2` by default after deploy. To roll back, set to `v1` in `~/.stock-monitor.env` and next cron uses old path immediately. Useful for fast incident response (<1 min vs git-revert + push cycle). Trade-off: doubles maintained code surface for the kill-switch lifetime.
+
+**Recommendation**: implement Option B's kill switch in Task 11 *as a safety belt*; use Option A as the formal rollback when incident is confirmed. Remove v1 code path 2 weeks after stable production.
+
+**Other rollback notes**:
+- Task 8 (reason_code logging) and Task 9 (docs.sinostor) are display-only, safe to leave even after rollback — they degrade gracefully
 - Sent-today state file path stays — no data loss
+- AR Rule 3 lock value reverts together with digest-tuning.json (same commit in Task 7)
 
 ### Monitoring
 
-- Send log: count `region_reason` per stage, alert if Stage 4 rate > 70%
+- Send log: count `reason_code` per stage, alert if Stage 4 rate > 70%
 - Send log: count empty-region renders, alert if 3+ empty zones
 - AR cron: continue daily, will explore freshness/dedup/tier_boost within new quota constraints
 - After 7 days: review user feedback, decide:
@@ -441,12 +515,21 @@ These don't block the spec but should be revisited after 1-2 weeks of new pipeli
 ## §11 Implementation Trigger
 
 This spec is ready for plan generation when:
-- [ ] User reviews Q1-Q5 + F1-F3 decisions and any open issues
-- [ ] User confirms Task 1-12 ordering OK
-- [ ] User confirms region_quotas in §4.6 are reasonable starting points
-- [ ] User confirms LLM prompt examples in §5 cover their key edge cases
+- [x] User reviews Q1-Q5 + F1-F3 decisions and any open issues
+- [x] Task ordering reviewed (Codex review point #1: Task 6+7 merged into atomic Task 6 — see §6)
+- [x] reason_code naming unified (Codex review point #2: single `reason_code` everywhere)
+- [x] Rollback covers entry-point changes (Codex review point #3: §9 explicit Task 3-7 atomic revert + optional kill-switch)
+- [x] §5 LLM prompt examples cover high-ambiguity cases (Codex review point #4: 4 new example blocks added)
+- [ ] User confirms revised spec — specifically the rollback strategy (Option A vs B in §9) and the high-ambiguity example outputs
 
-After confirmation: I'll generate the implementation plan (`docs/superpowers/plans/2026-04-19-classification-redesign.md`) breaking each Task into concrete code changes + tests, then execute task-by-task with checkpoints.
+After final confirmation: I'll generate the implementation plan (`docs/superpowers/plans/2026-04-19-classification-redesign.md`) breaking each Task into concrete code changes + tests, then execute task-by-task with checkpoints.
+
+---
+
+## Revision Log
+
+- **2026-04-19 v1**: Initial spec (commit `7099359`)
+- **2026-04-19 v2**: Codex review fixes — Task 6+7 merged atomic; reason_code naming unified; §9 rollback covers Task 3-7 with optional kill-switch; §5 added 4 high-ambiguity example blocks (china+tech_ai, china+consumer_tech, china+politics, asia_other+society, europe+macro/corp, multi-geo dominant)
 
 ---
 
