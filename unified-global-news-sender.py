@@ -1033,6 +1033,95 @@ class UnifiedNewsSender:
         if llm_hit / total > 0.70:
             print(f"⚠️  LLM-hit share {llm_pct:.1f}% > 70% — deterministic stages under-catching")
 
+    def _compute_routing_health(self, all_region_articles) -> dict:
+        """Compute the 3 monitoring metrics for email footer (Task 12 add-on).
+
+        Returns dict with llm_hit_pct, fallback_pct, consumer_tech_count,
+        society_count + per-metric status (ok/warn/fail) for color coding.
+        """
+        classifications = getattr(self, '_classifications', {})
+        total = len(classifications) if classifications else 1
+
+        llm_hit = sum(1 for e in classifications.values()
+                      if e["reason_code"].startswith(self._LLM_HIT_REASON_PREFIXES))
+        fallback = sum(1 for e in classifications.values()
+                       if e["reason_code"].startswith("fallback:"))
+
+        llm_hit_pct = 100.0 * llm_hit / total if total else 0.0
+        fallback_pct = 100.0 * fallback / total if total else 0.0
+
+        # Final region counts after dedup + rank + quota (what user actually sees)
+        region_counts = {rt: len(arts) for rt, arts in all_region_articles}
+        consumer_tech = region_counts.get(REGION_CONSUMER_TECH, 0)
+        society = region_counts.get(REGION_SOCIETY, 0)
+
+        def _status_pct(value: float, warn: float, fail: float) -> str:
+            if value > fail: return "fail"
+            if value > warn: return "warn"
+            return "ok"
+
+        def _status_quota(count: int, qmin: int, qmax: int) -> str:
+            if count == 0: return "fail"     # empty
+            if count < qmin: return "warn"   # below min
+            if count > qmax: return "warn"   # above max (rare with binding cap)
+            return "ok"
+
+        return {
+            "llm_hit_pct":           llm_hit_pct,
+            "llm_hit_status":        _status_pct(llm_hit_pct, 60.0, 70.0),
+            "fallback_pct":          fallback_pct,
+            "fallback_status":       _status_pct(fallback_pct, 3.0, 5.0),
+            "consumer_tech_count":   consumer_tech,
+            "consumer_tech_status":  _status_quota(consumer_tech, 6, 10),
+            "society_count":         society,
+            "society_status":        _status_quota(society, 3, 8),
+            "total_classified":      total,
+        }
+
+    @staticmethod
+    def _render_routing_health_html(metrics: dict, font_sans: str,
+                                    color_muted: str, color_rule_lt: str) -> str:
+        """Render routing health HTML footer block (Task 12 add-on)."""
+        STATUS_ICONS = {
+            "ok":   ("✓", "#3a7a3a"),    # green
+            "warn": ("⚠", "#a07a1a"),    # amber
+            "fail": ("✗", "#a03a3a"),    # red
+        }
+
+        def _row(label: str, value: str, status: str, threshold: str) -> str:
+            icon, color = STATUS_ICONS[status]
+            return (
+                f'<tr>'
+                f'<td style="padding:2px 8px 2px 0;color:{color_muted};white-space:nowrap;">{label}</td>'
+                f'<td style="padding:2px 8px 2px 0;color:{color_muted};font-family:monospace;text-align:right;white-space:nowrap;">{value}</td>'
+                f'<td style="padding:2px 8px 2px 0;color:{color};font-weight:bold;white-space:nowrap;">{icon}</td>'
+                f'<td style="padding:2px 0;color:{color_muted};font-size:10px;">({threshold})</td>'
+                f'</tr>'
+            )
+
+        rows = [
+            _row("LLM-hit",  f"{metrics['llm_hit_pct']:.1f}%",
+                 metrics['llm_hit_status'], "<70%"),
+            _row("Fallback", f"{metrics['fallback_pct']:.1f}%",
+                 metrics['fallback_status'], "<5%"),
+            _row("消费科技",   f"{metrics['consumer_tech_count']} 篇",
+                 metrics['consumer_tech_status'], "quota 6-10"),
+            _row("社会观察",   f"{metrics['society_count']} 篇",
+                 metrics['society_status'], "quota 3-8"),
+        ]
+
+        return f"""<tr><td style="padding:15px 30px 5px 30px;">
+  <div style="border-top:1px dashed {color_rule_lt};padding-top:10px;font-family:{font_sans};font-size:11px;">
+    <div style="color:{color_muted};margin-bottom:6px;">📊 路由健康指标 <span style="font-size:10px;">(本次发送，基于 {metrics['total_classified']} 条分类)</span></div>
+    <table cellpadding="0" cellspacing="0" border="0" style="font-size:11px;">
+      {''.join(rows)}
+    </table>
+    <div style="color:{color_muted};font-size:10px;margin-top:6px;">
+      详细架构 → <a href="https://docs.sinostor.com.cn/autoresearch.html#app-news" style="color:{color_muted};">docs.sinostor.com.cn 第 9 节</a>
+    </div>
+  </div>
+</td></tr>"""
+
     @staticmethod
     def _parse_3label_response(parsed) -> dict:
         """Parse LLM response into {0-based-idx: {topic, geo, subtopic}} mapping.
@@ -1692,8 +1781,15 @@ class UnifiedNewsSender:
 """
             html += '  </table>\n</td></tr>\n'
 
+        # === ROUTING HEALTH METRICS (Task 12 add-on) ===
+        health = self._compute_routing_health(all_region_articles)
+        health_html = self._render_routing_health_html(health, FONT_SANS, C_MUTED, C_RULE_LT)
+
         # === FOOTER ===
         html += f"""
+<!-- === ROUTING HEALTH === -->
+{health_html}
+
 <!-- === FOOTER === -->
 <tr><td style="padding:30px 30px 10px 30px;">
   <table width="100%" cellpadding="0" cellspacing="0" border="0">

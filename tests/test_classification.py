@@ -1023,3 +1023,104 @@ class TestKillSwitch:
         assert result is None
         # Source default for Bloomberg is 市场/宏观 MACRO & MARKETS
         assert sender._source_default_region("Bloomberg") == "📈 市场/宏观 MACRO & MARKETS"
+
+
+# ===== Task 12: routing health metrics in email footer =====
+
+
+class TestRoutingHealthMetrics:
+    """Spec add-on: 3 monitoring metrics rendered in HTML email footer."""
+
+    def test_compute_health_thresholds(self):
+        """_compute_routing_health buckets each metric into ok/warn/fail status."""
+        sender = _make_sender_with_news({})
+        # Manually populate _classifications to test threshold logic
+        sender._classifications = {
+            ("CBC Business", 0): {"reason_code": "source_lock:hard:CBC Business"},
+            ("界面新闻", 0):     {"reason_code": "source_lock:soft:界面新闻"},
+            ("FT", 0):           {"reason_code": "geo_keyword:canada"},
+            ("Bloomberg", 0):    {"reason_code": "llm:topic:business_macro"},
+            ("BBC World", 0):    {"reason_code": "llm:topic:politics"},
+        }
+        # Mock all_region_articles with consumer_tech=8 (in range), society=2 (below min)
+        all_region_articles = [
+            ("📱 消费科技 CONSUMER TECH", [("t1", "u1", "src", None, None)] * 8),
+            ("🌐 社会观察 SOCIETY",       [("t1", "u1", "src", None, None)] * 2),
+        ]
+        m = sender._compute_routing_health(all_region_articles)
+
+        # 2 of 5 hit LLM = 40% (ok, < 60% warn threshold)
+        assert m["llm_hit_pct"] == 40.0
+        assert m["llm_hit_status"] == "ok"
+        # 0 fallbacks = 0% (ok)
+        assert m["fallback_pct"] == 0.0
+        assert m["fallback_status"] == "ok"
+        # consumer_tech 8 ∈ [6, 10] = ok
+        assert m["consumer_tech_count"] == 8
+        assert m["consumer_tech_status"] == "ok"
+        # society 2 < qmin 3 = warn
+        assert m["society_count"] == 2
+        assert m["society_status"] == "warn"
+
+    def test_compute_health_fail_states(self):
+        """High LLM-hit + empty SOCIETY → fail status."""
+        sender = _make_sender_with_news({})
+        # All 10 articles via LLM = 100% > 70% → fail
+        sender._classifications = {
+            (f"src{i}", 0): {"reason_code": "llm:topic:politics"} for i in range(10)
+        }
+        # consumer_tech 0 = empty (fail), society 0 = empty (fail)
+        all_region_articles = [
+            ("📱 消费科技 CONSUMER TECH", []),
+            ("🌐 社会观察 SOCIETY", []),
+        ]
+        m = sender._compute_routing_health(all_region_articles)
+        assert m["llm_hit_pct"] == 100.0
+        assert m["llm_hit_status"] == "fail"
+        assert m["consumer_tech_status"] == "fail"
+        assert m["society_status"] == "fail"
+
+    def test_render_health_html_contains_all_4_rows(self):
+        """HTML output includes all 4 metric rows + threshold annotations."""
+        from unified_global_news_sender import UnifiedNewsSender
+        m = {
+            "llm_hit_pct": 49.5, "llm_hit_status": "ok",
+            "fallback_pct": 1.2, "fallback_status": "ok",
+            "consumer_tech_count": 7, "consumer_tech_status": "ok",
+            "society_count": 4,      "society_status": "ok",
+            "total_classified": 234,
+        }
+        html = UnifiedNewsSender._render_routing_health_html(m, "sans", "#888", "#ccc")
+        # All 4 metric labels present
+        assert "LLM-hit" in html
+        assert "Fallback" in html
+        assert "消费科技" in html
+        assert "社会观察" in html
+        # Values rendered correctly
+        assert "49.5%" in html and "1.2%" in html
+        assert "7 篇" in html and "4 篇" in html
+        # Threshold annotations
+        assert "&lt;70%" in html or "<70%" in html
+        assert "quota 6-10" in html and "quota 3-8" in html
+        # Total classifications shown
+        assert "234" in html
+        # Doc link present
+        assert "docs.sinostor.com.cn" in html
+
+    def test_render_health_html_uses_status_colors(self):
+        """fail status renders red, warn=amber, ok=green via icon color."""
+        from unified_global_news_sender import UnifiedNewsSender
+        m = {
+            "llm_hit_pct": 80.0, "llm_hit_status": "fail",        # red ✗
+            "fallback_pct": 4.0, "fallback_status": "warn",       # amber ⚠
+            "consumer_tech_count": 7, "consumer_tech_status": "ok",  # green ✓
+            "society_count": 0,      "society_status": "fail",
+            "total_classified": 100,
+        }
+        html = UnifiedNewsSender._render_routing_health_html(m, "sans", "#888", "#ccc")
+        # Colors should be in HTML
+        assert "#a03a3a" in html  # red (fail)
+        assert "#a07a1a" in html  # amber (warn)
+        assert "#3a7a3a" in html  # green (ok)
+        # Icons present
+        assert "✓" in html and "⚠" in html and "✗" in html
