@@ -104,6 +104,29 @@ _OWN_GEO_PER_REGION = {
     ),
 }
 
+# Stage 3 — Geo keyword funnel (spec §4.1 Stage 3)
+# Articles falling through Stage 1+2 are scanned for strong geographic markers.
+# Match → route directly to that region without LLM. Catches the cases where the
+# 2026-04-19 spec §2 noted scattering: foreign-source articles about Canada or
+# Asia-Pac get topic-classified by LLM and miss their proper geo region.
+_CANADA_KEYWORDS = re.compile(
+    r"(Canad[ai]|Toronto|Vancouver|Ottawa|Montreal|Calgary|Quebec|Alberta|"
+    r"Trudeau|Carney|加拿大|多伦多|温哥华|渥太华|蒙特利尔|魁北克)",
+    re.IGNORECASE,
+)
+_ASIA_PAC_KEYWORDS = re.compile(
+    r"(Hong Kong|Singapore|Japan|Japanese|Tokyo|Korea|Korean|Seoul|"
+    r"Vietnam|Thailand|Indonesia|Malaysia|Philippines|Myanmar|"
+    r"India|Indian|Mumbai|Delhi|"
+    r"Australia|Australian|Sydney|Melbourne|New Zealand|"
+    r"Taiwan|Taipei|Mongolia|TSMC|"
+    r"香港|新加坡|日本|东京|韩国|首尔|"
+    r"越南|泰国|印度|印尼|马来西亚|菲律宾|缅甸|"
+    r"澳大利亚|新西兰|台湾|台北|蒙古|"
+    r"日经|台积电)",
+    re.IGNORECASE,
+)
+
 def _is_english_source(name: str) -> bool:
     return not any('\u4e00' <= c <= '\u9fff' for c in name)
 
@@ -633,6 +656,16 @@ class UnifiedNewsSender:
         # Otherwise stay in soft-lock region
         return (soft_region, f"source_lock:soft:{source}")
 
+    def _stage3_check(self, title: str) -> tuple[str, str] | None:
+        """Stage 3 geo keyword funnel. Returns (region, reason_code) on match; else None.
+        Spec: §4.1 Stage 3. Canada keyword wins over Asia-Pac if both match (rare).
+        """
+        if _CANADA_KEYWORDS.search(title):
+            return ("🇨🇦 加拿大 CANADA", "geo_keyword:canada")
+        if _ASIA_PAC_KEYWORDS.search(title):
+            return ("🌏 亚太要闻 ASIA-PACIFIC", "geo_keyword:asia_pac")
+        return None
+
     def classify_articles(self):
         """Classify articles into target sections via 4-stage funnel + LLM (gpt-4.1-mini).
 
@@ -683,18 +716,43 @@ class UnifiedNewsSender:
                 # NOTE: escape entries (region=None) still need LLM to fill topic/geo/subtopic;
                 # they're added to to_classify below. Non-escape entries are skipped from LLM.
 
-        # Build to_classify list for LLM, excluding articles already fully classified
-        # by Stage 1 (hard lock) and Stage 2 non-escape (soft lock).
+        # Stage 3 — Geo keyword funnel. Scans non-locked / soft-escape articles for
+        # strong CANADA / ASIA-PAC geo signals (e.g. 加拿大, Trudeau, Hong Kong, TSMC).
+        # Match → route directly without LLM. May overwrite a soft_escape entry —
+        # geo keyword is a stronger deterministic signal than the escape decision.
+        for src, articles in self.news_data.items():
+            if src in self._LOCKED_SOURCES:
+                continue  # Stage 1 hard-lock not subject to override
+            for idx, item in enumerate(articles):
+                existing = self._classifications.get((src, idx))
+                if existing and existing["reason_code"].startswith("source_lock:soft"):
+                    continue  # Stage 2 non-escape already routed; do not override
+                title = item[0] if isinstance(item, tuple) else item
+                stage3 = self._stage3_check(title)
+                if stage3 is None:
+                    continue  # no geo keyword match — defer to LLM
+                region, reason = stage3
+                self._classifications[(src, idx)] = {
+                    "region": region,
+                    "reason_code": reason,
+                    "topic": None,
+                    "geo": None,
+                    "subtopic": None,
+                }
+
+        # Build to_classify list for LLM, excluding articles fully classified by
+        # Stage 1 (hard lock), Stage 2 non-escape (soft lock), or Stage 3 (geo keyword).
         to_classify = []
         for src, articles in self.news_data.items():
             if src in self._LOCKED_SOURCES:
                 continue
             for idx, item in enumerate(articles):
                 existing = self._classifications.get((src, idx))
-                if existing and existing["reason_code"].startswith("source_lock:soft"):
-                    # Stage 2 non-escape — skip LLM, region already set
-                    continue
-                # All others (no Stage 2 entry, OR Stage 2 escape) need LLM
+                if existing:
+                    rc = existing["reason_code"]
+                    if rc.startswith("source_lock:soft") or rc.startswith("geo_keyword"):
+                        continue  # already routed by Stage 2 non-escape OR Stage 3
+                # All others (no entry, OR Stage 2 escape) need LLM to assign topic/geo
                 title = item[0] if isinstance(item, tuple) else item
                 to_classify.append((src, idx, title))
 

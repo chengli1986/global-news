@@ -249,3 +249,100 @@ class TestStage2SoftLock:
         # 字节跳动 / 大模型 has no external geo keyword in title → no escape, stays CHINA
         assert entry["reason_code"] == "source_lock:soft:36氪"
         assert entry["region"] == "🇨🇳 中国要闻 CHINA"
+
+
+# ===== Task 4: Stage 3 geo keyword funnel =====
+
+
+class TestStage3GeoKeyword:
+    """Spec §4.1 Stage 3: non-locked / soft-escape articles with strong geo keyword
+    in title route to CANADA / ASIA-PAC without LLM.
+    """
+
+    def test_canada_chinese_keyword(self):
+        """SCMP article (not soft-locked) mentioning 加拿大 → CANADA."""
+        sender = _make_sender_with_news({
+            "SCMP": [("加拿大男子Kenneth Law为避免谋杀审判认罪自杀工具案", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("SCMP", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "geo_keyword:canada"
+        assert entry["region"] == "🇨🇦 加拿大 CANADA"
+
+    def test_canada_english_keyword(self):
+        """FT article mentioning Trudeau → CANADA."""
+        sender = _make_sender_with_news({
+            "FT": [("Trudeau announces budget package", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("FT", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "geo_keyword:canada"
+        assert entry["region"] == "🇨🇦 加拿大 CANADA"
+
+    def test_asia_japan(self):
+        """Bloomberg article about Japan → ASIA-PAC."""
+        sender = _make_sender_with_news({
+            "Bloomberg": [("Japan inflation hits 4% in Q3", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("Bloomberg", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "geo_keyword:asia_pac"
+        assert entry["region"] == "🌏 亚太要闻 ASIA-PACIFIC"
+
+    def test_asia_india(self):
+        """NYT Business article about India IPO → ASIA-PAC."""
+        sender = _make_sender_with_news({
+            "NYT Business": [("India IPO market booms past $10bn", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("NYT Business", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "geo_keyword:asia_pac"
+        assert entry["region"] == "🌏 亚太要闻 ASIA-PACIFIC"
+
+    def test_asia_taiwan_via_tsmc(self):
+        """Bloomberg article mentioning TSMC → ASIA-PAC (matches TSMC OR Taiwan)."""
+        sender = _make_sender_with_news({
+            "Bloomberg": [("TSMC quarterly results beat expectations", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("Bloomberg", 0))
+        assert entry is not None
+        assert entry["reason_code"] == "geo_keyword:asia_pac"
+
+    def test_no_geo_keyword_returns_none(self):
+        """BBC article about Federal Reserve (no Canada/Asia keyword) → no Stage 3 entry."""
+        sender = _make_sender_with_news({
+            "BBC World": [("Federal Reserve hikes rates 25bps", "u1", None, None)],
+        })
+        sender.classify_articles()
+        # No LLM keys → no LLM entry, no Stage 3 match → no entry at all
+        assert ("BBC World", 0) not in sender._classifications
+
+    def test_stage3_overrides_soft_escape(self):
+        """界面 article that escapes Stage 2 (mentions Trudeau) gets Stage 3 to CANADA."""
+        sender = _make_sender_with_news({
+            "界面新闻": [("Trudeau宣布对华关税新政策", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("界面新闻", 0))
+        # Trudeau triggers escape (in _ESCAPE_EXTERNAL_GEO list as "Trudeau")
+        # AND no own-geo keyword (对华 is not in _OWN_GEO_PER_REGION CHINA list)
+        # So Stage 2 escapes → Stage 3 sees Trudeau → routes to CANADA
+        assert entry is not None
+        assert entry["reason_code"] == "geo_keyword:canada"
+        assert entry["region"] == "🇨🇦 加拿大 CANADA"
+
+    def test_stage3_does_not_override_hard_lock(self):
+        """CBC article whose title mentions Tokyo stays in CANADA (hard-lock wins)."""
+        sender = _make_sender_with_news({
+            "CBC Business": [("Air Canada launches new Tokyo route", "u1", None, None)],
+        })
+        sender.classify_articles()
+        entry = sender._classifications.get(("CBC Business", 0))
+        assert entry is not None
+        # Hard lock wins — Stage 3 does NOT override
+        assert entry["reason_code"] == "source_lock:hard:CBC Business"
