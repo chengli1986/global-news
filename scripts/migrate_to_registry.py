@@ -53,10 +53,10 @@ def migrate() -> None:
 
         if cand.get("promoted"):
             status = "production"
-        elif cand.get("rejected"):
-            status = "rejected"
         elif name == active_name:
             status = "trialing"
+        elif cand.get("rejected"):
+            status = "rejected"
         else:
             status = "discovered"
 
@@ -85,7 +85,7 @@ def migrate() -> None:
                 "candidate_score": active_trial.get("candidate_score", 0.0),
             }
 
-        if name in history_by_name:
+        if name in history_by_name and status != "trialing":
             h = history_by_name[name]
             entry["trial"] = {
                 "start_date": h["start_date"],
@@ -125,8 +125,11 @@ def verify() -> None:
     sources = registry.get("sources", [])
     trialing = [s for s in sources if s["status"] == "trialing"]
     assert len(trialing) <= 1, f"Multiple trialing sources: {[s['name'] for s in trialing]}"
+    valid_statuses = {"production", "rejected", "trialing", "discovered"}
     for s in sources:
         assert "name" in s and "url" in s and "status" in s, f"Missing fields: {s}"
+        assert s["status"] in valid_statuses, f"Invalid status '{s['status']}': {s['name']}"
+        assert "trial" in s and "production" in s, f"Missing trial/production fields: {s['name']}"
         if s["status"] == "trialing":
             assert s.get("trial") and s["trial"].get("start_date"), \
                 f"trialing source missing trial.start_date: {s['name']}"
