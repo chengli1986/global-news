@@ -145,6 +145,7 @@ class TestStartTrial:
         assert trial["start_date"] == "2026-04-20"
         assert trial["end_date"] is None
         assert trial["daily_stats"] == []
+        assert trial["candidate_score"] == 0.95
 
     def test_raises_if_not_found(self):
         reg = _make_registry()
@@ -189,7 +190,10 @@ class TestEndTrial:
         src = _source(status="trialing", trial={"daily_stats": [], "start_date": "2026-04-17"})
         reg = _make_registry(src)
         end_trial(reg, "Feed A", outcome="auto-removed", kept=False, today="2026-04-20")
-        assert get_sources(reg)[0]["status"] == "rejected"
+        s = get_sources(reg)[0]
+        assert s["status"] == "rejected"
+        assert s["trial"]["end_date"] == "2026-04-20"
+        assert s["trial"]["outcome"] == "auto-removed"
 
     def test_auto_decided_param(self):
         src = _source(status="trialing", trial={"daily_stats": [], "start_date": "2026-04-17"})
