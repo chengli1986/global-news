@@ -161,7 +161,21 @@ def graduate_trial_in_config(source_name: str) -> bool:
             break
     if found:
         _atomic_write(SOURCES_FILE, config)
+        _mark_candidate_promoted(source_name)
     return found
+
+
+def _mark_candidate_promoted(source_name: str) -> None:
+    """Sync promoted=True back to discovered-rss.json after graduation."""
+    if not os.path.isfile(CANDIDATES_FILE):
+        return
+    with open(CANDIDATES_FILE, encoding="utf-8") as f:
+        data = json.load(f)
+    for c in data.get("candidates", []):
+        if c.get("name") == source_name and not c.get("promoted"):
+            c["promoted"] = True
+            _atomic_write(CANDIDATES_FILE, data)
+            return
 
 
 # ── stats aggregation ─────────────────────────────────────────────────────────
