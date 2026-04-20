@@ -22,6 +22,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 from urllib.parse import urlparse
+import rss_registry as _reg
 
 # ============================================================
 # Constants
@@ -460,40 +461,50 @@ def dedup_candidates(candidates: list, existing_sources: list,
 
 
 def load_candidates() -> dict:
-    """Load discovered-rss.json atomically."""
-    if not os.path.isfile(CANDIDATES_FILE):
-        return {"version": 1, "last_discovery": None, "candidates": []}
-    with open(CANDIDATES_FILE, "r", encoding="utf-8") as f:
-        return json.load(f)
+    """Load candidates from rss-registry.json (discovered status only), shaped as legacy format."""
+    registry = _reg.load_registry()
+    discovered = _reg.get_by_status(registry, "discovered")
+    return {"candidates": discovered}
 
 
 def save_candidates(data: dict) -> None:
-    """Atomic write of discovered-rss.json (temp + os.replace)."""
-    os.makedirs(CONFIG_DIR, exist_ok=True)
-    fd, tmp_path = tempfile.mkstemp(dir=CONFIG_DIR, suffix=".json.tmp")
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2, ensure_ascii=False)
-            f.write("\n")
-        os.replace(tmp_path, CANDIDATES_FILE)
-    except Exception:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
-        raise
+    """Deprecated: use rss_registry.upsert_source() directly. No-op stub kept for compatibility."""
+    pass
 
 
 def load_existing_sources() -> list:
-    """Read news-sources-config.json, flatten all sections into list of {name, url}."""
-    if not os.path.isfile(SOURCES_FILE):
-        return []
-    with open(SOURCES_FILE, "r", encoding="utf-8") as f:
-        config = json.load(f)
+    """Flatten all active sources into list of {name, url}.
 
+    Includes sources from news-sources-config.json AND sources in registry
+    with production/trialing status, to prevent re-discovering active sources.
+    """
     sources = []
-    ns = config.get("news_sources", {})
-    for section_key in ns:
-        for item in ns[section_key]:
-            sources.append({"name": item.get("name", ""), "url": item.get("url", "")})
+    seen_urls: set[str] = set()
+
+    # From news-sources-config.json
+    if os.path.isfile(SOURCES_FILE):
+        with open(SOURCES_FILE, "r", encoding="utf-8") as f:
+            config = json.load(f)
+        ns = config.get("news_sources", {})
+        for section in ns.values():
+            if isinstance(section, list):
+                for s in section:
+                    url_norm = _normalize_url(s.get("url", ""))
+                    if url_norm and url_norm not in seen_urls:
+                        sources.append(s)
+                        seen_urls.add(url_norm)
+
+    # Also include registry production/trialing sources
+    try:
+        registry = _reg.load_registry()
+        for s in _reg.get_by_status(registry, "production", "trialing"):
+            url_norm = _normalize_url(s.get("url", ""))
+            if url_norm and url_norm not in seen_urls:
+                sources.append({"name": s["name"], "url": s["url"]})
+                seen_urls.add(url_norm)
+    except Exception:
+        pass
+
     return sources
 
 
@@ -663,40 +674,15 @@ def cmd_dedup():
 
 
 def cmd_save():
-    """Read JSON array from stdin, merge into discovered-rss.json."""
-    new_candidates = json.load(sys.stdin)
-    data = load_candidates()
-    existing_urls = {_normalize_url(c.get("url", "")) for c in data.get("candidates", [])}
-
-    for c in new_candidates:
-        norm = _normalize_url(c.get("url", ""))
-        if norm not in existing_urls:
-            c.setdefault("promoted", False)
-            c.setdefault("rejected", False)
-            data["candidates"].append(c)
-            existing_urls.add(norm)
-
-    # Enforce pool cap: keep top MAX_POOL_SIZE pending by final score; auto-reject the rest
-    pending = [c for c in data["candidates"] if not c.get("promoted") and not c.get("rejected")]
-    if len(pending) > MAX_POOL_SIZE:
-        keep_urls = {
-            _normalize_url(c["url"])
-            for c in sorted(pending, key=lambda c: c.get("scores", {}).get("final", 0), reverse=True)[:MAX_POOL_SIZE]
-        }
-        pruned = 0
-        for c in data["candidates"]:
-            if not c.get("promoted") and not c.get("rejected"):
-                if _normalize_url(c.get("url", "")) not in keep_urls:
-                    c["rejected"] = True
-                    c["reject_reason"] = "pool-cap"
-                    pruned += 1
-        if pruned:
-            print(f"Pool cap: pruned {pruned} lowest-scoring pending candidates (kept top {MAX_POOL_SIZE})")
-
-    data["last_discovery"] = datetime.now(BJT).isoformat()
-    save_candidates(data)
-    pending_count = len([c for c in data["candidates"] if not c.get("promoted") and not c.get("rejected")])
-    print(f"Saved {len(new_candidates)} new candidates (total pool: {len(data['candidates'])}, pending: {pending_count})")
+    """Read JSON array from stdin, merge into rss-registry.json."""
+    new_entries = json.load(sys.stdin)
+    registry = _reg.load_registry()
+    added = 0
+    for entry in new_entries:
+        if _reg.upsert_source(registry, entry):
+            added += 1
+    _reg.save_registry(registry)
+    print(f"[cmd_save] Added {added}/{len(new_entries)} new candidates to registry.")
 
 
 def cmd_report():
