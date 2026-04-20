@@ -199,7 +199,7 @@ fi
 # --- Git commit + push (only if save succeeded) ---
 if $SAVE_OK; then
     cd "$REPO_DIR"
-    git add config/discovered-rss.json
+    git add config/rss-registry.json
     if git diff --cached --quiet 2>/dev/null; then
         echo "$LOG_PREFIX No changes to commit (candidates already in pool)"
     else
@@ -232,8 +232,8 @@ fi
 
 # Commit trial state changes if any
 cd "$REPO_DIR"
-if ! git diff --quiet config/trial-state.json news-sources-config.json 2>/dev/null; then
-    git add config/trial-state.json news-sources-config.json
+if ! git diff --quiet config/rss-registry.json news-sources-config.json 2>/dev/null; then
+    git add config/rss-registry.json news-sources-config.json
     git diff --cached --quiet || git commit -m "trial: update trial state $(TZ='Asia/Shanghai' date '+%Y-%m-%d')"
     git push 2>&1 || echo "$LOG_PREFIX WARNING: git push (trial) failed"
 fi
