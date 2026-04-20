@@ -4616,6 +4616,90 @@
       "reject_reason": "pool-cap",
       "trial": null,
       "production": null
+    },
+    {
+      "name": "WSJ World News",
+      "url": "https://feeds.a.dj.com/rss/RSSWorldNews.xml",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 10752.89,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 147,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.92,
+        "uniqueness": 0.55,
+        "final": 0.658
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "MIT Technology Review",
+      "url": "https://www.technologyreview.com/feed/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 8.11,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 346,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.87,
+        "uniqueness": 0.8,
+        "final": 0.901
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "Bangkok Post",
+      "url": "https://www.bangkokpost.com/rss/data/most-recent.xml",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 5.66,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 200,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.85,
+        "final": 0.72
+      },
+      "status": "discovered"
     }
   ]
 }
