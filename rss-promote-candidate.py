@@ -10,8 +10,9 @@ import os
 import sys
 import tempfile
 
+import rss_registry as _reg
+
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
-DEFAULT_CANDIDATES = os.path.join(SCRIPT_DIR, "config", "discovered-rss.json")
 DEFAULT_SOURCES = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 
 
@@ -34,55 +35,52 @@ def _atomic_write(path: str, data: dict) -> None:
 def promote_candidate(
     name: str,
     limit: int = 3,
-    candidates_file: str = DEFAULT_CANDIDATES,
+    registry_file: str = "",
     sources_file: str = DEFAULT_SOURCES,
 ) -> bool:
     """Promote *name* from candidates to production sources.
 
     Returns True on success, False if the candidate cannot be promoted.
     """
-    # Load candidates
-    with open(candidates_file, "r", encoding="utf-8") as f:
-        candidates_data = json.load(f)
-
-    entries: list = candidates_data.get("candidates", [])
+    reg_path = registry_file or _reg.REGISTRY_FILE
+    registry = _reg.load_registry(reg_path)
 
     # Find the candidate
-    target = None
-    target_idx = -1
-    for idx, entry in enumerate(entries):
-        if entry.get("name") == name and not entry.get("promoted", False):
-            target = entry
-            target_idx = idx
-            break
-
-    if target is None:
-        print(f"ERROR: candidate '{name}' not found or already promoted.", file=sys.stderr)
+    source = next(
+        (s for s in _reg.get_sources(registry)
+         if s.get("name") == name and s.get("status") == "discovered"),
+        None,
+    )
+    if source is None:
+        print(f"ERROR: candidate '{name}' not found or not in discovered status.", file=sys.stderr)
         return False
 
-    # Load sources
+    # Load production sources config
     with open(sources_file, "r", encoding="utf-8") as f:
         sources_data = json.load(f)
 
-    # Idempotency: skip if URL already in sources (guards against partial prior run)
-    existing_urls = {s.get("url", "").rstrip("/").lower()
-                     for s in sources_data.get("news_sources", {}).get("rss_feeds", [])}
-    target_url_norm = target["url"].rstrip("/").lower()
+    # Idempotency: skip if URL already in sources
+    existing_urls = {
+        s.get("url", "").rstrip("/").lower()
+        for s in sources_data.get("news_sources", {}).get("rss_feeds", [])
+    }
+    target_url_norm = source["url"].rstrip("/").lower()
     if target_url_norm not in existing_urls:
         new_feed = {
-            "name": target["name"],
-            "url": target["url"],
+            "name": source["name"],
+            "url": source["url"],
             "keywords": [],
             "limit": limit,
         }
         sources_data["news_sources"]["rss_feeds"].append(new_feed)
         _atomic_write(sources_file, sources_data)
 
-    # Mark candidate as promoted (safe even if source was already added)
-    entries[target_idx]["promoted"] = True
-    _atomic_write(candidates_file, candidates_data)
+    # Update registry: mark as production
+    source["status"] = "production"
+    _reg.set_production_config(registry, name, keywords=[], limit=limit)
+    _reg.save_registry(registry, reg_path)
 
-    print(f"Promoted '{name}' → {target['url']} (limit={limit})")
+    print(f"Promoted '{name}' → {source['url']} (limit={limit})")
     return True
 
 
@@ -98,9 +96,9 @@ def main() -> None:
         help="Article limit for the new feed entry (default: 3)",
     )
     parser.add_argument(
-        "--candidates-file",
-        default=DEFAULT_CANDIDATES,
-        help=f"Path to discovered-rss.json (default: {DEFAULT_CANDIDATES})",
+        "--registry-file",
+        default="",
+        help=f"Path to rss-registry.json (default: {_reg.REGISTRY_FILE})",
     )
     parser.add_argument(
         "--sources-file",
@@ -112,7 +110,7 @@ def main() -> None:
     success = promote_candidate(
         name=args.name,
         limit=args.limit,
-        candidates_file=args.candidates_file,
+        registry_file=args.registry_file,
         sources_file=args.sources_file,
     )
     sys.exit(0 if success else 1)

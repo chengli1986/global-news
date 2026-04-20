@@ -18,10 +18,11 @@ _spec.loader.exec_module(_mod)
 promote_candidate = _mod.promote_candidate
 
 
-def _make_candidates(tmp_path, entries: list) -> str:
-    path = str(tmp_path / "candidates.json")
+def _make_registry(tmp_path, sources: list) -> str:
+    """Create a registry file with given sources."""
+    path = str(tmp_path / "registry.json")
     with open(path, "w", encoding="utf-8") as f:
-        json.dump({"version": 1, "last_discovery": None, "candidates": entries}, f)
+        json.dump({"version": 1, "sources": sources}, f)
     return path
 
 
@@ -43,33 +44,35 @@ def _load_json(path: str) -> dict:
 # ---------------------------------------------------------------------------
 
 def test_promote_existing_candidate(tmp_path):
-    """Promote a valid unpromoted candidate: sets promoted=True, adds to rss_feeds."""
-    candidate = {
+    """Promote a valid discovered candidate: sets status=production, adds to rss_feeds."""
+    source = {
         "name": "Test Feed",
         "url": "https://example.com/rss",
         "language": "en",
         "category": "tech",
-        "promoted": False,
-        "rejected": False,
+        "status": "discovered",
+        "scores": {"final": 0.95},
     }
-    candidates_file = _make_candidates(tmp_path, [candidate])
+    registry_file = _make_registry(tmp_path, [source])
     sources_file = _make_sources(tmp_path, [])
 
     result = promote_candidate(
         name="Test Feed",
         limit=5,
-        candidates_file=candidates_file,
+        registry_file=registry_file,
         sources_file=sources_file,
     )
 
     assert result is True
 
-    # Candidate should now have promoted=True
-    cdata = _load_json(candidates_file)
-    promoted_entry = next(
-        e for e in cdata["candidates"] if e["name"] == "Test Feed"
+    # Registry source should now have status=production
+    rdata = _load_json(registry_file)
+    promoted_source = next(
+        s for s in rdata["sources"] if s["name"] == "Test Feed"
     )
-    assert promoted_entry["promoted"] is True
+    assert promoted_source["status"] == "production"
+    assert promoted_source["production"]["limit"] == 5
+    assert promoted_source["production"]["keywords"] == []
 
     # Source should be added to rss_feeds
     sdata = _load_json(sources_file)
@@ -83,13 +86,13 @@ def test_promote_existing_candidate(tmp_path):
 
 
 def test_promote_nonexistent(tmp_path):
-    """Return False when no candidate with that name exists."""
-    candidates_file = _make_candidates(tmp_path, [])
+    """Return False when no discovered candidate with that name exists."""
+    registry_file = _make_registry(tmp_path, [])
     sources_file = _make_sources(tmp_path, [])
 
     result = promote_candidate(
         name="Nonexistent Feed",
-        candidates_file=candidates_file,
+        registry_file=registry_file,
         sources_file=sources_file,
     )
 
@@ -100,20 +103,20 @@ def test_promote_nonexistent(tmp_path):
     assert sdata["news_sources"]["rss_feeds"] == []
 
 
-def test_promote_already_promoted(tmp_path):
-    """Return False when candidate is already marked promoted=True."""
-    candidate = {
+def test_promote_already_production(tmp_path):
+    """Return False when candidate is already in production status."""
+    source = {
         "name": "Already Done",
         "url": "https://example.com/already",
-        "promoted": True,
-        "rejected": False,
+        "status": "production",
+        "production": {"keywords": [], "limit": 3},
     }
-    candidates_file = _make_candidates(tmp_path, [candidate])
+    registry_file = _make_registry(tmp_path, [source])
     sources_file = _make_sources(tmp_path, [])
 
     result = promote_candidate(
         name="Already Done",
-        candidates_file=candidates_file,
+        registry_file=registry_file,
         sources_file=sources_file,
     )
 
