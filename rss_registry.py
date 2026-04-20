@@ -127,6 +127,7 @@ def update_trial_stats(registry: dict, name: str, date_stats: dict) -> None:
                     return
             stats.append(date_stats)
             return
+    raise KeyError(f"No active trial found for: {name}")
 
 
 def end_trial(
@@ -136,6 +137,7 @@ def end_trial(
     kept: bool,
     today: str,
     report_sent: bool = False,
+    auto_decided: bool = True,
 ) -> None:
     """Close the active trial. kept=True → production, kept=False → rejected."""
     for s in get_sources(registry):
@@ -143,7 +145,7 @@ def end_trial(
             trial = s.setdefault("trial", {})
             trial["end_date"] = today
             trial["outcome"] = outcome
-            trial["auto_decided"] = True
+            trial["auto_decided"] = auto_decided
             trial["report_sent"] = report_sent
             s["status"] = "production" if kept else "rejected"
             return
