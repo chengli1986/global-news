@@ -27,9 +27,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "config")
 LOGS_DIR = os.path.join(SCRIPT_DIR, "logs")
 
-TRIAL_STATE_FILE = os.path.join(CONFIG_DIR, "trial-state.json")
-CANDIDATES_FILE = os.path.join(CONFIG_DIR, "discovered-rss.json")
 SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
+
+import rss_registry as _reg
 TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
@@ -74,44 +74,6 @@ def _atomic_write(path: str, data: dict) -> None:
 
 def _html_escape(s: str) -> str:
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
-# ── state I/O ─────────────────────────────────────────────────────────────────
-
-def load_state() -> dict:
-    if not os.path.isfile(TRIAL_STATE_FILE):
-        return {"active_trial": None, "history": []}
-    with open(TRIAL_STATE_FILE, encoding="utf-8") as f:
-        return json.load(f)
-
-
-def save_state(state: dict) -> None:
-    _atomic_write(TRIAL_STATE_FILE, state)
-
-
-# ── candidates ────────────────────────────────────────────────────────────────
-
-def get_promotable_candidates(state: dict) -> list:
-    """Return candidates score >= threshold, not yet tried, sorted by score desc."""
-    if not os.path.isfile(CANDIDATES_FILE):
-        return []
-    with open(CANDIDATES_FILE, encoding="utf-8") as f:
-        data = json.load(f)
-
-    tried_urls = {h["url"] for h in state.get("history", [])}
-    active = state.get("active_trial")
-    if active:
-        tried_urls.add(active["url"])
-
-    candidates = data.get("candidates", [])
-    promotable = [
-        c for c in candidates
-        if c.get("scores", {}).get("final", 0) >= PROMOTE_THRESHOLD
-        and not c.get("promoted")
-        and not c.get("rejected")
-        and c.get("url", "") not in tried_urls
-    ]
-    return sorted(promotable, key=lambda x: x.get("scores", {}).get("final", 0), reverse=True)
 
 
 # ── news-sources-config.json management ──────────────────────────────────────
@@ -161,21 +123,7 @@ def graduate_trial_in_config(source_name: str) -> bool:
             break
     if found:
         _atomic_write(SOURCES_FILE, config)
-        _mark_candidate_promoted(source_name)
     return found
-
-
-def _mark_candidate_promoted(source_name: str) -> None:
-    """Sync promoted=True back to discovered-rss.json after graduation."""
-    if not os.path.isfile(CANDIDATES_FILE):
-        return
-    with open(CANDIDATES_FILE, encoding="utf-8") as f:
-        data = json.load(f)
-    for c in data.get("candidates", []):
-        if c.get("name") == source_name and not c.get("promoted"):
-            c["promoted"] = True
-            _atomic_write(CANDIDATES_FILE, data)
-            return
 
 
 # ── stats aggregation ─────────────────────────────────────────────────────────
@@ -222,18 +170,12 @@ SCORE_DIMENSIONS = {
 
 
 def _load_candidate_detail(url: str) -> dict:
-    """Load candidate scores/validation from discovered-rss.json by URL."""
-    if not os.path.isfile(CANDIDATES_FILE):
-        return {}
+    """Load candidate detail from rss-registry.json by URL."""
     try:
-        with open(CANDIDATES_FILE, encoding="utf-8") as f:
-            data = json.load(f)
-        for c in data.get("candidates", []):
-            if c.get("url") == url:
-                return c
+        registry = _reg.load_registry()
+        return _reg.get_by_url(registry, url) or {}
     except Exception:
-        pass
-    return {}
+        return {}
 
 
 def _build_score_rows(scores: dict) -> str:
@@ -626,84 +568,56 @@ def send_report_email(trial: dict) -> bool:
 
 def cmd_run() -> None:
     """Normal daily run: update stats, check expiry, promote next candidate."""
-    state = load_state()
+    registry = _reg.load_registry()
     today = _today()
-    active = state.get("active_trial")
+    active = _reg.get_active_trial(registry)
 
     if active:
-        # --- Update today's stats ---
-        stats = active.setdefault("daily_stats", [])
-        existing_dates = {d["date"] for d in stats}
-        if today not in existing_dates:
-            day_stats = aggregate_today_stats(active["name"])
-            stats.append(day_stats)
-            print(f"[trial-manager] {active['name']}: day {len(stats)}/{TRIAL_DAYS}"
-                  f" — fetched={day_stats['fetched']} selected={day_stats['selected']}")
-        else:
-            # Update existing entry for today (re-run scenario)
-            day_stats = aggregate_today_stats(active["name"])
-            for d in stats:
-                if d["date"] == today:
-                    d.update(day_stats)
-                    break
-            print(f"[trial-manager] {active['name']}: updated today's stats"
-                  f" — fetched={day_stats['fetched']} selected={day_stats['selected']}")
+        # Update today's stats
+        day_stats = aggregate_today_stats(active["name"])
+        _reg.update_trial_stats(registry, active["name"], day_stats)
+        _reg.save_registry(registry)
+        active = _reg.get_active_trial(registry)  # re-read after update
 
-        active["daily_stats"] = stats
+        trial = active["trial"]
+        stats = trial.get("daily_stats", [])
+        print(f"[trial-manager] {active['name']}: day {len(stats)}/{TRIAL_DAYS}"
+              f" — fetched={day_stats['fetched']} selected={day_stats['selected']}")
 
-        # --- Check if trial has run its course ---
-        start = datetime.strptime(active["start_date"], "%Y-%m-%d").replace(tzinfo=BJT)
+        # Check if trial has run its course
+        start = datetime.strptime(trial["start_date"], "%Y-%m-%d").replace(tzinfo=BJT)
         elapsed_days = (datetime.now(BJT) - start).days
-        if elapsed_days >= TRIAL_DAYS and not active.get("auto_decided"):
+        if elapsed_days >= TRIAL_DAYS and not trial.get("auto_decided"):
             total_selected = sum(d.get("selected", 0) for d in stats)
             kept = total_selected >= AUTO_KEEP_MIN_SELECTED
+            outcome = "auto-graduated" if kept else "auto-removed"
             if kept:
                 graduate_trial_in_config(active["name"])
-                active["outcome"] = "auto-graduated"
+                _reg.set_production_config(registry, active["name"], keywords=[], limit=3)
                 print(f"[trial-manager] Auto-keep '{active['name']}' "
                       f"({total_selected} selected >= {AUTO_KEEP_MIN_SELECTED})")
             else:
                 remove_trial_from_config(active["name"])
-                active["outcome"] = "auto-removed"
                 print(f"[trial-manager] Auto-remove '{active['name']}' "
                       f"({total_selected} selected < {AUTO_KEEP_MIN_SELECTED})")
-            active["auto_decided"] = True
-            active["end_date"] = today
-            state.setdefault("history", []).append(active)
-            state["active_trial"] = None
-            save_state(state)
+            _reg.end_trial(registry, active["name"], outcome=outcome, kept=kept, today=today)
+            _reg.save_registry(registry)
             send_auto_decision_email(active, kept, total_selected)
-            return
-
-        save_state(state)
         return
 
-    # --- No active trial: promote next candidate ---
-    candidates = get_promotable_candidates(state)
+    # No active trial: promote next candidate
+    candidates = _reg.get_promotable(registry, PROMOTE_THRESHOLD)
     if not candidates:
-        print("[trial-manager] No promotable candidates (score >= "
-              f"{PROMOTE_THRESHOLD}). Nothing to do.")
+        print(f"[trial-manager] No promotable candidates (score >= {PROMOTE_THRESHOLD}). Nothing to do.")
         return
 
     best = candidates[0]
-    score = best.get("scores", {}).get("final", 0)
+    score = (best.get("scores") or {}).get("final", 0)
     print(f"[trial-manager] Promoting '{best['name']}' (score={score:.3f}) to trial...")
 
     add_trial_to_config(best)
-
-    new_trial = {
-        "name": best["name"],
-        "url": best["url"],
-        "category": best.get("category", ""),
-        "language": best.get("language", "en"),
-        "candidate_score": round(score, 3),
-        "start_date": today,
-        "end_date": None,
-        "report_sent": False,
-        "daily_stats": [],
-    }
-    state["active_trial"] = new_trial
-    save_state(state)
+    _reg.start_trial(registry, best, today)
+    _reg.save_registry(registry)
 
     print(f"[trial-manager] '{best['name']}' added to news-sources-config.json "
           f"(trial=true). Trial runs until "
@@ -712,36 +626,36 @@ def cmd_run() -> None:
 
 def cmd_status() -> None:
     """Print current trial state."""
-    state = load_state()
-    active = state.get("active_trial")
+    registry = _reg.load_registry()
+    active = _reg.get_active_trial(registry)
     if not active:
         print("No active trial.")
-        candidates = get_promotable_candidates(state)
+        candidates = _reg.get_promotable(registry, PROMOTE_THRESHOLD)
         print(f"Next in queue: {len(candidates)} candidates with score >= {PROMOTE_THRESHOLD}")
         if candidates:
             best = candidates[0]
-            print(f"  → '{best['name']}' score={best.get('scores',{}).get('final',0):.3f}")
+            print(f"  → '{best['name']}' score={(best.get('scores') or {}).get('final', 0):.3f}")
         return
 
-    today = _today()
-    start = datetime.strptime(active["start_date"], "%Y-%m-%d").replace(tzinfo=BJT)
+    trial = active["trial"]
+    start = datetime.strptime(trial["start_date"], "%Y-%m-%d").replace(tzinfo=BJT)
     elapsed = (datetime.now(BJT) - start).days
-    stats = active.get("daily_stats", [])
+    stats = trial.get("daily_stats", [])
     total_fetched = sum(d.get("fetched", 0) for d in stats)
     total_selected = sum(d.get("selected", 0) for d in stats)
 
     print(f"Active trial: {active['name']}")
     print(f"  URL:     {active['url']}")
-    print(f"  Score:   {active['candidate_score']:.3f}")
-    print(f"  Started: {active['start_date']}  (day {elapsed+1}/{TRIAL_DAYS})")
+    print(f"  Score:   {trial['candidate_score']:.3f}")
+    print(f"  Started: {trial['start_date']}  (day {elapsed+1}/{TRIAL_DAYS})")
     print(f"  Stats:   {total_fetched} fetched, {total_selected} selected over {len(stats)} days")
-    print(f"  Report:  {'sent' if active.get('report_sent') else 'pending'}")
+    print(f"  Report:  {'sent' if trial.get('report_sent') else 'pending'}")
 
 
 def cmd_remove() -> None:
     """Remove active trial source from news config and close trial as rejected."""
-    state = load_state()
-    active = state.get("active_trial")
+    registry = _reg.load_registry()
+    active = _reg.get_active_trial(registry)
     if not active:
         print("No active trial to remove.")
         return
@@ -752,18 +666,15 @@ def cmd_remove() -> None:
     else:
         print(f"WARNING: '{active['name']}' not found in config (may already be removed).")
 
-    active["end_date"] = _today()
-    active["outcome"] = "removed"
-    state.setdefault("history", []).append(active)
-    state["active_trial"] = None
-    save_state(state)
-    print(f"Trial closed as 'removed'. History updated.")
+    _reg.end_trial(registry, active["name"], outcome="removed", kept=False, today=_today(), auto_decided=False)
+    _reg.save_registry(registry)
+    print("Trial closed as 'removed'. Registry updated.")
 
 
 def cmd_keep() -> None:
     """Graduate active trial to permanent source (remove trial flag)."""
-    state = load_state()
-    active = state.get("active_trial")
+    registry = _reg.load_registry()
+    active = _reg.get_active_trial(registry)
     if not active:
         print("No active trial to graduate.")
         return
@@ -774,11 +685,9 @@ def cmd_keep() -> None:
     else:
         print(f"WARNING: '{active['name']}' trial flag not found in config.")
 
-    active["end_date"] = _today()
-    active["outcome"] = "graduated"
-    state.setdefault("history", []).append(active)
-    state["active_trial"] = None
-    save_state(state)
+    _reg.end_trial(registry, active["name"], outcome="graduated", kept=True, today=_today(), auto_decided=False)
+    _reg.set_production_config(registry, active["name"], keywords=[], limit=3)
+    _reg.save_registry(registry)
     print("Trial closed as 'graduated'. Source is now permanent.")
 
 

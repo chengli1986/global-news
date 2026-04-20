@@ -11,6 +11,8 @@ from unittest.mock import patch, MagicMock
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, REPO_DIR)
 
+import rss_registry as _reg
+
 # Module file uses hyphens; load by path
 import importlib.util
 spec = importlib.util.spec_from_file_location(
@@ -30,34 +32,33 @@ def make_candidate(name="Test Feed", url="https://example.com/rss", score=0.90):
         "language": "en",
         "category": "tech_ai",
         "scores": {"final": score, "authority": 0.8, "uniqueness": 0.8},
-        "promoted": False,
-        "rejected": False,
+        "status": "discovered",
     }
 
 
-def make_state(active=None, history=None):
-    return {"active_trial": active, "history": history or []}
+def make_registry(sources=None):
+    return {"version": 1, "sources": sources or []}
 
 
-# ── get_promotable_candidates ─────────────────────────────────────────────────
+# ── get_promotable (via rss_registry) ─────────────────────────────────────────
 
 class TestGetPromotableCandidates(unittest.TestCase):
 
-    def _write_candidates(self, tmp_dir, candidates):
-        path = os.path.join(tmp_dir, "discovered-rss.json")
+    def _write_registry(self, tmp_dir, sources):
+        path = os.path.join(tmp_dir, "rss-registry.json")
         with open(path, "w") as f:
-            json.dump({"version": 1, "candidates": candidates}, f)
+            json.dump({"version": 1, "sources": sources}, f)
         return path
 
     def test_returns_candidates_above_threshold(self):
         with tempfile.TemporaryDirectory() as d:
-            self._write_candidates(d, [
+            reg_path = self._write_registry(d, [
                 make_candidate("A", score=0.95),
                 make_candidate("B", score=0.80),  # below threshold (PROMOTE_THRESHOLD=0.90)
                 make_candidate("C", score=0.92),
             ])
-            with patch.object(tm, "CANDIDATES_FILE", os.path.join(d, "discovered-rss.json")):
-                result = tm.get_promotable_candidates(make_state())
+            registry = _reg.load_registry(reg_path)
+            result = _reg.get_promotable(registry, tm.PROMOTE_THRESHOLD)
         names = [c["name"] for c in result]
         self.assertIn("A", names)
         self.assertIn("C", names)
@@ -65,30 +66,34 @@ class TestGetPromotableCandidates(unittest.TestCase):
 
     def test_excludes_already_tried(self):
         with tempfile.TemporaryDirectory() as d:
-            self._write_candidates(d, [make_candidate("A", url="https://a.com/rss", score=0.90)])
-            state = make_state(history=[{"url": "https://a.com/rss"}])
-            with patch.object(tm, "CANDIDATES_FILE", os.path.join(d, "discovered-rss.json")):
-                result = tm.get_promotable_candidates(state)
+            # Source that has been trialed before (has trial block → excluded)
+            tried = {**make_candidate("A", url="https://a.com/rss", score=0.90),
+                     "trial": {"start_date": "2026-01-01", "end_date": "2026-01-04"}}
+            reg_path = self._write_registry(d, [tried])
+            registry = _reg.load_registry(reg_path)
+            result = _reg.get_promotable(registry, tm.PROMOTE_THRESHOLD)
         self.assertEqual(result, [])
 
     def test_excludes_active_trial(self):
         with tempfile.TemporaryDirectory() as d:
-            self._write_candidates(d, [make_candidate("A", url="https://a.com/rss", score=0.90)])
-            active = {"url": "https://a.com/rss", "name": "A"}
-            state = make_state(active=active)
-            with patch.object(tm, "CANDIDATES_FILE", os.path.join(d, "discovered-rss.json")):
-                result = tm.get_promotable_candidates(state)
+            # Source currently in trialing status (has trial block → excluded)
+            trialing = {**make_candidate("A", url="https://a.com/rss", score=0.90),
+                        "status": "trialing",
+                        "trial": {"start_date": "2026-04-18", "end_date": None}}
+            reg_path = self._write_registry(d, [trialing])
+            registry = _reg.load_registry(reg_path)
+            result = _reg.get_promotable(registry, tm.PROMOTE_THRESHOLD)
         self.assertEqual(result, [])
 
     def test_sorted_by_score_desc(self):
         with tempfile.TemporaryDirectory() as d:
-            self._write_candidates(d, [
+            reg_path = self._write_registry(d, [
                 make_candidate("Low",  score=0.90),
                 make_candidate("High", score=0.98),
                 make_candidate("Mid",  score=0.93),
             ])
-            with patch.object(tm, "CANDIDATES_FILE", os.path.join(d, "discovered-rss.json")):
-                result = tm.get_promotable_candidates(make_state())
+            registry = _reg.load_registry(reg_path)
+            result = _reg.get_promotable(registry, tm.PROMOTE_THRESHOLD)
         self.assertEqual(result[0]["name"], "High")
         self.assertEqual(result[-1]["name"], "Low")
 
