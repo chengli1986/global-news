@@ -1003,7 +1003,7 @@
         "uniqueness": 0.8,
         "final": 0.924
       },
-      "promoted": false,
+      "promoted": true,
       "rejected": false
     },
     {
