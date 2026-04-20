@@ -10,7 +10,7 @@ LOG_PREFIX="[$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')]"
 # Absolute paths — single source of truth
 CATEGORIES_FILE="$REPO_DIR/config/rss-discovery-categories.json"
 SOURCES_FILE="$REPO_DIR/news-sources-config.json"
-CANDIDATES_FILE="$REPO_DIR/config/discovered-rss.json"
+REGISTRY_FILE="$REPO_DIR/config/rss-registry.json"
 HELPER="$REPO_DIR/rss-source-discovery.py"
 TRIAL_MANAGER="$REPO_DIR/rss-trial-manager.py"
 ENV_FILE="$HOME/.stock-monitor.env"
@@ -81,7 +81,6 @@ You are an RSS feed discovery agent. Find high-quality RSS feeds across 8 catego
 Read these files to understand what exists:
 - $CATEGORIES_FILE — 8 categories with search queries
 - $SOURCES_FILE — current source pool (avoid duplicates)
-- $CANDIDATES_FILE — prior candidates (avoid re-recommending rejected ones)
 
 ### Step 2: Discover candidates (dual-channel)
 For EACH of the 8 categories in the categories file:
