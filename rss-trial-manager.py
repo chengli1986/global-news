@@ -31,6 +31,7 @@ SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 
 import rss_registry as _reg
 TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
+HEALTH_STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 PROMOTE_THRESHOLD = 0.90
@@ -94,6 +95,29 @@ def add_trial_to_config(candidate: dict) -> None:
     _atomic_write(SOURCES_FILE, config)
 
 
+def _clear_health_state_for(source_name: str) -> None:
+    """Remove a source's entry from rss-health.json.
+
+    Called when a trial source is de-registered (auto-rejected or manually
+    removed). Without this, stale `consecutive_fails` from the trial window
+    would persist, and a future re-trial of the same name (or a monitoring
+    dashboard query) would still see failures that belonged to a prior run.
+    """
+    if not os.path.isfile(HEALTH_STATE_FILE):
+        return
+    try:
+        with open(HEALTH_STATE_FILE, encoding="utf-8") as f:
+            state = json.load(f)
+    except Exception:
+        return
+    if source_name in state:
+        del state[source_name]
+        try:
+            _atomic_write(HEALTH_STATE_FILE, state)
+        except Exception:
+            pass
+
+
 def remove_trial_from_config(source_name: str) -> bool:
     """Remove trial source from rss_feeds. Returns True if found and removed."""
     with open(SOURCES_FILE, encoding="utf-8") as f:
@@ -106,6 +130,7 @@ def remove_trial_from_config(source_name: str) -> bool:
     ]
     if len(config["news_sources"]["rss_feeds"]) < original_len:
         _atomic_write(SOURCES_FILE, config)
+        _clear_health_state_for(source_name)
         return True
     return False
 
@@ -691,6 +716,60 @@ def cmd_keep() -> None:
     print("Trial closed as 'graduated'. Source is now permanent.")
 
 
+def cmd_retry() -> None:
+    """Reset a previously auto-removed trial source back to 'discovered' so it
+    can be re-trialled.
+
+    Use case: a source was auto-rejected because its feed was down during the
+    trial window, or because the 4-stage classifier happened to drop all its
+    articles into quota-trimmed regions. Once the transient cause is resolved,
+    `retry <name>` clears the trial metadata and makes the source eligible for
+    promotion again at the next discovery run.
+
+    Only sources with trial.outcome == 'auto-removed' can be retried. Sources
+    rejected for pool-cap or duplicate_publisher reasons are discovery-level
+    decisions, not trial-level, and shouldn't use this path.
+
+    Usage: rss-trial-manager.py retry "<source name>"
+    """
+    if len(sys.argv) < 3:
+        print("Usage: rss-trial-manager.py retry \"<source name>\"", file=sys.stderr)
+        sys.exit(1)
+    name = sys.argv[2]
+
+    # Re-read REGISTRY_FILE from the module at call time so tests can patch it.
+    registry_path = _reg.REGISTRY_FILE
+    registry = _reg.load_registry(registry_path)
+    target = next(
+        (s for s in _reg.get_sources(registry) if s.get("name") == name),
+        None,
+    )
+    if target is None:
+        print(f"ERROR: source '{name}' not found in registry.", file=sys.stderr)
+        sys.exit(1)
+
+    prior_trial = target.get("trial") or {}
+    if target.get("status") != "rejected" or prior_trial.get("outcome") != "auto-removed":
+        print(f"ERROR: '{name}' is not retry-eligible "
+              f"(status={target.get('status')}, outcome={prior_trial.get('outcome')}). "
+              f"Only auto-removed trials can be retried.", file=sys.stderr)
+        sys.exit(1)
+
+    # Preserve the old trial run as history on the source for audit trail
+    history = target.setdefault("trial_history", [])
+    history.append(prior_trial)
+
+    # Reset for re-entry into the trial queue
+    target["status"] = "discovered"
+    target["trial"] = None
+    target.pop("reject_reason", None)
+
+    _reg.save_registry(registry, registry_path)
+    print(f"Reset '{name}' → status=discovered, trial cleared ({len(history)} prior trial run(s) archived).")
+    print("It will be re-considered at the next rss-trial-manager run "
+          "if its score remains ≥ PROMOTE_THRESHOLD.")
+
+
 def main() -> None:
     cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
     if cmd == "run":
@@ -701,9 +780,12 @@ def main() -> None:
         cmd_remove()
     elif cmd == "keep":
         cmd_keep()
+    elif cmd == "retry":
+        cmd_retry()
     else:
         print(f"Unknown command: {cmd}", file=sys.stderr)
-        print("Usage: rss-trial-manager.py [run|status|remove|keep]", file=sys.stderr)
+        print("Usage: rss-trial-manager.py [run|status|remove|keep|retry <name>]",
+              file=sys.stderr)
         sys.exit(1)
 
 

@@ -190,5 +190,117 @@ class TestAggregateStats(unittest.TestCase):
         self.assertEqual(stats["fetched"], 0)
 
 
+class TestClearHealthStateForRemovedTrial(unittest.TestCase):
+    """remove_trial_from_config should also clear rss-health.json entry so that
+    stale consecutive_fails from the trial window doesn't bleed into future runs."""
+
+    def test_removes_health_state_entry(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            # Seed a mock sources config containing a trial source
+            sources_path = os.path.join(tmp_dir, "news-sources-config.json")
+            with open(sources_path, "w") as f:
+                json.dump({
+                    "news_sources": {
+                        "rss_feeds": [
+                            {"name": "Trial Foo", "url": "https://foo/rss", "trial": True},
+                            {"name": "Other", "url": "https://other/rss"},
+                        ]
+                    }
+                }, f)
+            # Seed health-state with entries for both
+            health_path = os.path.join(tmp_dir, "rss-health.json")
+            with open(health_path, "w") as f:
+                json.dump({
+                    "Trial Foo": {"consecutive_fails": 2, "last_check": "2026-04-21 BJT"},
+                    "Other":     {"consecutive_fails": 0, "last_check": "2026-04-21 BJT"},
+                }, f)
+            with patch.object(tm, "SOURCES_FILE", sources_path), \
+                 patch.object(tm, "HEALTH_STATE_FILE", health_path):
+                removed = tm.remove_trial_from_config("Trial Foo")
+            self.assertTrue(removed)
+            with open(health_path) as f:
+                state_after = json.load(f)
+            self.assertNotIn("Trial Foo", state_after)  # cleared
+            self.assertIn("Other", state_after)         # untouched
+
+    def test_no_health_file_is_safe(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            sources_path = os.path.join(tmp_dir, "news-sources-config.json")
+            with open(sources_path, "w") as f:
+                json.dump({"news_sources": {"rss_feeds": [
+                    {"name": "Trial Foo", "url": "https://foo/rss", "trial": True}]}}, f)
+            health_path = os.path.join(tmp_dir, "rss-health.json")  # intentionally absent
+            with patch.object(tm, "SOURCES_FILE", sources_path), \
+                 patch.object(tm, "HEALTH_STATE_FILE", health_path):
+                # Must not raise even when health state file doesn't exist
+                self.assertTrue(tm.remove_trial_from_config("Trial Foo"))
+
+
+class TestCmdRetry(unittest.TestCase):
+    """cmd_retry: reset auto-removed trials so they can re-enter the queue."""
+
+    def _seed_registry(self, tmp_dir, target):
+        path = os.path.join(tmp_dir, "rss-registry.json")
+        with open(path, "w") as f:
+            json.dump({"version": 1, "sources": [target]}, f)
+        return path
+
+    def test_retry_resets_auto_removed_to_discovered(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = {
+                "name": "Flaky Feed",
+                "url": "https://flaky.example.com/rss",
+                "status": "rejected",
+                "scores": {"final": 0.93},
+                "trial": {"start_date": "2026-04-20", "end_date": "2026-04-23",
+                          "outcome": "auto-removed", "daily_stats": [],
+                          "auto_decided": True, "candidate_score": 0.93},
+            }
+            reg_path = self._seed_registry(tmp_dir, target)
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "retry", "Flaky Feed"]):
+                tm.cmd_retry()
+            with open(reg_path) as f:
+                reg = json.load(f)
+            s = reg["sources"][0]
+            self.assertEqual(s["status"], "discovered")
+            self.assertIsNone(s["trial"])
+            self.assertEqual(len(s["trial_history"]), 1)
+            self.assertEqual(s["trial_history"][0]["outcome"], "auto-removed")
+
+    def test_retry_refuses_pool_cap_rejection(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = {
+                "name": "Low Score",
+                "url": "https://low.example.com/rss",
+                "status": "rejected",
+                "reject_reason": "pool-cap",
+                "scores": {"final": 0.62},
+                "trial": None,
+            }
+            reg_path = self._seed_registry(tmp_dir, target)
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "retry", "Low Score"]):
+                with self.assertRaises(SystemExit) as cm:
+                    tm.cmd_retry()
+                self.assertEqual(cm.exception.code, 1)
+            with open(reg_path) as f:
+                reg = json.load(f)
+            # Unchanged
+            self.assertEqual(reg["sources"][0]["status"], "rejected")
+            self.assertEqual(reg["sources"][0]["reject_reason"], "pool-cap")
+
+    def test_retry_refuses_unknown_name(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            reg_path = self._seed_registry(tmp_dir, {
+                "name": "Something Else", "url": "https://x/r", "status": "discovered",
+                "scores": {"final": 0.8}, "trial": None,
+            })
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "retry", "Nonexistent"]):
+                with self.assertRaises(SystemExit):
+                    tm.cmd_retry()
+
+
 if __name__ == "__main__":
     unittest.main()

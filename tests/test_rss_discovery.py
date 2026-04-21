@@ -19,6 +19,8 @@ validate_feed = _mod.validate_feed
 compute_scores = _mod.compute_scores
 is_duplicate = _mod.is_duplicate
 dedup_candidates = _mod.dedup_candidates
+enforce_pool_cap = _mod.enforce_pool_cap
+MAX_POOL_SIZE = _mod.MAX_POOL_SIZE
 SCORE_THRESHOLD = _mod.SCORE_THRESHOLD
 
 # ---------------------------------------------------------------------------
@@ -157,6 +159,99 @@ class TestDedupCandidates(unittest.TestCase):
         prior = [{"url": "https://example.com/feed", "promoted": False, "rejected": True}]
         result = dedup_candidates(candidates, [], prior)
         self.assertEqual(len(result), 0)
+
+    def test_same_publisher_keeps_highest_score(self):
+        """Two feeds from the same publisher (MIT Tech Review: topnews.rss + feed/)
+        should collapse to the higher-scoring one."""
+        candidates = [
+            {"name": "MIT Technology Review",
+             "url": "https://www.technologyreview.com/feed/",
+             "scores": {"final": 0.901}},
+            {"name": "MIT Technology Review",
+             "url": "https://www.technologyreview.com/topnews.rss",
+             "scores": {"final": 0.905}},
+        ]
+        result = dedup_candidates(candidates, [], [])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["url"], "https://www.technologyreview.com/topnews.rss")
+
+    def test_same_publisher_case_insensitive(self):
+        candidates = [
+            {"name": "BBC News", "url": "https://bbc.com/a", "scores": {"final": 0.80}},
+            {"name": "bbc news", "url": "https://bbc.com/b", "scores": {"final": 0.90}},
+        ]
+        result = dedup_candidates(candidates, [], [])
+        self.assertEqual(len(result), 1)
+        self.assertEqual(result[0]["url"], "https://bbc.com/b")
+
+    def test_drops_candidate_whose_publisher_already_in_pool(self):
+        candidates = [
+            {"name": "The Guardian World",
+             "url": "https://theguardian.com/some-other-feed",
+             "scores": {"final": 0.95}},
+        ]
+        existing = [{"name": "The Guardian World",
+                     "url": "https://theguardian.com/world/rss"}]
+        result = dedup_candidates(candidates, existing, [])
+        self.assertEqual(len(result), 0)
+
+    def test_different_publishers_with_similar_names_both_kept(self):
+        candidates = [
+            {"name": "Politico US", "url": "https://politico.com/us",
+             "scores": {"final": 0.85}},
+            {"name": "Politico Europe", "url": "https://politico.eu/feed",
+             "scores": {"final": 0.91}},
+        ]
+        result = dedup_candidates(candidates, [], [])
+        self.assertEqual(len(result), 2)
+
+
+class TestEnforcePoolCap(unittest.TestCase):
+    """Pool-cap logic restored after rss-registry migration dropped it (cdd7584)."""
+
+    @staticmethod
+    def _src(name, score, status="discovered"):
+        return {
+            "name": name,
+            "url": f"https://{name.lower()}.com/feed",
+            "status": status,
+            "scores": {"final": score},
+        }
+
+    def test_no_prune_when_under_cap(self):
+        reg = {"sources": [self._src(f"F{i}", 0.9 - i * 0.01) for i in range(5)]}
+        pruned = enforce_pool_cap(reg, max_pool=50)
+        self.assertEqual(pruned, 0)
+        self.assertTrue(all(s["status"] == "discovered" for s in reg["sources"]))
+
+    def test_prunes_lowest_when_over_cap(self):
+        # 55 discovered, cap 50 → prune 5 lowest
+        reg = {"sources": [self._src(f"F{i:02}", 1.0 - i * 0.01) for i in range(55)]}
+        pruned = enforce_pool_cap(reg, max_pool=50)
+        self.assertEqual(pruned, 5)
+        # Top 50 (highest scores) remain discovered
+        kept = [s for s in reg["sources"] if s["status"] == "discovered"]
+        self.assertEqual(len(kept), 50)
+        # Bottom 5 become rejected with reason pool-cap
+        rejected = [s for s in reg["sources"] if s["status"] == "rejected"]
+        self.assertEqual(len(rejected), 5)
+        self.assertTrue(all(s.get("reject_reason") == "pool-cap" for s in rejected))
+        # Lowest 5 scores are the pruned ones
+        self.assertEqual({s["name"] for s in rejected},
+                         {"F50", "F51", "F52", "F53", "F54"})
+
+    def test_non_discovered_sources_not_touched(self):
+        # Production + trialing + rejected not counted against cap
+        reg = {"sources": (
+            [self._src(f"F{i:02}", 1.0 - i * 0.01) for i in range(52)]
+            + [self._src("Prod", 0.5, status="production")]
+            + [self._src("Trial", 0.5, status="trialing")]
+            + [self._src("OldReject", 0.5, status="rejected")]
+        )}
+        pruned = enforce_pool_cap(reg, max_pool=50)
+        self.assertEqual(pruned, 2)
+        self.assertEqual(next(s for s in reg["sources"] if s["name"] == "Prod")["status"], "production")
+        self.assertEqual(next(s for s in reg["sources"] if s["name"] == "Trial")["status"], "trialing")
 
 
 if __name__ == "__main__":

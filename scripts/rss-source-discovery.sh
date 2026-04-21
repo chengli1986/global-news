@@ -92,6 +92,11 @@ Also check the directory_urls in the categories file for curated RSS lists.
 
 Target: 5-15 new candidates total across all categories.
 
+**IMPORTANT — Same-publisher constraint**:
+- Do NOT propose more than one RSS endpoint from the same publisher in a single batch (e.g. \`topnews.rss\` AND \`feed/\` from technologyreview.com). Pick ONE endpoint per publisher — prefer the most comprehensive feed (usually the main \`/feed\` or \`/rss\` root, not a section-specific one).
+- Do NOT propose a feed whose publisher is already in \$SOURCES_FILE (name match, case-insensitive). For example, if "The Guardian World" is already a production source, do not add any other Guardian feed.
+- Dedup Step 3 will drop same-publisher duplicates automatically as a safety net, but you should not rely on it — wasted LLM scoring cycles and noisy report emails result.
+
 ### Step 3: Dedup
 Write your candidates as a JSON array to $RAW_JSON, then:
 \`\`\`bash

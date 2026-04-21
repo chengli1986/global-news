@@ -1412,6 +1412,41 @@ class UnifiedNewsSender:
         except Exception as e:
             logging.warning("Failed to save fixture snapshot to %s: %s", fixture_path, e)
 
+    def _count_trial_selected(self, source_name: str) -> int:
+        """Count articles of source_name that will actually appear in the sent output.
+
+        Trial sources may be classifier-locked into a region zone (then subject to
+        _apply_pipeline quota trimming), or fall through to the ungrouped 其他
+        section (all shown). Previously this was approximated as `selected = fetched`,
+        which silently overstated trial performance whenever the pipeline trimmed
+        region-grouped articles — pushing trials toward false-positive AUTO_KEEP.
+        """
+        try:
+            region_articles = self._apply_pipeline(self._collect_region_articles())
+        except Exception:
+            # On any pipeline failure, fall back to fetched (conservative bias
+            # toward KEEP matches prior behaviour — never fewer than before).
+            return len(self.news_data.get(source_name, []))
+
+        in_region = sum(
+            1
+            for _, arts in region_articles
+            for art in arts
+            if len(art) > 2 and art[2] == source_name
+        )
+
+        # Articles from sources not claimed by any REGION_GROUP fall through to
+        # "其他 OTHER" and are all rendered.
+        grouped_sources: set[str] = set()
+        for _, sources in self.REGION_GROUPS:
+            grouped_sources.update(sources)
+        in_ungrouped = (
+            len(self.news_data.get(source_name, []))
+            if source_name not in grouped_sources
+            else 0
+        )
+        return in_region + in_ungrouped
+
     def _log_trial_source_stats(self) -> None:
         """If a trial source is active, log today's fetched/selected counts to JSONL."""
         script_dir = os.path.dirname(os.path.realpath(__file__))
@@ -1435,12 +1470,7 @@ class UnifiedNewsSender:
 
         source_name = active["name"]
         fetched = len(self.news_data.get(source_name, []))
-
-        # Count articles from this source that appear in the grouped output.
-        # We approximate by checking how many articles are in news_data for this source,
-        # since precise post-quota counts require replaying the rendering logic.
-        # selected = fetched if source is in an active group; ungrouped sources always show all.
-        selected = fetched  # trial sources appear in "其他" (ungrouped), all are shown
+        selected = self._count_trial_selected(source_name)
 
         log_entry = {
             "ts": datetime.now(BJT).isoformat(),

@@ -29,7 +29,6 @@ import rss_registry as _reg
 # ============================================================
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_DIR = os.path.join(SCRIPT_DIR, "config")
-CANDIDATES_FILE = os.path.join(CONFIG_DIR, "discovered-rss.json")
 WEIGHTS_FILE = os.path.join(CONFIG_DIR, "rss-scorer-weights.json")
 SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
@@ -434,13 +433,36 @@ def is_duplicate(url: str, existing: list) -> bool:
     return False
 
 
+def _publisher_key(entry: dict) -> str:
+    """Canonical publisher key for same-publisher dedup.
+
+    Returns the normalized name (case-insensitive, whitespace-collapsed). Same
+    publisher running multiple RSS endpoints (e.g. MIT Technology Review's
+    topnews.rss vs feed/) should resolve to the same key so only the top-scoring
+    one survives dedup. URL domain alone is too coarse (e.g. substack.com hosts
+    many unrelated publishers); name is the authoritative publisher identity.
+    """
+    name = (entry.get("name") or "").strip().lower()
+    return re.sub(r"\s+", " ", name)
+
+
 def dedup_candidates(candidates: list, existing_sources: list,
                      prior_candidates: list) -> list:
-    """Remove duplicates against existing sources and prior promoted/rejected candidates."""
+    """Remove duplicates against existing sources and prior promoted/rejected candidates.
+
+    Three dedup passes:
+      1. URL normalize (trailing slash, case) — exact-feed duplicates
+      2. Existing/prior URL — never re-suggest already-handled URLs
+      3. Publisher name within *this batch* — when LLM surfaces two endpoints
+         of the same publisher (e.g. MIT Technology Review topnews.rss + feed/),
+         keep the higher-scoring one so the trial queue doesn't waste a slot.
+    """
     # Build set of normalized existing URLs
     existing_urls = set()
+    existing_names = set()
     for src in existing_sources:
         existing_urls.add(_normalize_url(src.get("url", "")))
+        existing_names.add(_publisher_key(src))
 
     # Prior candidates that were promoted or rejected
     prior_urls = set()
@@ -448,16 +470,39 @@ def dedup_candidates(candidates: list, existing_sources: list,
         if pc.get("promoted") or pc.get("rejected"):
             prior_urls.add(_normalize_url(pc.get("url", "")))
 
-    result = []
-    seen = set()
+    # Pass 1+2: URL-based dedup
+    by_url: list[dict] = []
+    seen_urls: set[str] = set()
     for c in candidates:
         norm = _normalize_url(c.get("url", ""))
-        if norm in existing_urls or norm in prior_urls or norm in seen:
+        if norm in existing_urls or norm in prior_urls or norm in seen_urls:
             continue
-        seen.add(norm)
-        result.append(c)
+        seen_urls.add(norm)
+        by_url.append(c)
 
-    return result
+    # Pass 3: same-publisher dedup (keeps highest scoring; unscored candidates
+    # keep the first one, which is the discovery order from the LLM).
+    def _score(c: dict) -> float:
+        return (c.get("scores") or {}).get("final", 0.0)
+
+    best_by_publisher: dict[str, dict] = {}
+    for c in by_url:
+        key = _publisher_key(c)
+        if not key:
+            # No name → fall back to URL identity (already deduped in pass 1-2)
+            best_by_publisher[c.get("url", "")] = c
+            continue
+        if key in existing_names:
+            # Candidate shares publisher name with an existing production/trialing
+            # source — drop it rather than competing for the trial slot.
+            continue
+        prev = best_by_publisher.get(key)
+        if prev is None or _score(c) > _score(prev):
+            best_by_publisher[key] = c
+
+    # Preserve original order of by_url, keeping only winners
+    winners_urls = {c["url"] for c in best_by_publisher.values() if "url" in c}
+    return [c for c in by_url if c.get("url") in winners_urls]
 
 
 def load_candidates() -> dict:
@@ -673,6 +718,30 @@ def cmd_dedup():
     sys.stdout.write("\n")
 
 
+def enforce_pool_cap(registry: dict, max_pool: int = MAX_POOL_SIZE) -> int:
+    """Keep at most max_pool discovered sources; reject the rest by ascending final score.
+
+    Lost in the 2026-04-20 rss-registry migration (cdd7584). Without it, discovered
+    sources accumulate without bound across discovery runs. Returns pruned count.
+    """
+    discovered = [s for s in _reg.get_sources(registry) if s.get("status") == "discovered"]
+    if len(discovered) <= max_pool:
+        return 0
+    keep_urls = {
+        _normalize_url(s["url"])
+        for s in sorted(discovered,
+                        key=lambda s: (s.get("scores") or {}).get("final", 0),
+                        reverse=True)[:max_pool]
+    }
+    pruned = 0
+    for s in discovered:
+        if _normalize_url(s.get("url", "")) not in keep_urls:
+            s["status"] = "rejected"
+            s["reject_reason"] = "pool-cap"
+            pruned += 1
+    return pruned
+
+
 def cmd_save():
     """Read JSON array from stdin, merge into rss-registry.json."""
     new_entries = json.load(sys.stdin)
@@ -681,8 +750,12 @@ def cmd_save():
     for entry in new_entries:
         if _reg.upsert_source(registry, entry):
             added += 1
+    pruned = enforce_pool_cap(registry)
     _reg.save_registry(registry)
-    print(f"[cmd_save] Added {added}/{len(new_entries)} new candidates to registry.")
+    msg = f"[cmd_save] Added {added}/{len(new_entries)} new candidates to registry."
+    if pruned:
+        msg += f" Pool cap: pruned {pruned} lowest-scoring → rejected(pool-cap), kept top {MAX_POOL_SIZE}."
+    print(msg)
 
 
 def cmd_report():
