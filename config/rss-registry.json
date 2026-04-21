@@ -1729,9 +1729,9 @@
         "report_sent": false,
         "daily_stats": [
           {
-            "date": "2026-04-21",
-            "fetched": 0,
-            "selected": 0
+            "date": "2026-04-20",
+            "fetched": 6,
+            "selected": 6
           }
         ],
         "outcome": null,
@@ -4677,7 +4677,8 @@
         "uniqueness": 0.8,
         "final": 0.901
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "duplicate_publisher"
     },
     {
       "name": "Bangkok Post",

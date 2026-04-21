@@ -1415,16 +1415,21 @@ class UnifiedNewsSender:
     def _log_trial_source_stats(self) -> None:
         """If a trial source is active, log today's fetched/selected counts to JSONL."""
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        trial_state_file = os.path.join(script_dir, "config", "trial-state.json")
-        if not os.path.isfile(trial_state_file):
+        # Trial state lives in rss-registry.json since cc680c4 (RSS Registry Migration,
+        # 2026-04-21). The legacy trial-state.json was removed.
+        registry_file = os.path.join(script_dir, "config", "rss-registry.json")
+        if not os.path.isfile(registry_file):
             return
         try:
-            with open(trial_state_file, encoding="utf-8") as f:
-                state = json.load(f)
+            with open(registry_file, encoding="utf-8") as f:
+                registry = json.load(f)
         except Exception:
             return
 
-        active = state.get("active_trial")
+        active = next(
+            (s for s in registry.get("sources", []) if s.get("status") == "trialing"),
+            None,
+        )
         if not active:
             return
 
@@ -1499,14 +1504,16 @@ class UnifiedNewsSender:
     def _get_trial_source_name(self) -> str | None:
         """Return the name of the currently active trial source, or None."""
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        trial_state_file = os.path.join(script_dir, "config", "trial-state.json")
-        if not os.path.isfile(trial_state_file):
+        registry_file = os.path.join(script_dir, "config", "rss-registry.json")
+        if not os.path.isfile(registry_file):
             return None
         try:
-            with open(trial_state_file, encoding="utf-8") as f:
-                state = json.load(f)
-            active = state.get("active_trial")
-            return active["name"] if active else None
+            with open(registry_file, encoding="utf-8") as f:
+                registry = json.load(f)
+            for s in registry.get("sources", []):
+                if s.get("status") == "trialing":
+                    return s.get("name")
+            return None
         except Exception:
             return None
 
