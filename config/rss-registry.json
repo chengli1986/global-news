@@ -1732,6 +1732,11 @@
             "date": "2026-04-20",
             "fetched": 6,
             "selected": 6
+          },
+          {
+            "date": "2026-04-22",
+            "fetched": 6,
+            "selected": 6
           }
         ],
         "outcome": null,
