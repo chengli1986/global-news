@@ -28,29 +28,47 @@ for sh in scripts/*.sh; do
         scripts/check-*.sh) continue ;;
     esac
 
-    # Find top-level multi-line assignments: line starts with VAR=" and the
-    # opening quote is not closed on the same line. awk strips escaped quotes
-    # (\") before counting real quotes; an odd count means the string is still
-    # open at end-of-line, i.e. this is a multi-line assignment.
+    # Find multi-line assignments in any of these forms:
+    #   VAR="…       export VAR="…       (with optional leading whitespace)
+    #   var="…       export var="…       (any case)
+    # awk strips escaped quotes (\") before counting real quotes; an odd count
+    # on the opening line means the string is still open (multi-line). A state
+    # machine then finds the closing line so we can report start:var:end.
     starts=$(awk '
-        /^[A-Z_][A-Z0-9_]*="/ {
-            line = $0
-            gsub(/\\"/, "", line)
-            m = gsub(/"/, "", line)
-            if (m % 2 == 1) {
-                match($0, /^[A-Z_][A-Z0-9_]*/)
-                var = substr($0, RSTART, RLENGTH)
-                print NR ":" var
+        BEGIN { inside = 0 }
+        {
+            if (inside == 1) {
+                line = $0
+                gsub(/\\"/, "", line)
+                m = gsub(/"/, "", line)
+                if (m % 2 == 1) {
+                    print start_nr ":" var ":" NR
+                    inside = 0
+                }
+            } else if (/^[[:space:]]*(export[[:space:]]+)?[a-zA-Z_][a-zA-Z0-9_]*="/) {
+                line = $0
+                gsub(/\\"/, "", line)
+                m = gsub(/"/, "", line)
+                if (m % 2 == 1) {
+                    tmp = $0
+                    gsub(/^[[:space:]]*(export[[:space:]]+)?/, "", tmp)
+                    match(tmp, /^[a-zA-Z_][a-zA-Z0-9_]*/)
+                    var = substr(tmp, RSTART, RLENGTH)
+                    start_nr = NR
+                    inside = 1
+                }
             }
         }
     ' "$sh")
 
     [ -z "$starts" ] && continue
 
-    while IFS=: read -r lineno var; do
+    while IFS=: read -r lineno var endlineno; do
         [ -z "$var" ] && continue
 
-        # Accept any of these guard forms anywhere after the assignment line:
+        # Accept any of these guard forms after the closing quote of the
+        # assignment (not from the opening line, to avoid matching guard-like
+        # text inside the multi-line string itself):
         #   : "${VAR:?msg}"           fail-fast on empty/unset
         #   [ -z "${VAR:-}" ] ...     manual check
         #   [[ -z "${VAR:-}" ]] ...   (same, bash [[)
@@ -59,7 +77,8 @@ for sh in scripts/*.sh; do
         # Also accept bare "$VAR" in the patterns (without ${...}).
         guard_regex="\\\$\\{${var}:\\?|-[zn][[:space:]]+\"?\\\$\\{?${var}[:-}\" ]"
 
-        if ! tail -n +"$lineno" "$sh" | grep -Eq "$guard_regex"; then
+        guard_start=$((endlineno + 1))
+        if ! tail -n +"$guard_start" "$sh" | grep -Eq "$guard_regex"; then
             echo "FAIL: $sh:$lineno  multi-line assignment '$var=\"...\"' has no runtime guard."
             echo "      Add immediately after the closing quote:"
             echo "        : \"\${$var:?$var assignment failed — check for unescaped double quotes in the multi-line string}\""
