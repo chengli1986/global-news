@@ -1700,7 +1700,7 @@
       "url": "https://www.newyorker.com/feed/everything",
       "language": "en",
       "category": "north_america",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1725,7 +1725,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-04-20",
-        "end_date": null,
+        "end_date": "2026-04-23",
         "report_sent": false,
         "daily_stats": [
           {
@@ -1737,13 +1737,21 @@
             "date": "2026-04-22",
             "fetched": 6,
             "selected": 6
+          },
+          {
+            "date": "2026-04-23",
+            "fetched": 3,
+            "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.934
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "爱范儿 iFanr",

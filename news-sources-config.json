@@ -252,8 +252,7 @@
         "name": "The New Yorker",
         "url": "https://www.newyorker.com/feed/everything",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       }
     ],
     "hn_api": [
