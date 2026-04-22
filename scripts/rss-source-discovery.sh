@@ -165,6 +165,12 @@ After Step 5, your work is complete. Do NOT run save, commit, push, or report �
 - Do NOT use placeholder authority/uniqueness scores — assess each feed individually
 "
 
+# Fail fast if the multi-line PROMPT assignment above was silently broken by
+# an unescaped inner double quote (bash parses it as a command-prefix
+# assignment and never sets the shell variable). Enforced by
+# scripts/check-shell-prompt-assignments.sh.
+: "${PROMPT:?PROMPT assignment failed — check for unescaped double quotes in the multi-line string}"
+
 # 30-minute timeout + 30s grace
 CLAUDE_BIN="${CLAUDE_BIN:-/home/ubuntu/.npm-global/bin/claude}"
 timeout --kill-after=30 1800 "$CLAUDE_BIN" -p --model sonnet "$PROMPT" 2>&1

@@ -77,6 +77,12 @@ $(cat "$PROGRAM_MD")
 - After all experiments, if any commits were kept, run: cd ~/global-news && git push
 "
 
+# Fail fast if the multi-line PROMPT assignment above was silently broken by
+# an unescaped inner double quote (bash parses it as a command-prefix
+# assignment and never sets the shell variable). Enforced by
+# scripts/check-shell-prompt-assignments.sh.
+: "${PROMPT:?PROMPT assignment failed — check for unescaped double quotes in the multi-line string}"
+
 # 20-minute timeout + 30s grace
 # Use full path to avoid cron picking up stale /usr/bin/claude
 CLAUDE_BIN="${CLAUDE_BIN:-/home/ubuntu/.npm-global/bin/claude}"
