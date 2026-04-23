@@ -378,7 +378,7 @@
       "url": "https://www.statnews.com/feed/",
       "language": "en",
       "category": "healthcare",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -401,7 +401,15 @@
         "final": 0.93
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-04-24",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.93
+      },
       "production": null
     },
     {

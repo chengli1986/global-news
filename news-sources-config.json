@@ -253,6 +253,13 @@
         "url": "https://www.newyorker.com/feed/everything",
         "keywords": [],
         "limit": 3
+      },
+      {
+        "name": "STAT News",
+        "url": "https://www.statnews.com/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [
