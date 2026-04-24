@@ -4728,6 +4728,34 @@
         "final": 0.72
       },
       "status": "discovered"
+    },
+    {
+      "name": "Bangkok Post",
+      "url": "https://www.bangkokpost.com/rss/data/news.xml",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 60090.54,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 197,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.0,
+        "content_quality": 0.5,
+        "content_depth": 0.6,
+        "authority": 0.62,
+        "uniqueness": 0.88,
+        "final": 0.567
+      },
+      "status": "discovered"
     }
   ]
 }
