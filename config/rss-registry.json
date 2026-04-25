@@ -254,7 +254,7 @@
       "url": "https://www.politico.eu/feed/",
       "language": "en",
       "category": "europe",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -277,7 +277,15 @@
         "final": 0.91
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-04-26",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.91
+      },
       "production": null
     },
     {
@@ -408,6 +416,11 @@
         "daily_stats": [
           {
             "date": "2026-04-25",
+            "fetched": 3,
+            "selected": 3
+          },
+          {
+            "date": "2026-04-26",
             "fetched": 3,
             "selected": 3
           }

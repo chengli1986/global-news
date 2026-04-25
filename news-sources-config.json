@@ -260,6 +260,13 @@
         "keywords": [],
         "limit": 3,
         "trial": true
+      },
+      {
+        "name": "Politico Europe",
+        "url": "https://www.politico.eu/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [
