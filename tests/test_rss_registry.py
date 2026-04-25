@@ -3,9 +3,9 @@ import json
 import pytest
 from rss_registry import (
     load_registry, save_registry, get_sources, get_by_status, get_by_url,
-    get_active_trial, get_trial_history, get_promotable, upsert_source,
-    start_trial, update_trial_stats, end_trial, set_production_config,
-    reject_source,
+    get_active_trial, get_active_trials, get_trial_history, get_promotable,
+    upsert_source, start_trial, update_trial_stats, end_trial,
+    set_production_config, reject_source,
 )
 
 
@@ -13,12 +13,15 @@ def _make_registry(*sources):
     return {"version": 1, "sources": list(sources)}
 
 
-def _source(name="Feed A", url="https://a.com/feed", status="discovered", score=0.95, trial=None, production=None):
-    return {
+def _source(name="Feed A", url="https://a.com/feed", status="discovered", score=0.95, trial=None, production=None, category=None):
+    src = {
         "name": name, "url": url, "status": status,
         "scores": {"final": score},
         "trial": trial, "production": production,
     }
+    if category is not None:
+        src["category"] = category
+    return src
 
 
 class TestGetByStatus:
@@ -68,6 +71,39 @@ class TestGetActiveTrial:
         assert get_active_trial(reg) is None
 
 
+class TestGetActiveTrials:
+    """Plural variant supporting concurrent trials (MAX_CONCURRENT_TRIALS >= 1)."""
+
+    def test_returns_empty_list_when_no_trials(self):
+        reg = _make_registry(_source("A", status="discovered"))
+        assert get_active_trials(reg) == []
+
+    def test_returns_single_active_trial_as_list(self):
+        reg = _make_registry(
+            _source("A", status="discovered"),
+            _source("B", url="https://b.com/f", status="trialing"),
+        )
+        result = get_active_trials(reg)
+        assert [s["name"] for s in result] == ["B"]
+
+    def test_returns_multiple_active_trials_as_list(self):
+        reg = _make_registry(
+            _source("A", url="https://a.com/f", status="trialing"),
+            _source("B", url="https://b.com/f", status="trialing"),
+            _source("C", url="https://c.com/f", status="discovered"),
+        )
+        result = get_active_trials(reg)
+        assert {s["name"] for s in result} == {"A", "B"}
+
+    def test_excludes_non_trialing_statuses(self):
+        reg = _make_registry(
+            _source("Disc", status="discovered"),
+            _source("Prod", url="https://p.com/f", status="production"),
+            _source("Rej", url="https://r.com/f", status="rejected"),
+        )
+        assert get_active_trials(reg) == []
+
+
 class TestGetTrialHistory:
     def test_returns_sources_with_end_date(self):
         reg = _make_registry(
@@ -109,6 +145,26 @@ class TestGetPromotable:
         )
         result = get_promotable(reg, 0.90)
         assert [s["name"] for s in result] == ["A", "B"]
+
+    def test_default_no_category_filter(self):
+        """exclude_categories defaults to None — no filtering, all categories pass."""
+        reg = _make_registry(
+            _source("Health", url="https://h.com/f", score=0.95, status="discovered", category="healthcare"),
+            _source("Tech", url="https://t.com/f", score=0.93, status="discovered", category="tech_ai"),
+        )
+        result = get_promotable(reg, 0.90)
+        assert {s["name"] for s in result} == {"Health", "Tech"}
+
+    def test_excludes_specified_categories(self):
+        """Sources whose category is in exclude_categories are skipped (mutex with active trials)."""
+        reg = _make_registry(
+            _source("Health1", url="https://h1.com/f", score=0.95, status="discovered", category="healthcare"),
+            _source("Health2", url="https://h2.com/f", score=0.94, status="discovered", category="healthcare"),
+            _source("Tech", url="https://t.com/f", score=0.91, status="discovered", category="tech_ai"),
+            _source("Europe", url="https://e.com/f", score=0.90, status="discovered", category="europe"),
+        )
+        result = get_promotable(reg, 0.90, exclude_categories={"healthcare", "tech_ai"})
+        assert [s["name"] for s in result] == ["Europe"]
 
 
 class TestUpsertSource:

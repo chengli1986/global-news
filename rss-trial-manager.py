@@ -37,6 +37,7 @@ ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 PROMOTE_THRESHOLD = 0.90
 TRIAL_DAYS = 3
 AUTO_KEEP_MIN_SELECTED = 3  # auto-keep if ≥3 articles selected over 3-day trial (stricter signal/time ratio than old 5/7)
+MAX_CONCURRENT_TRIALS = 2   # how many trials may run simultaneously; promote loop stops when reached
 BJT = timezone(timedelta(hours=8))
 
 
@@ -592,24 +593,26 @@ def send_report_email(trial: dict) -> bool:
 # ── commands ──────────────────────────────────────────────────────────────────
 
 def cmd_run() -> None:
-    """Normal daily run: update stats, check expiry, promote next candidate."""
+    """Normal daily run: update stats and check expiry for each active trial,
+    then optionally promote one new candidate (up to MAX_CONCURRENT_TRIALS,
+    max one promotion per day, category-mutex against active trials)."""
     registry = _reg.load_registry()
     today = _today()
-    active = _reg.get_active_trial(registry)
+    actives = _reg.get_active_trials(registry)
 
-    if active:
-        # Update today's stats
-        day_stats = aggregate_today_stats(active["name"])
-        _reg.update_trial_stats(registry, active["name"], day_stats)
+    # 1. Update today's stats + check expiry for each active trial independently
+    for active in actives:
+        name = active["name"]
+        day_stats = aggregate_today_stats(name)
+        _reg.update_trial_stats(registry, name, day_stats)
         _reg.save_registry(registry)
-        active = _reg.get_active_trial(registry)  # re-read after update
-
+        # Re-read this specific source after stats update
+        active = _reg.get_by_url(registry, active["url"])
         trial = active["trial"]
         stats = trial.get("daily_stats", [])
-        print(f"[trial-manager] {active['name']}: day {len(stats)}/{TRIAL_DAYS}"
+        print(f"[trial-manager] {name}: day {len(stats)}/{TRIAL_DAYS}"
               f" — fetched={day_stats['fetched']} selected={day_stats['selected']}")
 
-        # Check if trial has run its course
         start = datetime.strptime(trial["start_date"], "%Y-%m-%d").replace(tzinfo=BJT)
         elapsed_days = (datetime.now(BJT) - start).days
         if elapsed_days >= TRIAL_DAYS and not trial.get("auto_decided"):
@@ -617,28 +620,51 @@ def cmd_run() -> None:
             kept = total_selected >= AUTO_KEEP_MIN_SELECTED
             outcome = "auto-graduated" if kept else "auto-removed"
             if kept:
-                graduate_trial_in_config(active["name"])
-                _reg.set_production_config(registry, active["name"], keywords=[], limit=3)
-                print(f"[trial-manager] Auto-keep '{active['name']}' "
+                graduate_trial_in_config(name)
+                _reg.set_production_config(registry, name, keywords=[], limit=3)
+                print(f"[trial-manager] Auto-keep '{name}' "
                       f"({total_selected} selected >= {AUTO_KEEP_MIN_SELECTED})")
             else:
-                remove_trial_from_config(active["name"])
-                print(f"[trial-manager] Auto-remove '{active['name']}' "
+                remove_trial_from_config(name)
+                print(f"[trial-manager] Auto-remove '{name}' "
                       f"({total_selected} selected < {AUTO_KEEP_MIN_SELECTED})")
-            _reg.end_trial(registry, active["name"], outcome=outcome, kept=kept, today=today)
+            _reg.end_trial(registry, name, outcome=outcome, kept=kept, today=today)
             _reg.save_registry(registry)
             send_auto_decision_email(active, kept, total_selected)
+
+    # 2. Promote up to one new candidate if a slot is open
+    actives_after = _reg.get_active_trials(registry)
+    if len(actives_after) >= MAX_CONCURRENT_TRIALS:
+        print(f"[trial-manager] {len(actives_after)}/{MAX_CONCURRENT_TRIALS} trial slots in use. "
+              f"No promotion.")
         return
 
-    # No active trial: promote next candidate
-    candidates = _reg.get_promotable(registry, PROMOTE_THRESHOLD)
+    # Daily promotion budget: at most one new trial starts per day
+    promoted_today = any(
+        a.get("trial", {}).get("start_date") == today
+        for a in actives_after
+    )
+    if promoted_today:
+        print(f"[trial-manager] Already promoted one trial today. "
+              f"No further promotion until tomorrow.")
+        return
+
+    # Category mutex: skip candidates whose category matches an active trial
+    active_categories = {a.get("category") for a in actives_after if a.get("category")}
+    candidates = _reg.get_promotable(registry, PROMOTE_THRESHOLD,
+                                     exclude_categories=active_categories)
     if not candidates:
-        print(f"[trial-manager] No promotable candidates (score >= {PROMOTE_THRESHOLD}). Nothing to do.")
+        if active_categories:
+            print(f"[trial-manager] No promotable candidates outside categories "
+                  f"{sorted(active_categories)} (score >= {PROMOTE_THRESHOLD}).")
+        else:
+            print(f"[trial-manager] No promotable candidates (score >= {PROMOTE_THRESHOLD}).")
         return
 
     best = candidates[0]
     score = (best.get("scores") or {}).get("final", 0)
-    print(f"[trial-manager] Promoting '{best['name']}' (score={score:.3f}) to trial...")
+    print(f"[trial-manager] Promoting '{best['name']}' (score={score:.3f}, "
+          f"category={best.get('category', '?')}) to trial...")
 
     add_trial_to_config(best)
     _reg.start_trial(registry, best, today)
@@ -677,41 +703,73 @@ def cmd_status() -> None:
     print(f"  Report:  {'sent' if trial.get('report_sent') else 'pending'}")
 
 
+def _resolve_active_trial_for_admin(actives: list, action: str) -> dict:
+    """Pick which active trial a manual admin command should target.
+
+    - 0 actives → exit 0 with message
+    - 1 active and no name given → use it
+    - 2+ actives → require explicit name argument; otherwise exit 1
+    """
+    name_arg = sys.argv[2] if len(sys.argv) >= 3 else None
+    if not actives:
+        print(f"No active trial to {action}.")
+        sys.exit(0)
+    if name_arg:
+        match = next((a for a in actives if a["name"] == name_arg), None)
+        if match is None:
+            print(f"ERROR: '{name_arg}' is not an active trial. "
+                  f"Active: {[a['name'] for a in actives]}", file=sys.stderr)
+            sys.exit(1)
+        return match
+    if len(actives) > 1:
+        print(f"ERROR: {len(actives)} active trials — name required. "
+              f"Usage: rss-trial-manager.py {action} \"<source name>\". "
+              f"Active: {[a['name'] for a in actives]}", file=sys.stderr)
+        sys.exit(1)
+    return actives[0]
+
+
 def cmd_remove() -> None:
-    """Remove active trial source from news config and close trial as rejected."""
+    """Remove an active trial source from news config and close trial as rejected.
+
+    Usage: rss-trial-manager.py remove [<source name>]
+    Name is required when MAX_CONCURRENT_TRIALS > 1 and 2+ trials are active.
+    """
     registry = _reg.load_registry()
-    active = _reg.get_active_trial(registry)
-    if not active:
-        print("No active trial to remove.")
-        return
+    actives = _reg.get_active_trials(registry)
+    target = _resolve_active_trial_for_admin(actives, "remove")
+    name = target["name"]
 
-    removed = remove_trial_from_config(active["name"])
+    removed = remove_trial_from_config(name)
     if removed:
-        print(f"Removed '{active['name']}' from news-sources-config.json.")
+        print(f"Removed '{name}' from news-sources-config.json.")
     else:
-        print(f"WARNING: '{active['name']}' not found in config (may already be removed).")
+        print(f"WARNING: '{name}' not found in config (may already be removed).")
 
-    _reg.end_trial(registry, active["name"], outcome="removed", kept=False, today=_today(), auto_decided=False)
+    _reg.end_trial(registry, name, outcome="removed", kept=False, today=_today(), auto_decided=False)
     _reg.save_registry(registry)
     print("Trial closed as 'removed'. Registry updated.")
 
 
 def cmd_keep() -> None:
-    """Graduate active trial to permanent source (remove trial flag)."""
+    """Graduate an active trial to permanent source (remove trial flag).
+
+    Usage: rss-trial-manager.py keep [<source name>]
+    Name is required when MAX_CONCURRENT_TRIALS > 1 and 2+ trials are active.
+    """
     registry = _reg.load_registry()
-    active = _reg.get_active_trial(registry)
-    if not active:
-        print("No active trial to graduate.")
-        return
+    actives = _reg.get_active_trials(registry)
+    target = _resolve_active_trial_for_admin(actives, "keep")
+    name = target["name"]
 
-    graduated = graduate_trial_in_config(active["name"])
+    graduated = graduate_trial_in_config(name)
     if graduated:
-        print(f"'{active['name']}' graduated to permanent source.")
+        print(f"'{name}' graduated to permanent source.")
     else:
-        print(f"WARNING: '{active['name']}' trial flag not found in config.")
+        print(f"WARNING: '{name}' trial flag not found in config.")
 
-    _reg.end_trial(registry, active["name"], outcome="graduated", kept=True, today=_today(), auto_decided=False)
-    _reg.set_production_config(registry, active["name"], keywords=[], limit=3)
+    _reg.end_trial(registry, name, outcome="graduated", kept=True, today=_today(), auto_decided=False)
+    _reg.set_production_config(registry, name, keywords=[], limit=3)
     _reg.save_registry(registry)
     print("Trial closed as 'graduated'. Source is now permanent.")
 
