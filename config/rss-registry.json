@@ -4762,6 +4762,34 @@
         "final": 0.567
       },
       "status": "discovered"
+    },
+    {
+      "name": "Politico",
+      "url": "https://www.politico.com/rss/politicopicks.xml",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 36,
+        "newest_age_hours": 2.3,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 125,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 0.6,
+        "authority": 0.78,
+        "uniqueness": 0.8,
+        "final": 0.847
+      },
+      "status": "discovered"
     }
   ]
 }
