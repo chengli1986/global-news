@@ -302,5 +302,283 @@ class TestCmdRetry(unittest.TestCase):
                     tm.cmd_retry()
 
 
+# ── cmd_run multi-trial logic ────────────────────────────────────────────────
+
+from datetime import datetime, timedelta, timezone
+
+_BJT = timezone(timedelta(hours=8))
+
+
+def _days_ago(n: int) -> str:
+    return (datetime.now(_BJT) - timedelta(days=n)).strftime("%Y-%m-%d")
+
+
+def _today_str() -> str:
+    return datetime.now(_BJT).strftime("%Y-%m-%d")
+
+
+def _trialing(name, url, category, start_days_ago=0, daily_stats=None, score=0.95):
+    """Build a registry entry for an active trial."""
+    return {
+        "name": name, "url": url, "status": "trialing", "category": category,
+        "scores": {"final": score},
+        "trial": {
+            "start_date": _days_ago(start_days_ago),
+            "end_date": None,
+            "daily_stats": daily_stats or [],
+            "outcome": None,
+            "auto_decided": False,
+            "candidate_score": score,
+            "report_sent": False,
+        },
+    }
+
+
+def _discovered(name, url, category, score=0.95):
+    return {
+        "name": name, "url": url, "status": "discovered", "category": category,
+        "scores": {"final": score},
+        "trial": None, "production": None,
+    }
+
+
+class _CmdRunHarness:
+    """Set up tmp paths + initial config for cmd_run integration tests."""
+
+    def __init__(self, tmp_dir):
+        self.tmp = tmp_dir
+        self.reg_path = os.path.join(tmp_dir, "rss-registry.json")
+        self.cfg_path = os.path.join(tmp_dir, "news-sources-config.json")
+        self.health_path = os.path.join(tmp_dir, "rss-health.json")
+        self.log_path = os.path.join(tmp_dir, "trial-source-log.jsonl")
+        with open(self.cfg_path, "w") as f:
+            json.dump({"news_sources": {"rss_feeds": [], "sina_api": [], "hn_api": []}}, f)
+
+    def write_registry(self, sources):
+        with open(self.reg_path, "w") as f:
+            json.dump({"version": 1, "sources": sources}, f)
+
+    def read_registry(self):
+        with open(self.reg_path) as f:
+            return json.load(f)
+
+    def read_config(self):
+        with open(self.cfg_path) as f:
+            return json.load(f)
+
+    def patch_all(self):
+        """Returns a list of patch context managers — apply via ExitStack."""
+        return [
+            patch.object(_reg, "REGISTRY_FILE", self.reg_path),
+            patch.object(tm, "SOURCES_FILE", self.cfg_path),
+            patch.object(tm, "HEALTH_STATE_FILE", self.health_path),
+            patch.object(tm, "TRIAL_LOG_FILE", self.log_path),
+            patch.object(tm, "send_auto_decision_email", MagicMock(return_value=True)),
+        ]
+
+
+import contextlib
+
+
+def _run_cmd_run(harness):
+    with contextlib.ExitStack() as stack:
+        for p in harness.patch_all():
+            stack.enter_context(p)
+        tm.cmd_run()
+
+
+class TestMaxConcurrentTrialsConstant(unittest.TestCase):
+
+    def test_constant_is_2(self):
+        self.assertEqual(tm.MAX_CONCURRENT_TRIALS, 2)
+
+
+class TestCmdRunMultipleTrials(unittest.TestCase):
+
+    def test_promotes_when_no_active_and_pool_has_candidates(self):
+        """Baseline: 0 active, 1 promotable → it gets promoted."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            h.write_registry([
+                _discovered("CandA", "https://a.com/f", category="europe", score=0.95),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["CandA"], "trialing")
+
+    def test_promotes_second_trial_when_one_active_and_slot_available(self):
+        """1 active + slot available + diff category → second trial promoted."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            h.write_registry([
+                _trialing("Active1", "https://a.com/f", category="healthcare", start_days_ago=1),
+                _discovered("CandTech", "https://t.com/f", category="tech_ai", score=0.95),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["Active1"], "trialing")
+        self.assertEqual(statuses["CandTech"], "trialing")
+
+    def test_does_not_promote_when_max_concurrent_reached(self):
+        """2 active (=MAX) → no new promotion even if pool has high-scoring candidates."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            h.write_registry([
+                _trialing("Active1", "https://a.com/f", category="healthcare", start_days_ago=1),
+                _trialing("Active2", "https://b.com/f", category="europe", start_days_ago=1),
+                _discovered("CandTech", "https://t.com/f", category="tech_ai", score=0.99),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["CandTech"], "discovered")
+
+    def test_skips_promotion_of_same_category_as_active(self):
+        """1 active in healthcare + pool has higher-scoring healthcare and lower-scoring europe.
+        Mutex must skip healthcare and promote europe."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            h.write_registry([
+                _trialing("ActiveHealth", "https://a.com/f", category="healthcare", start_days_ago=1),
+                _discovered("CandHealth", "https://h.com/f", category="healthcare", score=0.99),
+                _discovered("CandEurope", "https://e.com/f", category="europe", score=0.91),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["CandHealth"], "discovered")
+        self.assertEqual(statuses["CandEurope"], "trialing")
+
+    def test_does_not_promote_twice_in_one_day(self):
+        """1 active started today + slot avail + pool has candidate.
+        Daily promotion budget = 1, so no second promotion same day even though slot is open."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            h.write_registry([
+                _trialing("PromotedToday", "https://a.com/f", category="healthcare", start_days_ago=0),
+                _discovered("CandTech", "https://t.com/f", category="tech_ai", score=0.99),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["CandTech"], "discovered")
+
+    def test_updates_stats_for_each_active_trial(self):
+        """Each active trial gets today's daily_stats appended (with fetched=0/selected=0
+        when no JSONL log entries — which is the empty-log default)."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            h.write_registry([
+                _trialing("A", "https://a.com/f", category="healthcare", start_days_ago=1),
+                _trialing("B", "https://b.com/f", category="europe", start_days_ago=1),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        for s in reg["sources"]:
+            stats = s["trial"]["daily_stats"]
+            self.assertEqual(len(stats), 1, f"{s['name']} should have 1 day of stats")
+            self.assertEqual(stats[0]["date"], _today_str())
+
+    def test_evaluates_each_trial_independently_for_expiry(self):
+        """One trial expired (>= 3 days, ≥3 selected → auto-graduate),
+        one not yet expired (started today). Only the expired one ends."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            ripe_stats = [
+                {"date": _days_ago(3), "fetched": 5, "selected": 5},
+                {"date": _days_ago(2), "fetched": 5, "selected": 5},
+                {"date": _days_ago(1), "fetched": 5, "selected": 5},
+            ]
+            h.write_registry([
+                _trialing("Ripe", "https://r.com/f", category="europe",
+                          start_days_ago=4, daily_stats=ripe_stats),
+                _trialing("Fresh", "https://f.com/f", category="healthcare",
+                          start_days_ago=0),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["Ripe"], "production")  # graduated
+        self.assertEqual(statuses["Fresh"], "trialing")   # still active
+
+
+class TestCmdRemoveAndKeepWithMultiple(unittest.TestCase):
+    """When multiple trials are active, manual cmd_remove/cmd_keep require a name."""
+
+    def _seed(self, d, sources, config_feeds):
+        reg_path = os.path.join(d, "rss-registry.json")
+        cfg_path = os.path.join(d, "news-sources-config.json")
+        with open(reg_path, "w") as f:
+            json.dump({"version": 1, "sources": sources}, f)
+        with open(cfg_path, "w") as f:
+            json.dump({"news_sources": {"rss_feeds": config_feeds, "sina_api": [], "hn_api": []}}, f)
+        return reg_path, cfg_path
+
+    def test_remove_requires_name_when_multiple_active(self):
+        with tempfile.TemporaryDirectory() as d:
+            reg_path, cfg_path = self._seed(d, [
+                _trialing("A", "https://a.com/f", category="healthcare", start_days_ago=1),
+                _trialing("B", "https://b.com/f", category="europe", start_days_ago=1),
+            ], [
+                {"name": "A", "url": "https://a.com/f", "trial": True, "limit": 3},
+                {"name": "B", "url": "https://b.com/f", "trial": True, "limit": 3},
+            ])
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(tm, "SOURCES_FILE", cfg_path), \
+                 patch.object(tm, "HEALTH_STATE_FILE", os.path.join(d, "h.json")), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "remove"]):
+                with self.assertRaises(SystemExit):
+                    tm.cmd_remove()
+            # Both trials untouched
+            with open(reg_path) as f:
+                reg = json.load(f)
+            statuses = {s["name"]: s["status"] for s in reg["sources"]}
+            self.assertEqual(statuses["A"], "trialing")
+            self.assertEqual(statuses["B"], "trialing")
+
+    def test_remove_with_name_targets_specific_trial(self):
+        with tempfile.TemporaryDirectory() as d:
+            reg_path, cfg_path = self._seed(d, [
+                _trialing("A", "https://a.com/f", category="healthcare", start_days_ago=1),
+                _trialing("B", "https://b.com/f", category="europe", start_days_ago=1),
+            ], [
+                {"name": "A", "url": "https://a.com/f", "trial": True, "limit": 3},
+                {"name": "B", "url": "https://b.com/f", "trial": True, "limit": 3},
+            ])
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(tm, "SOURCES_FILE", cfg_path), \
+                 patch.object(tm, "HEALTH_STATE_FILE", os.path.join(d, "h.json")), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "remove", "A"]):
+                tm.cmd_remove()
+            with open(reg_path) as f:
+                reg = json.load(f)
+            statuses = {s["name"]: s["status"] for s in reg["sources"]}
+            self.assertEqual(statuses["A"], "rejected")
+            self.assertEqual(statuses["B"], "trialing")
+
+    def test_keep_requires_name_when_multiple_active(self):
+        with tempfile.TemporaryDirectory() as d:
+            reg_path, cfg_path = self._seed(d, [
+                _trialing("A", "https://a.com/f", category="healthcare", start_days_ago=1),
+                _trialing("B", "https://b.com/f", category="europe", start_days_ago=1),
+            ], [
+                {"name": "A", "url": "https://a.com/f", "trial": True, "limit": 3},
+                {"name": "B", "url": "https://b.com/f", "trial": True, "limit": 3},
+            ])
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(tm, "SOURCES_FILE", cfg_path), \
+                 patch.object(tm, "HEALTH_STATE_FILE", os.path.join(d, "h.json")), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "keep"]):
+                with self.assertRaises(SystemExit):
+                    tm.cmd_keep()
+            with open(reg_path) as f:
+                reg = json.load(f)
+            statuses = {s["name"]: s["status"] for s in reg["sources"]}
+            self.assertEqual(statuses["A"], "trialing")
+            self.assertEqual(statuses["B"], "trialing")
+
+
 if __name__ == "__main__":
     unittest.main()

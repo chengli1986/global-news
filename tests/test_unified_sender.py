@@ -9,7 +9,7 @@ import pytest
 from datetime import datetime, timezone, timedelta
 from unittest.mock import patch, MagicMock
 
-sys.path.insert(0, os.path.expanduser("~/global-news"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from conftest import (
     SAMPLE_RSS_XML, SAMPLE_ATOM_XML, SAMPLE_SINA_RESPONSE,

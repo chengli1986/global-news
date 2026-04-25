@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 import sys, os
-sys.path.insert(0, os.path.expanduser("~/global-news"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from datetime import datetime, timezone, timedelta
 from digest_pipeline import bigrams, jaccard_similarity, deduplicate, rank_and_select
 

@@ -10,7 +10,8 @@ under task-specific class/section markers below.
 import sys
 import os
 
-sys.path.insert(0, os.path.expanduser("~/global-news"))
+_REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _REPO_DIR)
 
 from unittest.mock import patch
 
@@ -667,7 +668,7 @@ class TestDigestTuningConfig:
     @staticmethod
     def _load_tuning():
         import json
-        with open(os.path.expanduser("~/global-news/digest-tuning.json")) as f:
+        with open(os.path.join(_REPO_DIR, "digest-tuning.json")) as f:
             return json.load(f)
 
     def test_max_total_is_150(self):
@@ -712,7 +713,7 @@ class TestDigestTuningConfig:
         import importlib.util
         spec = importlib.util.spec_from_file_location(
             "evaluate_digest",
-            os.path.expanduser("~/global-news/evaluate_digest.py"),
+            os.path.join(_REPO_DIR, "evaluate_digest.py"),
         )
         eval_mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(eval_mod)
@@ -909,7 +910,7 @@ class TestEvaluatorSoftLockConsistency:
         import importlib.util
         spec = importlib.util.spec_from_file_location(
             "evaluate_digest",
-            os.path.expanduser("~/global-news/evaluate_digest.py"),
+            os.path.join(_REPO_DIR, "evaluate_digest.py"),
         )
         eval_mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(eval_mod)

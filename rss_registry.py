@@ -28,15 +28,16 @@ def _atomic_write(path: str, data: dict) -> None:
         raise
 
 
-def load_registry(path: str = REGISTRY_FILE) -> dict:
-    if not os.path.isfile(path):
+def load_registry(path: str | None = None) -> dict:
+    p = path or REGISTRY_FILE
+    if not os.path.isfile(p):
         return {"version": 1, "sources": []}
-    with open(path, encoding="utf-8") as f:
+    with open(p, encoding="utf-8") as f:
         return json.load(f)
 
 
-def save_registry(data: dict, path: str = REGISTRY_FILE) -> None:
-    _atomic_write(path, data)
+def save_registry(data: dict, path: str | None = None) -> None:
+    _atomic_write(path or REGISTRY_FILE, data)
 
 
 def get_sources(registry: dict) -> list[dict]:
@@ -63,6 +64,11 @@ def get_active_trial(registry: dict) -> dict | None:
     return None
 
 
+def get_active_trials(registry: dict) -> list[dict]:
+    """All sources currently in 'trialing' status. Plural variant for concurrent trials."""
+    return [s for s in get_sources(registry) if s.get("status") == "trialing"]
+
+
 def get_trial_history(registry: dict) -> list[dict]:
     """All sources that have been trialed (trial.end_date is set)."""
     return [
@@ -71,8 +77,14 @@ def get_trial_history(registry: dict) -> list[dict]:
     ]
 
 
-def get_promotable(registry: dict, threshold: float) -> list[dict]:
-    """Candidates eligible for trial: discovered, score >= threshold, never tried before."""
+def get_promotable(registry: dict, threshold: float,
+                   exclude_categories: set[str] | None = None) -> list[dict]:
+    """Candidates eligible for trial: discovered, score >= threshold, never tried before.
+
+    exclude_categories: skip candidates whose `category` is in the set. Used by
+    the trial manager to enforce category mutex against currently-active trials.
+    """
+    excluded = exclude_categories or set()
     tried_urls = {
         s.get("url", "").rstrip("/").lower()
         for s in get_sources(registry)
@@ -83,6 +95,7 @@ def get_promotable(registry: dict, threshold: float) -> list[dict]:
         if s.get("status") == "discovered"
         and s.get("url", "").rstrip("/").lower() not in tried_urls
         and (s.get("scores") or {}).get("final", 0.0) >= threshold
+        and s.get("category") not in excluded
     ]
     return sorted(result, key=lambda x: -(x.get("scores") or {}).get("final", 0.0))
 
