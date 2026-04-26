@@ -68,7 +68,7 @@
       "url": "https://www.technologyreview.com/topnews.rss",
       "language": "en",
       "category": "tech_ai",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -91,7 +91,15 @@
         "final": 0.905
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-04-27",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.905
+      },
       "production": null
     },
     {
@@ -281,7 +289,13 @@
         "start_date": "2026-04-26",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-04-27",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.91
@@ -386,7 +400,7 @@
       "url": "https://www.statnews.com/feed/",
       "language": "en",
       "category": "healthcare",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -411,7 +425,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-04-24",
-        "end_date": null,
+        "end_date": "2026-04-27",
         "report_sent": false,
         "daily_stats": [
           {
@@ -423,13 +437,21 @@
             "date": "2026-04-26",
             "fetched": 3,
             "selected": 3
+          },
+          {
+            "date": "2026-04-27",
+            "fetched": 0,
+            "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.93
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "Fierce Pharma",

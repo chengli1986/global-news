@@ -258,12 +258,18 @@
         "name": "STAT News",
         "url": "https://www.statnews.com/feed/",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Politico Europe",
         "url": "https://www.politico.eu/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "MIT Technology Review",
+        "url": "https://www.technologyreview.com/topnews.rss",
         "keywords": [],
         "limit": 3,
         "trial": true
