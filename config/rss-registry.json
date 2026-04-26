@@ -4803,6 +4803,34 @@
         "final": 0.847
       },
       "status": "discovered"
+    },
+    {
+      "name": "澎湃新闻",
+      "url": "https://feedx.net/rss/thepaper.xml",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 3161.9,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 821,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.5,
+        "content_depth": 1.0,
+        "authority": 0.78,
+        "uniqueness": 0.82,
+        "final": 0.623
+      },
+      "status": "discovered"
     }
   ]
 }
