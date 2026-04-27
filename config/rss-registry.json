@@ -4853,6 +4853,34 @@
         "final": 0.623
       },
       "status": "discovered"
+    },
+    {
+      "name": "Wall Street Journal",
+      "url": "https://feeds.a.dj.com/rss/WSJcomUSBusiness.xml",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 10991.66,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 144,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.92,
+        "uniqueness": 0.55,
+        "final": 0.658
+      },
+      "status": "discovered"
     }
   ]
 }
