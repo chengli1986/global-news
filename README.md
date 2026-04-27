@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 40 sources (37 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API) and delivers HTML email reports three times daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 43 sources (40 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API) and delivers HTML email reports three times daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 40 sources (37 RSS feeds +
 Cron (3x daily: 00:00, 08:00, 16:00 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (40 sources)
+           ├── news-sources-config.json (43 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (33 sources)
+           └── RSS/Atom feeds (40 sources)
 
 Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
  └── rss-health-check.py
@@ -69,9 +69,9 @@ python3 rss-health-check.py
 python3 rss-health-check.py --email
 ```
 
-## News Sources (40)
+## News Sources (43)
 
-**Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, 日经中文, RTHK中文
+**Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, RTHK中文
 
 **English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg (Economics, Businessweek, Politics), SCMP, SCMP Hong Kong, CNA, FT, Hacker News (Firebase API), Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail, HKFP, Straits Times
 
