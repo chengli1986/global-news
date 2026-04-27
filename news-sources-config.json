@@ -76,13 +76,7 @@
       },
       {
         "name": "BBC中文",
-        "url": "https://feedx.net/rss/bbc.xml",
-        "keywords": [],
-        "limit": 6
-      },
-      {
-        "name": "日经中文",
-        "url": "https://feedx.net/rss/nikkei.xml",
+        "url": "https://rsshub.rssforever.com/bbc/chinese",
         "keywords": [],
         "limit": 6
       },
