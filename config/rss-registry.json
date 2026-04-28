@@ -100,6 +100,11 @@
             "date": "2026-04-28",
             "fetched": 3,
             "selected": 3
+          },
+          {
+            "date": "2026-04-29",
+            "fetched": 3,
+            "selected": 3
           }
         ],
         "outcome": null,
@@ -268,7 +273,7 @@
       "url": "https://www.politico.eu/feed/",
       "language": "en",
       "category": "europe",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -293,7 +298,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-04-26",
-        "end_date": null,
+        "end_date": "2026-04-29",
         "report_sent": false,
         "daily_stats": [
           {
@@ -305,13 +310,21 @@
             "date": "2026-04-28",
             "fetched": 0,
             "selected": 0
+          },
+          {
+            "date": "2026-04-29",
+            "fetched": 0,
+            "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.91
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "NPR News",
@@ -3151,7 +3164,7 @@
       "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/english.elpais.com/portada",
       "language": "en",
       "category": "europe",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3174,7 +3187,15 @@
         "final": 0.91
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-04-29",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.91
+      },
       "production": null
     },
     {

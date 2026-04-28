@@ -252,12 +252,18 @@
         "name": "Politico Europe",
         "url": "https://www.politico.eu/feed/",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "MIT Technology Review",
         "url": "https://www.technologyreview.com/topnews.rss",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "El País English",
+        "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/english.elpais.com/portada",
         "keywords": [],
         "limit": 3,
         "trial": true
