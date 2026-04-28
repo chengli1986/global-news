@@ -20,12 +20,6 @@
     ],
     "rss_feeds": [
       {
-        "name": "界面新闻",
-        "url": "https://feedx.net/rss/jiemian.xml",
-        "keywords": [],
-        "limit": 8
-      },
-      {
         "name": "南方周末",
         "url": "https://plink.anyfeeder.com/infzm/news",
         "keywords": [],
