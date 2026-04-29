@@ -157,30 +157,48 @@ def graduate_trial_in_config(source_name: str) -> bool:
 def aggregate_today_stats(source_name: str) -> dict:
     """Read trial-source-log.jsonl, sum today's fetched/selected for source_name."""
     today = _today()
-    fetched_total = 0
-    selected_total = 0
+    return aggregate_stats_for_range(source_name, today, today)[0]
 
-    if not os.path.isfile(TRIAL_LOG_FILE):
-        return {"date": today, "fetched": 0, "selected": 0}
 
-    with open(TRIAL_LOG_FILE, encoding="utf-8") as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                entry = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if entry.get("source") != source_name:
-                continue
-            entry_date = entry.get("ts", "")[:10]
-            if entry_date != today:
-                continue
-            fetched_total += entry.get("fetched", 0)
-            selected_total += entry.get("selected", 0)
+def aggregate_stats_for_range(source_name: str, start_date: str, end_date: str) -> list:
+    """Return one stats dict per date in [start_date, end_date] inclusive.
+    Dates with no log entries get fetched=0/selected=0 so callers can blindly
+    upsert each entry. Used by cmd_run to backfill day-1 (trial-creation-day)
+    data, which would otherwise be lost — the day-1 cmd_run promotes the trial
+    at the very end and never gets a chance to update its stats."""
+    start = datetime.strptime(start_date, "%Y-%m-%d").date()
+    end = datetime.strptime(end_date, "%Y-%m-%d").date()
+    if end < start:
+        return []
 
-    return {"date": today, "fetched": fetched_total, "selected": selected_total}
+    by_date: dict = {}
+    cursor = start
+    while cursor <= end:
+        by_date[cursor.isoformat()] = {"fetched": 0, "selected": 0}
+        cursor += timedelta(days=1)
+
+    if os.path.isfile(TRIAL_LOG_FILE):
+        with open(TRIAL_LOG_FILE, encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if entry.get("source") != source_name:
+                    continue
+                entry_date = entry.get("ts", "")[:10]
+                if entry_date not in by_date:
+                    continue
+                by_date[entry_date]["fetched"] += entry.get("fetched", 0)
+                by_date[entry_date]["selected"] += entry.get("selected", 0)
+
+    return [
+        {"date": d, "fetched": v["fetched"], "selected": v["selected"]}
+        for d, v in sorted(by_date.items())
+    ]
 
 
 # ── report generation ─────────────────────────────────────────────────────────
@@ -608,18 +626,22 @@ def cmd_run() -> None:
     today = _today()
     actives = _reg.get_active_trials(registry)
 
-    # 1. Update today's stats + check expiry for each active trial independently
+    # 1. Backfill stats for [start_date, today] + check expiry for each active trial
     for active in actives:
         name = active["name"]
-        day_stats = aggregate_today_stats(name)
-        _reg.update_trial_stats(registry, name, day_stats)
+        start_date = active["trial"]["start_date"]
+        range_stats = aggregate_stats_for_range(name, start_date, today)
+        for day_stats in range_stats:
+            _reg.update_trial_stats(registry, name, day_stats)
         _reg.save_registry(registry)
         # Re-read this specific source after stats update
         active = _reg.get_by_url(registry, active["url"])
         trial = active["trial"]
         stats = trial.get("daily_stats", [])
+        today_stats = next((s for s in range_stats if s["date"] == today),
+                           {"fetched": 0, "selected": 0})
         print(f"[trial-manager] {name}: day {len(stats)}/{TRIAL_DAYS}"
-              f" — fetched={day_stats['fetched']} selected={day_stats['selected']}")
+              f" — today fetched={today_stats['fetched']} selected={today_stats['selected']}")
 
         start = datetime.strptime(trial["start_date"], "%Y-%m-%d").replace(tzinfo=BJT)
         elapsed_days = (datetime.now(BJT) - start).days

@@ -466,8 +466,8 @@ class TestCmdRunMultipleTrials(unittest.TestCase):
         self.assertEqual(statuses["CandTech"], "discovered")
 
     def test_updates_stats_for_each_active_trial(self):
-        """Each active trial gets today's daily_stats appended (with fetched=0/selected=0
-        when no JSONL log entries — which is the empty-log default)."""
+        """Each active trial gets daily_stats backfilled for [start_date, today].
+        With start_days_ago=1, that's 2 days of zero-stats (no JSONL entries)."""
         with tempfile.TemporaryDirectory() as d:
             h = _CmdRunHarness(d)
             h.write_registry([
@@ -478,22 +478,29 @@ class TestCmdRunMultipleTrials(unittest.TestCase):
             reg = h.read_registry()
         for s in reg["sources"]:
             stats = s["trial"]["daily_stats"]
-            self.assertEqual(len(stats), 1, f"{s['name']} should have 1 day of stats")
-            self.assertEqual(stats[0]["date"], _today_str())
+            self.assertEqual(len(stats), 2, f"{s['name']} should have 2 days of stats")
+            dates = [x["date"] for x in stats]
+            self.assertIn(_days_ago(1), dates)
+            self.assertIn(_today_str(), dates)
 
     def test_evaluates_each_trial_independently_for_expiry(self):
         """One trial expired (>= 3 days, ≥3 selected → auto-graduate),
-        one not yet expired (started today). Only the expired one ends."""
+        one not yet expired (started today). Only the expired one ends.
+        The expired trial's selections live in trial-source-log so backfill
+        can reconstruct them — this is the real production data flow."""
         with tempfile.TemporaryDirectory() as d:
             h = _CmdRunHarness(d)
-            ripe_stats = [
-                {"date": _days_ago(3), "fetched": 5, "selected": 5},
-                {"date": _days_ago(2), "fetched": 5, "selected": 5},
-                {"date": _days_ago(1), "fetched": 5, "selected": 5},
+            log_entries = [
+                {"ts": f"{_days_ago(3)}T08:00:00+08:00", "source": "Ripe", "fetched": 5, "selected": 5},
+                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Ripe", "fetched": 5, "selected": 5},
+                {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "Ripe", "fetched": 5, "selected": 5},
             ]
+            with open(h.log_path, "w") as f:
+                for e in log_entries:
+                    f.write(json.dumps(e) + "\n")
             h.write_registry([
                 _trialing("Ripe", "https://r.com/f", category="europe",
-                          start_days_ago=4, daily_stats=ripe_stats),
+                          start_days_ago=4, daily_stats=[]),
                 _trialing("Fresh", "https://f.com/f", category="healthcare",
                           start_days_ago=0),
             ])
@@ -578,6 +585,116 @@ class TestCmdRemoveAndKeepWithMultiple(unittest.TestCase):
             statuses = {s["name"]: s["status"] for s in reg["sources"]}
             self.assertEqual(statuses["A"], "trialing")
             self.assertEqual(statuses["B"], "trialing")
+
+
+# ── daily-stats backfill across [start_date, today] ──────────────────────────
+
+class TestAggregateStatsForRange(unittest.TestCase):
+    """aggregate_stats_for_range returns one stats dict per date in [start, end],
+    filling gaps with zeros so callers can blindly upsert each entry."""
+
+    def _write_log(self, path, entries):
+        with open(path, "w") as f:
+            for e in entries:
+                f.write(json.dumps(e) + "\n")
+
+    def test_returns_one_entry_per_date_inclusive(self):
+        with tempfile.TemporaryDirectory() as d:
+            log_path = os.path.join(d, "log.jsonl")
+            self._write_log(log_path, [
+                {"ts": "2026-04-26T08:00:00+08:00", "source": "X", "fetched": 3, "selected": 2},
+                {"ts": "2026-04-26T16:00:00+08:00", "source": "X", "fetched": 3, "selected": 3},
+                {"ts": "2026-04-28T08:00:00+08:00", "source": "X", "fetched": 3, "selected": 3},
+            ])
+            with patch.object(tm, "TRIAL_LOG_FILE", log_path):
+                result = tm.aggregate_stats_for_range("X", "2026-04-26", "2026-04-29")
+        self.assertEqual(len(result), 4)
+        self.assertEqual(result[0], {"date": "2026-04-26", "fetched": 6, "selected": 5})
+        self.assertEqual(result[1], {"date": "2026-04-27", "fetched": 0, "selected": 0})
+        self.assertEqual(result[2], {"date": "2026-04-28", "fetched": 3, "selected": 3})
+        self.assertEqual(result[3], {"date": "2026-04-29", "fetched": 0, "selected": 0})
+
+    def test_ignores_other_sources(self):
+        with tempfile.TemporaryDirectory() as d:
+            log_path = os.path.join(d, "log.jsonl")
+            self._write_log(log_path, [
+                {"ts": "2026-04-26T08:00:00+08:00", "source": "Y", "fetched": 99, "selected": 99},
+                {"ts": "2026-04-26T08:00:00+08:00", "source": "X", "fetched": 3, "selected": 3},
+            ])
+            with patch.object(tm, "TRIAL_LOG_FILE", log_path):
+                result = tm.aggregate_stats_for_range("X", "2026-04-26", "2026-04-26")
+        self.assertEqual(result, [{"date": "2026-04-26", "fetched": 3, "selected": 3}])
+
+    def test_returns_zeros_when_log_missing(self):
+        with tempfile.TemporaryDirectory() as d:
+            with patch.object(tm, "TRIAL_LOG_FILE", os.path.join(d, "no_such.jsonl")):
+                result = tm.aggregate_stats_for_range("X", "2026-04-26", "2026-04-27")
+        self.assertEqual(result, [
+            {"date": "2026-04-26", "fetched": 0, "selected": 0},
+            {"date": "2026-04-27", "fetched": 0, "selected": 0},
+        ])
+
+
+class TestDailyStatsBackfill(unittest.TestCase):
+    """cmd_run must backfill daily_stats for every date in [start_date, today],
+    not just today. Otherwise day-1 (trial-creation-day) data is permanently
+    lost because cmd_run runs "update active trials → promote new" — on day-1
+    the trial is created at the end, so the same cmd_run never updates its
+    stats. Subsequent cmd_run calls only aggregated today, missing day-1."""
+
+    def _write_log(self, path, entries):
+        with open(path, "w") as f:
+            for e in entries:
+                f.write(json.dumps(e) + "\n")
+
+    def test_backfills_missing_day1_data(self):
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            day_minus_2 = _days_ago(2)
+            day_minus_1 = _days_ago(1)
+            today = _today_str()
+            self._write_log(h.log_path, [
+                {"ts": f"{day_minus_2}T08:00:00+08:00", "source": "A", "fetched": 3, "selected": 2},
+                {"ts": f"{day_minus_2}T16:00:00+08:00", "source": "A", "fetched": 3, "selected": 3},
+                {"ts": f"{day_minus_1}T00:00:00+08:00", "source": "A", "fetched": 3, "selected": 1},
+                # today: no entries yet
+            ])
+            h.write_registry([
+                _trialing("A", "https://a.com/f", category="europe",
+                          start_days_ago=2, daily_stats=[]),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        stats = reg["sources"][0]["trial"]["daily_stats"]
+        by_date = {s["date"]: s for s in stats}
+        self.assertEqual(set(by_date.keys()), {day_minus_2, day_minus_1, today})
+        self.assertEqual(by_date[day_minus_2], {"date": day_minus_2, "fetched": 6, "selected": 5})
+        self.assertEqual(by_date[day_minus_1], {"date": day_minus_1, "fetched": 3, "selected": 1})
+        self.assertEqual(by_date[today], {"date": today, "fetched": 0, "selected": 0})
+
+    def test_backfill_updates_existing_dates_in_place(self):
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            day_minus_1 = _days_ago(1)
+            today = _today_str()
+            self._write_log(h.log_path, [
+                {"ts": f"{day_minus_1}T08:00:00+08:00", "source": "A", "fetched": 3, "selected": 3},
+                {"ts": f"{today}T08:00:00+08:00", "source": "A", "fetched": 3, "selected": 2},
+            ])
+            stale_stats = [{"date": day_minus_1, "fetched": 0, "selected": 0}]
+            h.write_registry([
+                _trialing("A", "https://a.com/f", category="europe",
+                          start_days_ago=1, daily_stats=stale_stats),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        stats = reg["sources"][0]["trial"]["daily_stats"]
+        dates = [s["date"] for s in stats]
+        self.assertEqual(len(dates), 2, f"expected 2 entries, got {dates}")
+        self.assertEqual(len(set(dates)), 2, "no duplicates")
+        by_date = {s["date"]: s for s in stats}
+        self.assertEqual(by_date[day_minus_1]["fetched"], 3)
+        self.assertEqual(by_date[day_minus_1]["selected"], 3)
 
 
 # ── email rendering: nested-trial-field access (bug fix) ─────────────────────
