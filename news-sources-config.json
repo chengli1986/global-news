@@ -258,12 +258,18 @@
         "name": "MIT Technology Review",
         "url": "https://www.technologyreview.com/topnews.rss",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "El País English",
         "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/english.elpais.com/portada",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "ProPublica",
+        "url": "https://feeds.propublica.org/propublica/main",
         "keywords": [],
         "limit": 3,
         "trial": true
