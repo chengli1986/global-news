@@ -1070,7 +1070,7 @@
       "url": "https://feeds.propublica.org/propublica/main",
       "language": "en",
       "category": "vertical",
-      "status": "production",
+      "status": "discovered",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
