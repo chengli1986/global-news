@@ -33,7 +33,8 @@
       "languages": ["en", "cn"],
       "search_queries": [
         "Hong Kong Southeast Asia news RSS feeds reliable",
-        "香港东南亚新闻 RSS feed 推荐"
+        "香港东南亚新闻 RSS feed 推荐",
+        "English-language news RSS feeds Japan Korea India Asahi Yonhap Times of India"
       ]
     },
     {
@@ -70,6 +71,15 @@
       "search_queries": [
         "best niche vertical RSS feeds Economist long-form analysis",
         "优质垂直领域深度分析 RSS 推荐 经济学人类"
+      ]
+    },
+    {
+      "id": "global_south",
+      "name": "全球南方",
+      "languages": ["en"],
+      "search_queries": [
+        "Latin America English news RSS feeds Folha Globo Brazil Mexico Argentina",
+        "Africa Middle East English news RSS feeds Daily Maverick Al Jazeera Premium Times"
       ]
     }
   ],
