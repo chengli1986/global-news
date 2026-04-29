@@ -71,9 +71,20 @@ python3 rss-health-check.py --email
 
 ## News Sources (~43)
 
-**Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, RTHK中文
+> Authoritative list lives in `news-sources-config.json`. Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Counts below reflect the snapshot at last edit.
 
-**English**: BBC (World, Business, Technology), TechCrunch, CNBC, Bloomberg (Economics, Businessweek, Politics), SCMP, SCMP Hong Kong, CNA, FT, Hacker News (Firebase API), Ars Technica, The Verge, NYT (Business, Technology), Economist (Leaders, Finance, Business, Science), CBC Business, Globe & Mail, HKFP, Straits Times
+**Chinese (12)**: 中国科技/AI, 中国财经要闻 (Sina Finance APIs), 36氪, IT之家, RTHK中文, Solidot, 南方周末, 少数派, 纽约时报中文, 虎嗅, 钛媒体, BBC中文
+
+**English (31)**:
+
+- **Aggregators**: Hacker News (Firebase API)
+- **BBC**: World, Business, Technology
+- **NYT**: Business, Technology
+- **Bloomberg**: Bloomberg, Econ, Politics
+- **Economist**: Leaders, Finance, Business, Science
+- **Tech**: TechCrunch, Ars Technica, The Verge, MIT Technology Review
+- **Asia**: SCMP, SCMP Hong Kong, CNA, Straits Times, HKFP
+- **Other**: CNBC, FT, CBC Business, Globe & Mail, The Guardian World, The New Yorker, STAT News, Politico Europe, El País English
 
 ## English Title Translation
 
