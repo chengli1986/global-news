@@ -580,5 +580,87 @@ class TestCmdRemoveAndKeepWithMultiple(unittest.TestCase):
             self.assertEqual(statuses["B"], "trialing")
 
 
+# ── email rendering: nested-trial-field access (bug fix) ─────────────────────
+
+class TestEmailRenderingNestedFields(unittest.TestCase):
+    """generate_report_html and _render_auto_decision_html receive the source
+    object (top-level), but candidate_score / start_date / daily_stats live in
+    the nested `trial` sub-object. Earlier code did `trial.get("daily_stats")`
+    on the source object, returning [] / 0 / "?" instead of real values."""
+
+    def _source(self):
+        return {
+            "name": "Politico Europe",
+            "url": "https://www.politico.eu/feed/",
+            "category": "europe",
+            "language": "en",
+            "scores": {
+                "final": 0.91,
+                "reliability": 0.8, "freshness": 1.0, "content_quality": 1.0,
+                "content_depth": 0.6, "authority": 0.8, "uniqueness": 0.95,
+            },
+            "trial": {
+                "start_date": "2026-04-26",
+                "end_date": "2026-04-29",
+                "daily_stats": [
+                    {"date": "2026-04-27", "fetched": 3, "selected": 3},
+                    {"date": "2026-04-28", "fetched": 0, "selected": 0},
+                    {"date": "2026-04-29", "fetched": 0, "selected": 0},
+                ],
+                "candidate_score": 0.91,
+                "outcome": "auto-graduated",
+                "auto_decided": True,
+                "report_sent": False,
+            },
+        }
+
+    def test_generate_report_html_renders_nested_candidate_score(self):
+        html = tm.generate_report_html(self._source())
+        self.assertIn("0.910", html)
+        self.assertNotIn("综合评分：0.000", html)
+
+    def test_generate_report_html_renders_nested_start_date(self):
+        html = tm.generate_report_html(self._source())
+        self.assertIn("2026-04-26", html)
+        # The footer label "试用期" should not show "?" for start date
+        self.assertNotIn("? →", html)
+
+    def test_generate_report_html_aggregates_fetched_from_nested_daily_stats(self):
+        html = tm.generate_report_html(self._source())
+        # Footer row "3 天合计" must show fetched=3 (sum of 3+0+0), not 0
+        # The structure is: <td>... 3 天合计</td><td>{total_fetched}</td><td>{total_selected}</td>
+        idx = html.find("天合计")
+        self.assertNotEqual(idx, -1, "footer not found")
+        footer_tail = html[idx:idx + 600]
+        # First numeric cell after "天合计" is total_fetched
+        import re
+        cells = re.findall(r">(\d+)<", footer_tail)
+        self.assertGreaterEqual(len(cells), 2, f"need at least 2 numeric cells, got {cells}")
+        self.assertEqual(cells[0], "3", f"total_fetched should be 3, got {cells[0]} (full cells={cells})")
+
+    def test_render_auto_decision_html_renders_nested_candidate_score(self):
+        html = tm._render_auto_decision_html(self._source(), kept=True, total_selected=3,
+                                             smtp_user="x@example.com", mail_to="y@example.com")
+        self.assertIn("0.910", html)
+        self.assertNotIn("发现评分：</strong>0.000", html)
+
+    def test_render_auto_decision_html_renders_nested_start_date(self):
+        html = tm._render_auto_decision_html(self._source(), kept=True, total_selected=3,
+                                             smtp_user="x@example.com", mail_to="y@example.com")
+        self.assertIn("2026-04-26", html)
+        self.assertNotIn("? →", html)
+
+    def test_render_auto_decision_html_aggregates_fetched_from_nested_daily_stats(self):
+        html = tm._render_auto_decision_html(self._source(), kept=True, total_selected=3,
+                                             smtp_user="x@example.com", mail_to="y@example.com")
+        idx = html.find("天合计")
+        self.assertNotEqual(idx, -1, "footer not found")
+        footer_tail = html[idx:idx + 600]
+        import re
+        cells = re.findall(r">(\d+)<", footer_tail)
+        self.assertGreaterEqual(len(cells), 2)
+        self.assertEqual(cells[0], "3", f"total_fetched should be 3, got {cells[0]} (full cells={cells})")
+
+
 if __name__ == "__main__":
     unittest.main()

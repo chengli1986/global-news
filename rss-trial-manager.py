@@ -249,12 +249,14 @@ def _build_stats_rows(stats: list, normal_daily_limit: int = 3) -> str:
 
 
 def generate_report_html(trial: dict) -> str:
+    # `trial` is the source object; trial-specific fields live in trial["trial"]
+    trial_data = trial.get("trial", {})
     name = _html_escape(trial["name"])
     url = _html_escape(trial["url"])
-    score = trial.get("candidate_score", 0)
-    start = trial.get("start_date", "?")
-    end = trial.get("end_date", "?")
-    stats = trial.get("daily_stats", [])
+    score = trial_data.get("candidate_score") or trial.get("scores", {}).get("final", 0)
+    start = trial_data.get("start_date", "?")
+    end = trial_data.get("end_date", "?")
+    stats = trial_data.get("daily_stats", [])
 
     total_fetched = sum(d.get("fetched", 0) for d in stats)
     total_selected = sum(d.get("selected", 0) for d in stats)
@@ -395,29 +397,22 @@ From: RSS Trial Manager <no-reply@163.com>
 </html>"""
 
 
-def send_auto_decision_email(trial: dict, kept: bool, total_selected: int) -> bool:
-    """Send auto-decision notification email (keep or remove)."""
-    env = _load_env()
-    smtp_user = env.get("SMTP_USER_163", env.get("SMTP_USER", ""))
-    smtp_pass = env.get("SMTP_PASS_163", env.get("SMTP_PASS", ""))
-    mail_to = env.get("REPORT_EMAIL", env.get("MAIL_TO", smtp_user))
-
-    if not smtp_user or not smtp_pass:
-        print("ERROR: SMTP credentials not found in env", file=sys.stderr)
-        return False
-
+def _render_auto_decision_html(trial: dict, kept: bool, total_selected: int,
+                               smtp_user: str, mail_to: str) -> str:
+    """Render the auto-decision email body. `trial` is the source object;
+    trial-specific fields live in trial["trial"]."""
+    trial_data = trial.get("trial", {})
     name = _html_escape(trial["name"])
     url = _html_escape(trial["url"])
-    score = trial.get("candidate_score", 0)
-    start = trial.get("start_date", "?")
-    stats = trial.get("daily_stats", [])
+    score = trial_data.get("candidate_score") or trial.get("scores", {}).get("final", 0)
+    start = trial_data.get("start_date", "?")
+    stats = trial_data.get("daily_stats", [])
     total_fetched = sum(d.get("fetched", 0) for d in stats)
     overall_rate = f"{total_selected/total_fetched*100:.0f}%" if total_fetched > 0 else "—"
     now_str = datetime.now(BJT).strftime("%Y-%m-%d %H:%M BJT")
     decision_color = "#2e7d32" if kept else "#c62828"
     decision_label = "✅ 自动保留" if kept else "❌ 自动移除"
 
-    # Plain-language explanation of the decision
     if kept:
         decision_reason = (
             f"{TRIAL_DAYS} 天内共 <strong>{total_selected}</strong> 篇文章成功入选摘要邮件，"
@@ -431,7 +426,6 @@ def send_auto_decision_email(trial: dict, kept: bool, total_selected: int) -> bo
             f"说明该源内容与现有源重叠度高，或质量未达 LLM 分类标准，贡献不足。"
         )
 
-    # Score breakdown
     candidate = _load_candidate_detail(trial.get("url", ""))
     scores = candidate.get("scores", {})
     score_rows = _build_score_rows(scores) if scores else ""
@@ -464,7 +458,7 @@ def send_auto_decision_email(trial: dict, kept: bool, total_selected: int) -> bo
             "* 标注日抓取数偏高，可能是当天 cron 多次触发或 feed 集中补发，不代表常态。</p>"
         )
 
-    html = f"""MIME-Version: 1.0
+    return f"""MIME-Version: 1.0
 Content-Type: text/html; charset=utf-8
 Subject: [RSS试用] {trial['name']} — {decision_label}
 From: RSS Trial Manager <{smtp_user}>
@@ -516,6 +510,20 @@ To: {mail_to}
 
 <p style="color:#999;font-size:12px;margin-top:24px;">生成时间：{now_str} · RSS Trial Manager · global-news</p>
 </body></html>"""
+
+
+def send_auto_decision_email(trial: dict, kept: bool, total_selected: int) -> bool:
+    """Send auto-decision notification email (keep or remove)."""
+    env = _load_env()
+    smtp_user = env.get("SMTP_USER_163", env.get("SMTP_USER", ""))
+    smtp_pass = env.get("SMTP_PASS_163", env.get("SMTP_PASS", ""))
+    mail_to = env.get("REPORT_EMAIL", env.get("MAIL_TO", smtp_user))
+
+    if not smtp_user or not smtp_pass:
+        print("ERROR: SMTP credentials not found in env", file=sys.stderr)
+        return False
+
+    html = _render_auto_decision_html(trial, kept, total_selected, smtp_user, mail_to)
 
     fd, mail_file = tempfile.mkstemp(suffix=".eml")
     try:
