@@ -34,7 +34,7 @@ TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
 HEALTH_STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
-PROMOTE_THRESHOLD = 0.90
+PROMOTE_THRESHOLD = 0.85  # lowered from 0.90 (Apr 29) — let the trial system itself test edge candidates rather than relying on score alone
 TRIAL_DAYS = 3
 AUTO_KEEP_MIN_SELECTED = 3  # auto-keep if ≥3 articles selected over 3-day trial (stricter signal/time ratio than old 5/7)
 MAX_CONCURRENT_TRIALS = 2   # how many trials may run simultaneously; promote loop stops when reached
@@ -324,7 +324,7 @@ def generate_report_html(trial: dict) -> str:
         score_section = f"""
 <h3 style="color:#333;margin-top:24px;">发现评分解析（综合 {score:.3f}）</h3>
 <p style="color:#555;font-size:13px;margin-top:0;">
-  发现评分由 RSS 源发现系统在首次检测时自动计算，决定是否进入试用队列（门槛 ≥ 0.90）。
+  发现评分由 RSS 源发现系统在首次检测时自动计算，决定是否进入试用队列（门槛 ≥ 0.85）。
 </p>
 <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;border-radius:4px;border-collapse:collapse;">
   <thead>
@@ -453,7 +453,7 @@ def _render_auto_decision_html(trial: dict, kept: bool, total_selected: int,
         score_section = f"""
 <h3 style="color:#333;margin-top:24px;">发现评分解析（综合 {score:.3f}）</h3>
 <p style="color:#555;font-size:13px;margin-top:0;">
-  发现评分决定了该源是否有资格进入试用队列（门槛 ≥ 0.90）。
+  发现评分决定了该源是否有资格进入试用队列（门槛 ≥ 0.85）。
   综合评分高并不等于实际贡献大——试用期才是真实检验。
 </p>
 <table width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #ddd;border-radius:4px;border-collapse:collapse;">
@@ -496,7 +496,7 @@ To: {mail_to}
 
 <table width="100%" cellpadding="0" cellspacing="0" style="background:#f8f9fa;border-radius:6px;padding:14px 16px;margin-bottom:20px;">
   <tr><td style="padding:4px 0;"><strong>RSS URL：</strong><a href="{url}" style="color:#0066cc;">{url}</a></td></tr>
-  <tr><td style="padding:4px 0;"><strong>发现评分：</strong>{score:.3f}（发现系统综合打分，≥ 0.90 才进入试用队列）</td></tr>
+  <tr><td style="padding:4px 0;"><strong>发现评分：</strong>{score:.3f}（发现系统综合打分，≥ 0.85 才进入试用队列）</td></tr>
   <tr><td style="padding:4px 0;"><strong>类别：</strong>{_html_escape(trial.get("category","?"))} / {_html_escape(trial.get("language","?"))}</td></tr>
   <tr><td style="padding:4px 0;"><strong>试用期：</strong>{start} → {_today()}（{TRIAL_DAYS} 天）</td></tr>
 </table>

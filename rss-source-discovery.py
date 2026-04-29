@@ -37,7 +37,7 @@ FETCH_TIMEOUT = 15
 MAX_POOL_SIZE = 50  # keep only top-N pending candidates; auto-reject the rest
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB cap to prevent memory exhaustion
 SCORE_THRESHOLD = 0.60
-SCORE_EXCELLENT = 0.90  # aligned with PROMOTE_THRESHOLD (rss-trial-manager.py): Excellent badge now means "will auto-promote to trial on next discovery run"
+SCORE_EXCELLENT = 0.85  # aligned with PROMOTE_THRESHOLD (rss-trial-manager.py): Excellent badge now means "will auto-promote to trial on next discovery run"
 BJT = timezone(timedelta(hours=8))
 
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
@@ -615,7 +615,7 @@ def generate_report_html(scored_candidates: list, existing_count: int) -> str:
   <span title="唯一性：这个源能带来现有池子里没有的覆盖角度吗"><u>U</u>niqueness</span>（20%）<br>
   <strong>⚠️ RSS短 / RSS空</strong>：该源 RSS 摘要较短或为空，系编辑/付费墙策略所致，<em>不影响评分</em>。
   进入 trial 后如果 3 天 selected 篇数过少会自然淘汰。<br>
-  <strong>晋级流程</strong>：Score ≥ 0.90 → 进入 3 天 trial（实测系统每天 selected 数）→ 3 天内 ≥ 3 篇入选 → 自动加入正式源
+  <strong>晋级流程</strong>：Score ≥ 0.85 → 进入 3 天 trial（实测系统每天 selected 数）→ 3 天内 ≥ 3 篇入选 → 自动加入正式源
 </div>"""
 
     html = f"""\
