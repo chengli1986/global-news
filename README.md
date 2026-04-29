@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 42 sources (39 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API) and delivers HTML email reports three times daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from ~43 sources (~40 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports three times daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 42 sources (39 RSS feeds +
 Cron (3x daily: 00:00, 08:00, 16:00 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (42 sources)
+           ├── news-sources-config.json (~43 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (39 sources)
+           └── RSS/Atom feeds (~40 sources, includes active trials)
 
 Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
  └── rss-health-check.py
@@ -69,7 +69,7 @@ python3 rss-health-check.py
 python3 rss-health-check.py --email
 ```
 
-## News Sources (43)
+## News Sources (~43)
 
 **Chinese**: 新浪科技, 新浪财经, 界面新闻, 南方周末, 虎嗅, IT之家, 少数派, Solidot, 钛媒体, 36氪, 纽约时报中文, BBC中文, RTHK中文
 
@@ -157,7 +157,7 @@ An automated experimentation system (Phase B) that tunes news digest quality thr
 | `evaluate_digest.py` | Replays fixture snapshots, scores on 5 dimensions (coverage, relevance, freshness, diversity, dedup) |
 | `digest-tuning.json` | Tuning parameters — weights, thresholds, quota allocations |
 | `scripts/wrapper-autoresearch-news.sh` | Cron wrapper for automated experiments (daily 13:00 BJT) |
-| `scripts/rss-source-discovery.sh` | Fully automated RSS discovery pipeline — LLM candidate generation, scoring, trial promotion (daily 20:15 BJT) |
+| `scripts/rss-source-discovery.sh` | Fully automated RSS discovery pipeline — LLM candidate generation, scoring, trial promotion (daily 04:15 BJT, 25min budget) |
 | `autoresearch/program.md` | Experiment program and hypothesis tracking |
 | `autoresearch/results.tsv` | Experiment results log |
 
@@ -168,15 +168,31 @@ An automated experimentation system (Phase B) that tunes news digest quality thr
 3. **Quality scoring**: `evaluate_digest.py` measures 5 dimensions, produces composite score
 4. **Current score**: 0.8728 (from baseline 0.8207, latest as of 2026-04-12; AR in CONTROLLED PAUSE — auto-skips until 10 fixtures)
 
+## RSS Source Discovery
+
+Daily LLM-driven pipeline that surfaces new high-quality RSS candidates and queues them for trial:
+
+- **Cron**: daily 04:15 BJT via `scripts/rss-source-discovery.sh` (25min budget, lock-protected)
+- **Pipeline**: discover (Claude Code search) → dedupe → validate (HTTP/parse/freshness) → score (6 dimensions) → save into registry → trigger trial-manager
+- **Categories** (9 total, `config/rss-discovery-categories.json`):
+  - `global_finance`, `tech_ai`, `china_depth`, `hk_sea` (incl. Japan/Korea/India queries),
+  - `europe`, `north_america`, `healthcare`, `vertical`, `global_south` (Latin America + Africa + Middle East — added Apr 29)
+- **Score dimensions**: reliability, freshness, content_quality, content_depth, authority, uniqueness → weighted final
+- **Pool cap**: top 50 candidates kept; lowest-scoring auto-rejected as `pool-cap` when exceeded
+- **Excellent badge**: score ≥ 0.85 = will auto-promote on next trial-manager run
+
 ## RSS Trial Manager
 
-Automated source promotion pipeline that turns high-scoring discovery candidates into active sources:
+Automated source promotion pipeline that turns high-scoring discovery candidates into active sources, then graduates the ones that prove their value in real digest emails:
 
-- **Auto-promotion**: candidates with score ≥ 0.85 added to commodity tier automatically (1/day, max 3 active trials)
-- **Graduation evaluation**: after 7 days, runs quality A/B test — no quality drop → promoted to standard; drop → removed
-- **Script**: `rss-trial-manager.py` (state machine: `run` / `status` / `keep` / `remove`)
-- **State file**: `config/trial-state.json`
-- **Integration**: called daily by `scripts/rss-source-discovery.sh` at 04:15 BJT
+- **Auto-promotion**: candidates with score ≥ `PROMOTE_THRESHOLD` (0.85, lowered from 0.90 on Apr 29 — trial system arbitrates edge cases)
+- **Concurrency**: up to `MAX_CONCURRENT_TRIALS` = 2 active trials simultaneously (Apr 25 upgrade), max 1 promotion per day, category mutex (no two trials in the same category at once)
+- **Trial period**: `TRIAL_DAYS` = 3 days
+- **Graduation rule**: source is auto-graduated to production if `selected ≥ AUTO_KEEP_MIN_SELECTED` (3) articles entered the digest emails over the 3-day trial; otherwise auto-removed
+- **Backfill** (Apr 29): each `cmd_run` re-aggregates `[start_date, today]` from `logs/trial-source-log.jsonl` so any missed day (including the trial-creation day) is reconstructed idempotently
+- **Script**: `rss-trial-manager.py` (subcommands: `run` / `status` / `keep [name]` / `remove [name]` / `retry name`)
+- **State**: `config/rss-registry.json` (unified — replaced the old `trial-state.json` + `discovered-rss.json`)
+- **Integration**: called automatically at the end of `scripts/rss-source-discovery.sh`
 
 ## Scoring v2
 
