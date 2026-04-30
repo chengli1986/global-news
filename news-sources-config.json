@@ -249,12 +249,6 @@
         "limit": 3
       },
       {
-        "name": "Politico Europe",
-        "url": "https://www.politico.eu/feed/",
-        "keywords": [],
-        "limit": 3
-      },
-      {
         "name": "MIT Technology Review",
         "url": "https://www.technologyreview.com/topnews.rss",
         "keywords": [],

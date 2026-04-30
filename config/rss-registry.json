@@ -286,7 +286,7 @@
       "url": "https://www.politico.eu/feed/",
       "language": "en",
       "category": "europe",
-      "status": "production",
+      "status": "discovered",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -309,35 +309,37 @@
         "final": 0.91
       },
       "reject_reason": null,
-      "trial": {
-        "start_date": "2026-04-26",
-        "end_date": "2026-04-29",
-        "report_sent": false,
-        "daily_stats": [
-          {
-            "date": "2026-04-27",
-            "fetched": 3,
-            "selected": 3
-          },
-          {
-            "date": "2026-04-28",
-            "fetched": 0,
-            "selected": 0
-          },
-          {
-            "date": "2026-04-29",
-            "fetched": 0,
-            "selected": 0
-          }
-        ],
-        "outcome": "auto-graduated",
-        "auto_decided": true,
-        "candidate_score": 0.91
-      },
-      "production": {
-        "keywords": [],
-        "limit": 3
-      }
+      "trial": null,
+      "production": null,
+      "trial_history": [
+        {
+          "start_date": "2026-04-26",
+          "end_date": "2026-04-29",
+          "report_sent": false,
+          "daily_stats": [
+            {
+              "date": "2026-04-27",
+              "fetched": 3,
+              "selected": 3
+            },
+            {
+              "date": "2026-04-28",
+              "fetched": 0,
+              "selected": 0
+            },
+            {
+              "date": "2026-04-29",
+              "fetched": 0,
+              "selected": 0
+            }
+          ],
+          "outcome": "auto-graduated",
+          "auto_decided": true,
+          "candidate_score": 0.91,
+          "reset_to_discovered_on": "2026-04-30",
+          "reset_reason": "retroactive evaluation under new rules: 3 selected over 1 day fails new MIN_DAYS_WITH_CONTENT=2 gate"
+        }
+      ]
     },
     {
       "name": "NPR News",
