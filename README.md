@@ -199,7 +199,10 @@ Automated source promotion pipeline that turns high-scoring discovery candidates
 - **Auto-promotion**: candidates with score ≥ `PROMOTE_THRESHOLD` (0.85, lowered from 0.90 on Apr 29 — trial system arbitrates edge cases)
 - **Concurrency**: up to `MAX_CONCURRENT_TRIALS` = 2 active trials simultaneously (Apr 25 upgrade), max 1 promotion per day, category mutex (no two trials in the same category at once)
 - **Trial period**: `TRIAL_DAYS` = 3 days
-- **Graduation rule**: source is auto-graduated to production if `selected ≥ AUTO_KEEP_MIN_SELECTED` (3) articles entered the digest emails over the 3-day trial; otherwise auto-removed
+- **Graduation rule** (Apr 30, stricter): source must pass **both** gates to auto-graduate:
+  - **Volume**: `total selected ≥ AUTO_KEEP_MIN_SELECTED` (5, raised from 3)
+  - **Distribution**: `days_with_content ≥ MIN_DAYS_WITH_CONTENT` (2) — at least N distinct days must have produced ≥ 1 selected article
+  - Either gate failing → auto-removed. Distribution gate prevents promoting bursty sources that pass volume on a single spike day (Politico Europe pattern: 3 selected on day 1, 0 on days 2–3 under old rules)
 - **Backfill** (Apr 29): each `cmd_run` re-aggregates `[start_date, today]` from `logs/trial-source-log.jsonl` so any missed day (including the trial-creation day) is reconstructed idempotently
 - **Script**: `rss-trial-manager.py` (subcommands: `run` / `status` / `keep [name]` / `remove [name]` / `retry name`)
 - **State**: `config/rss-registry.json` (unified — replaced the old `trial-state.json` + `discovered-rss.json`)
@@ -212,7 +215,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 218 tests (pipeline + trial manager + discovery + sender + rss_registry + contract defenses)
+python3 -m pytest tests/ -q   # 224 tests (pipeline + trial manager + discovery + sender + rss_registry + contract defenses)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```

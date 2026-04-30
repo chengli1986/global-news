@@ -36,7 +36,10 @@ ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 PROMOTE_THRESHOLD = 0.85  # lowered from 0.90 (Apr 29) — let the trial system itself test edge candidates rather than relying on score alone
 TRIAL_DAYS = 3
-AUTO_KEEP_MIN_SELECTED = 3  # auto-keep if ≥3 articles selected over 3-day trial (stricter signal/time ratio than old 5/7)
+AUTO_KEEP_MIN_SELECTED = 5  # volume gate: total articles selected over 3-day trial (raised from 3 on Apr 30)
+MIN_DAYS_WITH_CONTENT = 2   # distribution gate: trial must produce on ≥ N distinct days
+                            # (Apr 30: prevents promoting bursty sources that pass volume on a single spike day —
+                            # Politico Europe trial 2026-04-26→29 had 3 selected on day 1 + 0 on days 2–3)
 MAX_CONCURRENT_TRIALS = 2   # how many trials may run simultaneously; promote loop stops when reached
 BJT = timezone(timedelta(hours=8))
 
@@ -426,22 +429,37 @@ def _render_auto_decision_html(trial: dict, kept: bool, total_selected: int,
     start = trial_data.get("start_date", "?")
     stats = trial_data.get("daily_stats", [])
     total_fetched = sum(d.get("fetched", 0) for d in stats)
+    days_with_content = sum(1 for d in stats if d.get("selected", 0) > 0)
     overall_rate = f"{total_selected/total_fetched*100:.0f}%" if total_fetched > 0 else "—"
     now_str = datetime.now(BJT).strftime("%Y-%m-%d %H:%M BJT")
     decision_color = "#2e7d32" if kept else "#c62828"
     decision_label = "✅ 自动保留" if kept else "❌ 自动移除"
+    gate_summary = (
+        f"保留门槛：≥ {AUTO_KEEP_MIN_SELECTED} 篇入选 + ≥ {MIN_DAYS_WITH_CONTENT} 天有产出"
+    )
 
     if kept:
         decision_reason = (
             f"{TRIAL_DAYS} 天内共 <strong>{total_selected}</strong> 篇文章成功入选摘要邮件，"
-            f"超过保留门槛（≥ {AUTO_KEEP_MIN_SELECTED} 篇）。"
+            f"覆盖 <strong>{days_with_content}</strong> 天有产出。"
+            f"两道门槛均满足（{gate_summary}）。"
             f"说明该源在与其他 40 个源的配额竞争中持续有贡献，内容质量达标。"
         )
     else:
+        volume_ok = total_selected >= AUTO_KEEP_MIN_SELECTED
+        distribution_ok = days_with_content >= MIN_DAYS_WITH_CONTENT
+        fail_bits = []
+        if not volume_ok:
+            fail_bits.append(f"入选数 {total_selected} 篇 < {AUTO_KEEP_MIN_SELECTED} 篇")
+        if not distribution_ok:
+            fail_bits.append(
+                f"产出天数 {days_with_content}/{len(stats)} 天 < "
+                f"{MIN_DAYS_WITH_CONTENT} 天")
         decision_reason = (
-            f"{TRIAL_DAYS} 天内仅 <strong>{total_selected}</strong> 篇文章入选摘要邮件，"
-            f"低于保留门槛（≥ {AUTO_KEEP_MIN_SELECTED} 篇）。"
-            f"说明该源内容与现有源重叠度高，或质量未达 LLM 分类标准，贡献不足。"
+            f"{TRIAL_DAYS} 天内 <strong>{total_selected}</strong> 篇文章入选，"
+            f"覆盖 <strong>{days_with_content}</strong> 天有产出。"
+            f"未达保留标准：{'；'.join(fail_bits)}（{gate_summary}）。"
+            f"说明该源贡献不足或发布节奏不稳定，无法在配额竞争中持续产出。"
         )
 
     candidate = _load_candidate_detail(trial.get("url", ""))
@@ -647,17 +665,30 @@ def cmd_run() -> None:
         elapsed_days = (datetime.now(BJT) - start).days
         if elapsed_days >= TRIAL_DAYS and not trial.get("auto_decided"):
             total_selected = sum(d.get("selected", 0) for d in stats)
-            kept = total_selected >= AUTO_KEEP_MIN_SELECTED
+            days_with_content = sum(1 for d in stats if d.get("selected", 0) > 0)
+            volume_ok = total_selected >= AUTO_KEEP_MIN_SELECTED
+            distribution_ok = days_with_content >= MIN_DAYS_WITH_CONTENT
+            kept = volume_ok and distribution_ok
             outcome = "auto-graduated" if kept else "auto-removed"
             if kept:
                 graduate_trial_in_config(name)
                 _reg.set_production_config(registry, name, keywords=[], limit=3)
                 print(f"[trial-manager] Auto-keep '{name}' "
-                      f"({total_selected} selected >= {AUTO_KEEP_MIN_SELECTED})")
+                      f"({total_selected} selected >= {AUTO_KEEP_MIN_SELECTED}, "
+                      f"{days_with_content}/{len(stats)} days with content "
+                      f">= {MIN_DAYS_WITH_CONTENT})")
             else:
                 remove_trial_from_config(name)
+                fail_reasons = []
+                if not volume_ok:
+                    fail_reasons.append(
+                        f"volume {total_selected} < {AUTO_KEEP_MIN_SELECTED}")
+                if not distribution_ok:
+                    fail_reasons.append(
+                        f"distribution {days_with_content} < "
+                        f"{MIN_DAYS_WITH_CONTENT} days")
                 print(f"[trial-manager] Auto-remove '{name}' "
-                      f"({total_selected} selected < {AUTO_KEEP_MIN_SELECTED})")
+                      f"({'; '.join(fail_reasons)})")
             _reg.end_trial(registry, name, outcome=outcome, kept=kept, today=today)
             _reg.save_registry(registry)
             send_auto_decision_email(active, kept, total_selected)

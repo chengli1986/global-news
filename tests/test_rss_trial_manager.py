@@ -779,5 +779,137 @@ class TestEmailRenderingNestedFields(unittest.TestCase):
         self.assertEqual(cells[0], "3", f"total_fetched should be 3, got {cells[0]} (full cells={cells})")
 
 
+# ── strict auto-keep gates (volume + distribution) ────────────────────────────
+
+class TestStrictAutoKeepThresholds(unittest.TestCase):
+    """Auto-keep requires BOTH gates to pass:
+      • volume: total_selected ≥ AUTO_KEEP_MIN_SELECTED (5)
+      • distribution: days_with_content ≥ MIN_DAYS_WITH_CONTENT (2)
+    Either gate failing → auto-remove. Distribution gate prevents promoting
+    sources that pass the volume gate via a single bursty day (Politico Europe
+    pattern: 3 articles all on day 1, 0 on days 2-3 under old rules)."""
+
+    def test_constants_match_strict_thresholds(self):
+        self.assertEqual(tm.AUTO_KEEP_MIN_SELECTED, 5)
+        self.assertEqual(tm.MIN_DAYS_WITH_CONTENT, 2)
+
+    def test_auto_keep_at_exact_thresholds(self):
+        """5 selected over exactly 2 days (3 + 2) → auto-graduated."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            log_entries = [
+                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Borderline",
+                 "fetched": 3, "selected": 3},
+                {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "Borderline",
+                 "fetched": 2, "selected": 2},
+            ]
+            with open(h.log_path, "w") as f:
+                for e in log_entries:
+                    f.write(json.dumps(e) + "\n")
+            h.write_registry([
+                _trialing("Borderline", "https://b.com/f", category="europe",
+                          start_days_ago=4),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["Borderline"], "production")
+
+    def test_auto_remove_below_selected_threshold(self):
+        """4 selected over 3 days (2+1+1) → auto-removed.
+        Distribution OK (3 ≥ 2) but volume fails (4 < 5)."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            log_entries = [
+                {"ts": f"{_days_ago(3)}T08:00:00+08:00", "source": "LowVolume",
+                 "fetched": 2, "selected": 2},
+                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "LowVolume",
+                 "fetched": 1, "selected": 1},
+                {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "LowVolume",
+                 "fetched": 1, "selected": 1},
+            ]
+            with open(h.log_path, "w") as f:
+                for e in log_entries:
+                    f.write(json.dumps(e) + "\n")
+            h.write_registry([
+                _trialing("LowVolume", "https://l.com/f", category="europe",
+                          start_days_ago=4),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["LowVolume"], "rejected")
+
+    def test_auto_remove_below_days_threshold_politico_pattern(self):
+        """6 selected ALL on a single day → auto-removed.
+        Volume OK (6 ≥ 5) but distribution fails (1 < 2). This is the exact
+        pattern that motivated the rule: Politico Europe trial 2026-04-26→29
+        had 3 selected on day 1, 0 on days 2–3."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            log_entries = [
+                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Spike",
+                 "fetched": 6, "selected": 6},
+            ]
+            with open(h.log_path, "w") as f:
+                for e in log_entries:
+                    f.write(json.dumps(e) + "\n")
+            h.write_registry([
+                _trialing("Spike", "https://s.com/f", category="europe",
+                          start_days_ago=4),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["Spike"], "rejected")
+
+    def test_auto_remove_when_both_gates_fail(self):
+        """3 selected on a single day → both gates fail (3 < 5 AND 1 < 2)."""
+        with tempfile.TemporaryDirectory() as d:
+            h = _CmdRunHarness(d)
+            log_entries = [
+                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Both",
+                 "fetched": 3, "selected": 3},
+            ]
+            with open(h.log_path, "w") as f:
+                for e in log_entries:
+                    f.write(json.dumps(e) + "\n")
+            h.write_registry([
+                _trialing("Both", "https://b.com/f", category="europe",
+                          start_days_ago=4),
+            ])
+            _run_cmd_run(h)
+            reg = h.read_registry()
+        statuses = {s["name"]: s["status"] for s in reg["sources"]}
+        self.assertEqual(statuses["Both"], "rejected")
+
+    def test_auto_decision_email_references_both_thresholds(self):
+        """Auto-decision email body must reference both numerical thresholds
+        (≥ 5 篇 + ≥ 2 天) so the recipient can interpret the decision."""
+        trial = {
+            "name": "Politico Pattern",
+            "url": "https://p.com/f",
+            "category": "europe",
+            "language": "en",
+            "scores": {"final": 0.91},
+            "trial": {
+                "start_date": "2026-04-26",
+                "end_date": "2026-04-29",
+                "candidate_score": 0.91,
+                "daily_stats": [
+                    {"date": "2026-04-27", "fetched": 6, "selected": 6},
+                    {"date": "2026-04-28", "fetched": 0, "selected": 0},
+                    {"date": "2026-04-29", "fetched": 0, "selected": 0},
+                ],
+            },
+        }
+        html = tm._render_auto_decision_html(
+            trial, kept=False, total_selected=6,
+            smtp_user="bot@example.com", mail_to="user@example.com",
+        )
+        self.assertIn("≥ 5", html, "volume threshold (5 篇) must appear")
+        self.assertIn("≥ 2", html, "distribution threshold (2 天) must appear")
+
+
 if __name__ == "__main__":
     unittest.main()
