@@ -255,15 +255,15 @@
         "limit": 3
       },
       {
-        "name": "El País English",
-        "url": "https://feeds.elpais.com/mrss-s/pages/ep/site/english.elpais.com/portada",
+        "name": "ProPublica",
+        "url": "https://feeds.propublica.org/propublica/main",
         "keywords": [],
         "limit": 3,
         "trial": true
       },
       {
-        "name": "ProPublica",
-        "url": "https://feeds.propublica.org/propublica/main",
+        "name": "Politico Europe",
+        "url": "https://www.politico.eu/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
