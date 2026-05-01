@@ -1448,7 +1448,15 @@ class UnifiedNewsSender:
         return in_region + in_ungrouped
 
     def _log_trial_source_stats(self) -> None:
-        """If a trial source is active, log today's fetched/selected counts to JSONL."""
+        """Log today's fetched/selected counts to JSONL for EVERY active trial.
+
+        With MAX_CONCURRENT_TRIALS=2 (since 2026-04-25 `2d9507d`), there can
+        be up to N concurrent trialing sources. The earlier `next()` call only
+        logged the first one returned by registry-array order, silently
+        skipping the rest — directly causing day-3 auto-remove FAIL on
+        sources that were never logged in the first place (verified case:
+        El País English 2026-04-29 → 2026-05-01, all daily_stats 0/0).
+        """
         script_dir = os.path.dirname(os.path.realpath(__file__))
         # Trial state lives in rss-registry.json since cc680c4 (RSS Registry Migration,
         # 2026-04-21). The legacy trial-state.json was removed.
@@ -1461,31 +1469,33 @@ class UnifiedNewsSender:
         except Exception:
             return
 
-        active = next(
-            (s for s in registry.get("sources", []) if s.get("status") == "trialing"),
-            None,
-        )
-        if not active:
+        actives = [
+            s for s in registry.get("sources", [])
+            if s.get("status") == "trialing"
+        ]
+        if not actives:
             return
 
-        source_name = active["name"]
-        fetched = len(self.news_data.get(source_name, []))
-        selected = self._count_trial_selected(source_name)
-
-        log_entry = {
-            "ts": datetime.now(BJT).isoformat(),
-            "source": source_name,
-            "fetched": fetched,
-            "selected": selected,
-        }
         log_dir = os.path.join(script_dir, "logs")
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, "trial-source-log.jsonl")
-        try:
-            with open(log_file, "a", encoding="utf-8") as f:
-                f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
-        except Exception as e:
-            logging.warning("Failed to write trial source log: %s", e)
+        ts = datetime.now(BJT).isoformat()
+
+        for active in actives:
+            source_name = active["name"]
+            fetched = len(self.news_data.get(source_name, []))
+            selected = self._count_trial_selected(source_name)
+            log_entry = {
+                "ts": ts,
+                "source": source_name,
+                "fetched": fetched,
+                "selected": selected,
+            }
+            try:
+                with open(log_file, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
+            except Exception as e:
+                logging.warning("Failed to write trial source log for %s: %s", source_name, e)
 
     def _apply_pipeline(self, all_region_articles):
         """Apply dedup + rank + quota pipeline if digest-tuning.json exists."""

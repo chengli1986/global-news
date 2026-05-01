@@ -514,3 +514,88 @@ class TestLLMApiFallback:
                 s = UnifiedNewsSender.__new__(UnifiedNewsSender)
                 s._gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
                 assert s._gemini_key == "gk-test"
+
+
+class TestLogTrialSourceStats:
+    """Regression: _log_trial_source_stats must record EVERY trialing source.
+
+    Bug 2026-05-02: prior `next()` call only logged the first trialing source
+    in registry-array order. With MAX_CONCURRENT_TRIALS=2, the second trial
+    silently lost all per-send stats → daily_stats stayed 0/0 → auto-remove
+    on day 3 (false-fail). Verified case: El País English 2026-04-29 trial,
+    later than ProPublica in array order, never had any JSONL entries.
+    """
+
+    def _make_sender_with_registry(self, tmp_path, monkeypatch, trialing_names):
+        """Build a sender whose script_dir resolves to tmp_path."""
+        import unified_global_news_sender as ug
+        # Redirect script_dir = dirname(realpath(__file__)) → tmp_path
+        monkeypatch.setattr(ug.os.path, "realpath",
+                            lambda p: str(tmp_path / "unified-global-news-sender.py"))
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        registry = {
+            "sources": [
+                {"name": name, "status": "trialing", "trial": {}}
+                for name in trialing_names
+            ]
+        }
+        (config_dir / "rss-registry.json").write_text(
+            json.dumps(registry, ensure_ascii=False), encoding="utf-8"
+        )
+
+        os.environ.setdefault("OPENAI_API_KEY", "test-key-not-real")
+        cfg = tmp_path / "minimal-config.json"
+        cfg.write_text(json.dumps({
+            "news_sources": {"rss_feeds": [], "sina_api": [], "hn_api": []}
+        }), encoding="utf-8")
+        s = ug.UnifiedNewsSender(config_file=str(cfg))
+        # Pre-populate news_data so fetched count is deterministic
+        s.news_data = {name: [("title", "url", "src", None)] * (i + 1)
+                        for i, name in enumerate(trialing_names)}
+        # Stub _count_trial_selected to a deterministic per-source value
+        s._count_trial_selected = lambda src: len(s.news_data.get(src, []))
+        return s, tmp_path / "logs" / "trial-source-log.jsonl"
+
+    def test_logs_one_trial(self, tmp_path, monkeypatch):
+        s, log_path = self._make_sender_with_registry(
+            tmp_path, monkeypatch, ["SoleTrial"]
+        )
+        s._log_trial_source_stats()
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 1
+        entry = json.loads(lines[0])
+        assert entry["source"] == "SoleTrial"
+        assert entry["fetched"] == 1
+        assert entry["selected"] == 1
+
+    def test_logs_two_concurrent_trials(self, tmp_path, monkeypatch):
+        """REGRESSION: both trials must produce a JSONL line each."""
+        s, log_path = self._make_sender_with_registry(
+            tmp_path, monkeypatch, ["TrialA", "TrialB"]
+        )
+        s._log_trial_source_stats()
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 2, (
+            f"Expected 2 entries (one per trial), got {len(lines)}. "
+            f"This is the May 2 next() bug — prior code logged only the first "
+            f"trialing source in array order."
+        )
+        sources_logged = sorted(json.loads(line)["source"] for line in lines)
+        assert sources_logged == ["TrialA", "TrialB"]
+
+    def test_no_trials_writes_nothing(self, tmp_path, monkeypatch):
+        s, log_path = self._make_sender_with_registry(
+            tmp_path, monkeypatch, []
+        )
+        s._log_trial_source_stats()
+        assert not log_path.exists() or log_path.read_text() == ""
+
+    def test_three_concurrent_trials_all_logged(self, tmp_path, monkeypatch):
+        """Generalises the fix: any N concurrent trials all get logged."""
+        s, log_path = self._make_sender_with_registry(
+            tmp_path, monkeypatch, ["A", "B", "C"]
+        )
+        s._log_trial_source_stats()
+        lines = log_path.read_text(encoding="utf-8").splitlines()
+        assert len(lines) == 3
