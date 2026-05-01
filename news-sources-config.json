@@ -63,7 +63,7 @@
       },
       {
         "name": "纽约时报中文",
-        "url": "https://feedx.net/rss/nytimes.xml",
+        "url": "https://cn.nytimes.com/rss.html",
         "keywords": [],
         "limit": 6,
         "max_age_hours": 168
