@@ -258,12 +258,18 @@
         "name": "ProPublica",
         "url": "https://feeds.propublica.org/propublica/main",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Politico Europe",
         "url": "https://www.politico.eu/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Nikkei Asia via rsshub",
+        "url": "https://rsshub.rssforever.com/nikkei/asia",
         "keywords": [],
         "limit": 3,
         "trial": true

@@ -313,7 +313,18 @@
         "start_date": "2026-05-02",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-05-02",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-05-03",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.91
@@ -1093,7 +1104,7 @@
       "url": "https://feeds.propublica.org/propublica/main",
       "language": "en",
       "category": "vertical",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1118,7 +1129,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-04-30",
-        "end_date": null,
+        "end_date": "2026-05-03",
         "report_sent": false,
         "daily_stats": [
           {
@@ -1133,15 +1144,23 @@
           },
           {
             "date": "2026-05-02",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-05-03",
             "fetched": 3,
             "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.926
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "The Guardian World",
@@ -2684,7 +2703,7 @@
       "url": "https://rsshub.rssforever.com/nikkei/asia",
       "language": "en",
       "category": "hk_sea",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2707,7 +2726,15 @@
         "final": 0.899
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-05-03",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.899
+      },
       "production": null
     },
     {
