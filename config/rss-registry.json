@@ -4982,7 +4982,8 @@
         "uniqueness": 0.55,
         "final": 0.658
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Daily Maverick",
@@ -5037,6 +5038,62 @@
         "authority": 0.68,
         "uniqueness": 0.62,
         "final": 0.798
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "Times of India",
+      "url": "https://timesofindia.indiatimes.com/rssfeedstopstories.cms",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 44,
+        "newest_age_hours": 0.14,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 354,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 1.0,
+        "authority": 0.68,
+        "uniqueness": 0.85,
+        "final": 0.827
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "Premium Times Nigeria",
+      "url": "https://www.premiumtimesng.com/feed/",
+      "language": "en",
+      "category": "global_south",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 15,
+        "newest_age_hours": 0.74,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 309,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.9,
+        "final": 0.855
       },
       "status": "discovered"
     }
