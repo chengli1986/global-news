@@ -5123,6 +5123,34 @@
         "final": 0.855
       },
       "status": "discovered"
+    },
+    {
+      "name": "澎湃新闻",
+      "url": "https://rsshub.rssforever.com/thepaper/featured",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 21,
+        "newest_age_hours": 0.4,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 539,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.75,
+        "uniqueness": 0.82,
+        "final": 0.889
+      },
+      "status": "discovered"
     }
   ]
 }
