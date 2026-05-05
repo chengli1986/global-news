@@ -270,12 +270,18 @@
         "name": "Nikkei Asia via rsshub",
         "url": "https://rsshub.rssforever.com/nikkei/asia",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "France24 English",
         "url": "https://www.france24.com/en/rss",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Endpoints News",
+        "url": "https://endpts.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
