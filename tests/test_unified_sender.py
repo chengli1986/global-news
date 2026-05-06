@@ -507,6 +507,53 @@ class TestLLMApiFallback:
         result = s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
         assert "generativelanguage.googleapis.com" in mock_retry.call_args[1]["url"]
 
+    @patch("unified_global_news_sender.urllib.request.urlopen")
+    @patch("time.sleep", lambda *_: None)
+    def test_read_timeout_is_retried(self, mock_urlopen):
+        """Socket read timeout (TimeoutError) is retried, not fast-failed to next provider."""
+        ok_resp = MagicMock()
+        ok_resp.read.return_value = json.dumps(
+            {"choices": [{"message": {"content": "after-retry"}}]}
+        ).encode("utf-8")
+        ok_resp.__enter__ = lambda self_: ok_resp
+        ok_resp.__exit__ = lambda self_, *a: None
+        mock_urlopen.side_effect = [TimeoutError("read timeout"), ok_resp]
+
+        s = self._make_sender(openai_key="sk-test")
+        result = s._api_call_with_retry(
+            url="https://api.openai.com/v1/chat/completions",
+            api_key="sk-test", payload={"model": "gpt-4.1-mini", "messages": []},
+            timeout=120, max_retries=3, provider="OpenAI",
+        )
+        assert result["choices"][0]["message"]["content"] == "after-retry"
+        assert mock_urlopen.call_count == 2
+
+    @patch("unified_global_news_sender.urllib.request.urlopen")
+    @patch("time.sleep", lambda *_: None)
+    def test_read_timeout_exhausted_raises(self, mock_urlopen):
+        """When all retries exhaust on timeout, the error propagates so outer fallback fires."""
+        mock_urlopen.side_effect = TimeoutError("read timeout")
+        s = self._make_sender(openai_key="sk-test")
+        with pytest.raises(TimeoutError):
+            s._api_call_with_retry(
+                url="https://api.openai.com/v1/chat/completions",
+                api_key="sk-test", payload={"model": "gpt-4.1-mini", "messages": []},
+                timeout=120, max_retries=3, provider="OpenAI",
+            )
+        assert mock_urlopen.call_count == 3
+
+    @patch.object(UnifiedNewsSender, "_api_call_with_retry")
+    def test_gemini_uses_fast_fail_retries(self, mock_retry):
+        """Gemini calls pass max_retries=2 (1 retry then move on) — fast-fail on 5xx."""
+        mock_retry.side_effect = [
+            Exception("OpenAI down"),
+            {"choices": [{"message": {"content": "ok"}}]},
+        ]
+        s = self._make_sender(openai_key="sk-test", gemini_key="gem-test")
+        s._llm_api_call({"model": "gpt-4.1-mini", "messages": []})
+        gemini_call_kwargs = mock_retry.call_args_list[1][1]
+        assert gemini_call_kwargs["max_retries"] == 2
+
     def test_gemini_key_from_env(self):
         """GEMINI_API_KEY and GOOGLE_API_KEY both picked up."""
         with patch.dict(os.environ, {"GEMINI_API_KEY": "", "GOOGLE_API_KEY": "gk-test"}, clear=False):

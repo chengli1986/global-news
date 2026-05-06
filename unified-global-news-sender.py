@@ -425,7 +425,7 @@ class UnifiedNewsSender:
 
     def _api_call_with_retry(self, url: str, api_key: str, payload: dict,
                              timeout: int, max_retries: int, provider: str) -> dict:
-        """Low-level API call with retry on 429/5xx. Returns parsed JSON."""
+        """Low-level API call with retry on 429/5xx and socket read timeouts. Returns parsed JSON."""
         data = json.dumps(payload).encode("utf-8")
         for attempt in range(max_retries):
             req = urllib.request.Request(
@@ -446,6 +446,16 @@ class UnifiedNewsSender:
                 if e.code in retryable and attempt < max_retries - 1:
                     wait = 2 if e.code == 429 else (2 ** attempt) * 5
                     print(f"  ⏳ {provider} returned {e.code}, retrying in {wait}s (attempt {attempt + 1}/{max_retries})...")
+                    time.sleep(wait)
+                    continue
+                raise
+            except (urllib.error.URLError, TimeoutError) as e:
+                # Socket read/connect timeout — single-request hang, often resolves on retry.
+                # Without this branch, one slow OpenAI request triggers Gemini fallback unnecessarily.
+                if attempt < max_retries - 1:
+                    wait = 3
+                    reason = getattr(e, "reason", e)
+                    print(f"  ⏳ {provider} read timeout ({reason}), retrying in {wait}s (attempt {attempt + 1}/{max_retries})...")
                     time.sleep(wait)
                     continue
                 raise
@@ -484,6 +494,8 @@ class UnifiedNewsSender:
         # Fallback: Gemini via OpenAI-compatible endpoint
         # Strip response_format — Gemini's compat endpoint returns 503 with it on larger payloads.
         # Try gemini-2.5-flash first, then gemini-2.5-flash-lite if capacity-limited.
+        # Gemini 2.5 Flash 503 is a known regional capacity issue — fast-fail (max_retries=2,
+        # i.e. 1 retry then move on) so we reach flash-lite in ~5s instead of burning ~15s.
         if self._gemini_key:
             base_payload = {k: v for k, v in payload.items() if k != "response_format"}
             gemini_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
@@ -492,7 +504,7 @@ class UnifiedNewsSender:
                     result = self._api_call_with_retry(
                         url=gemini_url, api_key=self._gemini_key,
                         payload=dict(base_payload, model=gemini_model),
-                        timeout=timeout, max_retries=max_retries, provider=f"Gemini({gemini_model})",
+                        timeout=timeout, max_retries=2, provider=f"Gemini({gemini_model})",
                     )
                     self._last_provider = gemini_model
                     return result

@@ -102,7 +102,12 @@ Both translation and classification use a multi-provider fallback chain to ensur
 GPT-4.1-mini → Gemini 2.5 Flash → Gemini 2.5 Flash-Lite → keyword fallback
 ```
 
-When a provider returns HTTP 429 (rate limit), it fast-fails in 2 seconds and moves to the next provider. The email includes an LLM Status banner when fallback is active (orange for FALLBACK, red for FAILED), hidden when all calls succeed via the primary provider.
+Retry behavior:
+- HTTP 429 (rate limit): 1 retry after 2 seconds, then move to next provider.
+- HTTP 5xx (transient server error): retried with exponential backoff (5s, 10s) on OpenAI; Gemini calls fast-fail with `max_retries=2` (one retry then move on) since flash 503 is a known regional capacity issue and waiting longer rarely recovers.
+- Socket read timeout: retried 3s later (up to `max_retries`); avoids triggering Gemini fallback for a single slow OpenAI request.
+
+The email includes an LLM Status banner when fallback is active (orange for FALLBACK, red for FAILED), hidden when all calls succeed via the primary provider.
 
 ## Cross-Send Deduplication
 
