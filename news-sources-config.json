@@ -282,12 +282,18 @@
         "name": "Endpoints News",
         "url": "https://endpts.com/feed/",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Dawn Pakistan",
         "url": "https://www.dawn.com/feeds/home",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "KFF Health News",
+        "url": "https://kffhealthnews.org/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
