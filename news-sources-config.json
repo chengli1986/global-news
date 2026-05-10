@@ -288,12 +288,18 @@
         "name": "Dawn Pakistan",
         "url": "https://www.dawn.com/feeds/home",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "KFF Health News",
         "url": "https://kffhealthnews.org/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Daily Maverick",
+        "url": "https://www.dailymaverick.co.za/dmrss/",
         "keywords": [],
         "limit": 3,
         "trial": true
