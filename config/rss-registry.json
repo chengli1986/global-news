@@ -5484,6 +5484,34 @@
         "final": 0.833
       },
       "status": "discovered"
+    },
+    {
+      "name": "The Hindu",
+      "url": "https://www.thehindu.com/news/feeder/default.rss",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 60,
+        "newest_age_hours": 0.26,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 156,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.8,
+        "uniqueness": 0.92,
+        "final": 0.847
+      },
+      "status": "discovered"
     }
   ]
 }
