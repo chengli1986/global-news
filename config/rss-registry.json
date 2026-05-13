@@ -5471,7 +5471,8 @@
         "uniqueness": 0.85,
         "final": 0.611
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Times of India",
@@ -5526,6 +5527,34 @@
         "authority": 0.8,
         "uniqueness": 0.92,
         "final": 0.847
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "RFI中文",
+      "url": "https://www.rfi.fr/cn/rss",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 0.22,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 111,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.78,
+        "uniqueness": 0.8,
+        "final": 0.894
       },
       "status": "discovered"
     }
