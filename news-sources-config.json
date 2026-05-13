@@ -300,12 +300,18 @@
         "name": "Daily Maverick",
         "url": "https://www.dailymaverick.co.za/dmrss/",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Wired",
         "url": "https://www.wired.com/feed/rss",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "The Guardian Science",
+        "url": "https://www.theguardian.com/science/rss",
         "keywords": [],
         "limit": 3,
         "trial": true

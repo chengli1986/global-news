@@ -72,6 +72,11 @@
           },
           {
             "date": "2026-05-13",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-05-14",
             "fetched": 3,
             "selected": 3
           }
@@ -2242,7 +2247,7 @@
       "url": "https://www.theguardian.com/science/rss",
       "language": "en",
       "category": "healthcare",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2265,7 +2270,15 @@
         "final": 0.894
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-05-14",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.894
+      },
       "production": null
     },
     {
@@ -5222,7 +5235,11 @@
         "uniqueness": 0.88,
         "final": 0.892
       },
-      "status": "discovered"
+      "status": "discovered",
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "Endpoints News",
@@ -5390,10 +5407,10 @@
         "uniqueness": 0.9,
         "final": 0.896
       },
-      "status": "trialing",
+      "status": "production",
       "trial": {
         "start_date": "2026-05-11",
-        "end_date": null,
+        "end_date": "2026-05-14",
         "report_sent": false,
         "daily_stats": [
           {
@@ -5408,12 +5425,17 @@
           },
           {
             "date": "2026-05-13",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-05-14",
             "fetched": 3,
             "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.896
       }
     },
