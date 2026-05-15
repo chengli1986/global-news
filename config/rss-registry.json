@@ -2290,6 +2290,11 @@
           },
           {
             "date": "2026-05-15",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-05-16",
             "fetched": 0,
             "selected": 0
           }
@@ -5602,7 +5607,18 @@
         "start_date": "2026-05-15",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-05-15",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-05-16",
+            "fetched": 0,
+            "selected": 0
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.894
