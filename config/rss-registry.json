@@ -5607,6 +5607,34 @@
         "auto_decided": false,
         "candidate_score": 0.894
       }
+    },
+    {
+      "name": "财新网",
+      "url": "https://rsshub.rssforever.com/caixin/article",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 17,
+        "newest_age_hours": 5.48,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 394,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 1.0,
+        "authority": 0.86,
+        "uniqueness": 0.78,
+        "final": 0.847
+      },
+      "status": "discovered"
     }
   ]
 }
