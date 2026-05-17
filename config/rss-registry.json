@@ -836,7 +836,18 @@
         "start_date": "2026-05-17",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-05-17",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-05-18",
+            "fetched": 2,
+            "selected": 2
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.892
@@ -5276,10 +5287,19 @@
         "uniqueness": 0.88,
         "final": 0.892
       },
-      "status": "discovered",
+      "status": "trialing",
       "production": {
         "keywords": [],
         "limit": 3
+      },
+      "trial": {
+        "start_date": "2026-05-18",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.892
       }
     },
     {
@@ -5619,10 +5639,10 @@
         "uniqueness": 0.8,
         "final": 0.894
       },
-      "status": "trialing",
+      "status": "production",
       "trial": {
         "start_date": "2026-05-15",
-        "end_date": null,
+        "end_date": "2026-05-18",
         "report_sent": false,
         "daily_stats": [
           {
@@ -5637,13 +5657,22 @@
           },
           {
             "date": "2026-05-17",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-05-18",
             "fetched": 3,
             "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.894
+      },
+      "production": {
+        "keywords": [],
+        "limit": 3
       }
     },
     {

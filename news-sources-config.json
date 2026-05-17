@@ -318,12 +318,18 @@
         "name": "RFI中文",
         "url": "https://www.rfi.fr/cn/rss",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "IEEE Spectrum",
         "url": "https://spectrum.ieee.org/feeds/feed.rss",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Daily Maverick",
+        "url": "https://www.dailymaverick.co.za/rss/",
         "keywords": [],
         "limit": 3,
         "trial": true
