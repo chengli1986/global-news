@@ -5287,7 +5287,7 @@
         "uniqueness": 0.88,
         "final": 0.892
       },
-      "status": "trialing",
+      "status": "rejected",
       "production": {
         "keywords": [],
         "limit": 3
@@ -5300,7 +5300,9 @@
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.892
-      }
+      },
+      "rejected_reason": "duplicate-name-already-in-production",
+      "rejected_at": "2026-05-18T19:00:00+08:00"
     },
     {
       "name": "Endpoints News",

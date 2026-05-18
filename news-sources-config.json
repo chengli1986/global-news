@@ -326,13 +326,6 @@
         "keywords": [],
         "limit": 3,
         "trial": true
-      },
-      {
-        "name": "Daily Maverick",
-        "url": "https://www.dailymaverick.co.za/rss/",
-        "keywords": [],
-        "limit": 3,
-        "trial": true
       }
     ],
     "hn_api": [
