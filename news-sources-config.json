@@ -326,6 +326,13 @@
         "keywords": [],
         "limit": 3,
         "trial": true
+      },
+      {
+        "name": "Foreign Policy",
+        "url": "https://foreignpolicy.com/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [

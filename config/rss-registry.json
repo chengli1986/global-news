@@ -844,6 +844,11 @@
           },
           {
             "date": "2026-05-18",
+            "fetched": 4,
+            "selected": 4
+          },
+          {
+            "date": "2026-05-19",
             "fetched": 2,
             "selected": 2
           }
@@ -1137,7 +1142,7 @@
       "url": "https://foreignpolicy.com/feed/",
       "language": "en",
       "category": "vertical",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1160,7 +1165,15 @@
         "final": 0.889
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-05-19",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.889
+      },
       "production": null
     },
     {
