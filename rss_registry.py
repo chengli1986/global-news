@@ -11,6 +11,8 @@ import tempfile
 
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 REGISTRY_FILE = os.path.join(SCRIPT_DIR, "config", "rss-registry.json")
+TUNING_FILE = os.path.join(SCRIPT_DIR, "digest-tuning.json")
+DEFAULT_GRADUATE_TIER = "standard"
 
 
 def _atomic_write(path: str, data: dict) -> None:
@@ -180,3 +182,30 @@ def reject_source(registry: dict, name: str, reason: str) -> None:
             s["status"] = "rejected"
             s["reject_reason"] = reason
             return
+
+
+def assign_default_tier(name: str,
+                        default_tier: str = DEFAULT_GRADUATE_TIER,
+                        tuning_path: str | None = None) -> bool:
+    """Ensure a freshly-graduated source has an explicit tier in digest-tuning.json.
+
+    Sources missing from source_tiers silently get tier_boost=1.0 in the digest
+    ranker, which masks editorial intent and accumulates over time as auto-promote
+    runs. This function inserts the name into the default tier list iff it isn't
+    already present in any tier. Idempotent — safe to call repeatedly.
+
+    Returns True if the source was added; False if it was already tiered or the
+    tuning file is missing.
+    """
+    path = tuning_path or TUNING_FILE
+    if not os.path.isfile(path):
+        return False
+    with open(path, encoding="utf-8") as f:
+        tuning = json.load(f)
+    tiers = tuning.setdefault("source_tiers", {})
+    for members in tiers.values():
+        if name in members:
+            return False
+    tiers.setdefault(default_tier, []).append(name)
+    _atomic_write(path, tuning)
+    return True

@@ -37,12 +37,14 @@ def promote_candidate(
     limit: int = 3,
     registry_file: str = "",
     sources_file: str = DEFAULT_SOURCES,
+    tuning_file: str = "",
 ) -> bool:
     """Promote *name* from candidates to production sources.
 
     Returns True on success, False if the candidate cannot be promoted.
     """
     reg_path = registry_file or _reg.REGISTRY_FILE
+    tuning_path = tuning_file or _reg.TUNING_FILE
     registry = _reg.load_registry(reg_path)
 
     # Find the candidate
@@ -79,6 +81,7 @@ def promote_candidate(
     source["status"] = "production"
     _reg.set_production_config(registry, name, keywords=[], limit=limit)
     _reg.save_registry(registry, reg_path)
+    _reg.assign_default_tier(name, tuning_path=tuning_path)
 
     print(f"Promoted '{name}' → {source['url']} (limit={limit})")
     return True

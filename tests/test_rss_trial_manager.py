@@ -143,14 +143,22 @@ class TestConfigManagement(unittest.TestCase):
             cfg = self._write_config(d, feeds=[
                 {"name": "ProPublica", "url": "https://pp.org/rss", "keywords": [], "limit": 3, "trial": True},
             ])
-            with patch.object(tm, "SOURCES_FILE", cfg):
+            tuning = os.path.join(d, "digest-tuning.json")
+            with open(tuning, "w") as f:
+                json.dump({"source_tiers": {"standard": []}}, f)
+            with patch.object(tm, "SOURCES_FILE", cfg), \
+                 patch.object(_reg, "TUNING_FILE", tuning):
                 graduated = tm.graduate_trial_in_config("ProPublica")
             with open(cfg) as f:
                 config = json.load(f)
+            with open(tuning) as f:
+                tuning_data = json.load(f)
         self.assertTrue(graduated)
         feed = config["news_sources"]["rss_feeds"][0]
         self.assertNotIn("trial", feed)
         self.assertEqual(feed["name"], "ProPublica")
+        # Verify auto-tier side-effect: graduated source got added to default tier
+        self.assertIn("ProPublica", tuning_data["source_tiers"]["standard"])
 
 
 # ── aggregate_today_stats ─────────────────────────────────────────────────────
@@ -368,8 +376,12 @@ class _CmdRunHarness:
 
     def patch_all(self):
         """Returns a list of patch context managers — apply via ExitStack."""
+        self.tuning_path = os.path.join(self.tmp, "digest-tuning.json")
+        with open(self.tuning_path, "w") as f:
+            json.dump({"source_tiers": {"premium": [], "standard": [], "commodity": [], "suppressed": []}}, f)
         return [
             patch.object(_reg, "REGISTRY_FILE", self.reg_path),
+            patch.object(_reg, "TUNING_FILE", self.tuning_path),
             patch.object(tm, "SOURCES_FILE", self.cfg_path),
             patch.object(tm, "HEALTH_STATE_FILE", self.health_path),
             patch.object(tm, "TRIAL_LOG_FILE", self.log_path),

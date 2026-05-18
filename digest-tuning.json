@@ -1,13 +1,72 @@
 {
-  "dedup_similarity_threshold": 0.70,
+  "dedup_similarity_threshold": 0.7,
   "max_total_articles": 150,
   "target_article_count": 150,
   "freshness_weight": 1.0,
   "source_tiers": {
-    "premium": ["FT", "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science", "Bloomberg", "Bloomberg Econ", "Bloomberg Politics", "界面新闻", "36氪"],
-    "standard": ["BBC World", "BBC Business", "BBC Technology", "CNBC", "TechCrunch", "SCMP", "Hacker News", "纽约时报中文", "BBC中文", "中国科技/AI", "中国财经要闻", "虎嗅", "钛媒体", "南方周末", "日经中文"],
-    "commodity": ["IT之家", "少数派", "Solidot", "NYT Business", "NYT Technology", "CNA", "Ars Technica", "The Verge", "CBC Business", "Globe & Mail"],
-    "suppressed": ["RTHK中文", "Straits Times", "HKFP", "SCMP Hong Kong"]
+    "premium": [
+      "FT",
+      "Economist Leaders",
+      "Economist Finance",
+      "Economist Business",
+      "Economist Science",
+      "Bloomberg",
+      "Bloomberg Econ",
+      "Bloomberg Politics",
+      "界面新闻",
+      "36氪"
+    ],
+    "standard": [
+      "BBC World",
+      "BBC Business",
+      "BBC Technology",
+      "CNBC",
+      "TechCrunch",
+      "SCMP",
+      "Hacker News",
+      "纽约时报中文",
+      "BBC中文",
+      "中国科技/AI",
+      "中国财经要闻",
+      "虎嗅",
+      "钛媒体",
+      "南方周末",
+      "日经中文",
+      "The Guardian World",
+      "The New Yorker",
+      "ProPublica",
+      "MIT Technology Review",
+      "STAT News",
+      "Wired",
+      "IEEE Spectrum",
+      "KFF Health News",
+      "Endpoints News",
+      "France24 English",
+      "RFI中文",
+      "Politico Europe",
+      "Nikkei Asia via rsshub"
+    ],
+    "commodity": [
+      "IT之家",
+      "少数派",
+      "Solidot",
+      "NYT Business",
+      "NYT Technology",
+      "CNA",
+      "Ars Technica",
+      "The Verge",
+      "CBC Business",
+      "Globe & Mail",
+      "Dawn Pakistan",
+      "Daily Maverick",
+      "The Guardian Science"
+    ],
+    "suppressed": [
+      "RTHK中文",
+      "Straits Times",
+      "HKFP",
+      "SCMP Hong Kong"
+    ]
   },
   "tier_boost": {
     "premium": 1.5,
@@ -16,15 +75,45 @@
     "suppressed": 0.1
   },
   "region_quotas": {
-    "AI/前沿 AI FRONTIER":             {"min": 12, "max": 20},
-    "市场/宏观 MACRO & MARKETS":        {"min": 12, "max": 20},
-    "全球政治 GLOBAL POLITICS":         {"min": 14, "max": 22},
-    "中国要闻 CHINA":                   {"min": 14, "max": 22},
-    "公司/产业 CORPORATE & INDUSTRY":   {"min": 10, "max": 16},
-    "消费科技 CONSUMER TECH":           {"min":  6, "max": 10},
-    "亚太要闻 ASIA-PACIFIC":            {"min":  8, "max": 14},
-    "加拿大 CANADA":                   {"min":  6, "max": 12},
-    "经济学人 THE ECONOMIST":          {"min":  4, "max": 10},
-    "社会观察 SOCIETY":                 {"min":  3, "max":  8}
+    "AI/前沿 AI FRONTIER": {
+      "min": 12,
+      "max": 20
+    },
+    "市场/宏观 MACRO & MARKETS": {
+      "min": 12,
+      "max": 20
+    },
+    "全球政治 GLOBAL POLITICS": {
+      "min": 14,
+      "max": 22
+    },
+    "中国要闻 CHINA": {
+      "min": 14,
+      "max": 22
+    },
+    "公司/产业 CORPORATE & INDUSTRY": {
+      "min": 10,
+      "max": 16
+    },
+    "消费科技 CONSUMER TECH": {
+      "min": 6,
+      "max": 10
+    },
+    "亚太要闻 ASIA-PACIFIC": {
+      "min": 8,
+      "max": 14
+    },
+    "加拿大 CANADA": {
+      "min": 6,
+      "max": 12
+    },
+    "经济学人 THE ECONOMIST": {
+      "min": 4,
+      "max": 10
+    },
+    "社会观察 SOCIETY": {
+      "min": 3,
+      "max": 8
+    }
   }
 }

@@ -140,7 +140,12 @@ def remove_trial_from_config(source_name: str) -> bool:
 
 
 def graduate_trial_in_config(source_name: str) -> bool:
-    """Remove trial=True flag from source (graduates to permanent)."""
+    """Remove trial=True flag from source (graduates to permanent).
+
+    Also ensures the graduated source has an explicit tier in digest-tuning.json
+    (defaults to 'standard'). Without this, auto-promoted sources silently use
+    tier_boost=1.0 and drift outside the editorial tier framework over time.
+    """
     with open(SOURCES_FILE, encoding="utf-8") as f:
         config = json.load(f)
 
@@ -152,6 +157,7 @@ def graduate_trial_in_config(source_name: str) -> bool:
             break
     if found:
         _atomic_write(SOURCES_FILE, config)
+        _reg.assign_default_tier(source_name)
     return found
 
 

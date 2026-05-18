@@ -5,7 +5,7 @@ from rss_registry import (
     load_registry, save_registry, get_sources, get_by_status, get_by_url,
     get_active_trial, get_active_trials, get_trial_history, get_promotable,
     upsert_source, start_trial, update_trial_stats, end_trial,
-    set_production_config, reject_source,
+    set_production_config, reject_source, assign_default_tier,
 )
 
 
@@ -292,3 +292,47 @@ class TestSaveLoad:
         path = str(tmp_path / "missing.json")
         reg = load_registry(path)
         assert reg == {"version": 1, "sources": []}
+
+
+class TestAssignDefaultTier:
+    def _make_tuning(self, tmp_path, tiers=None):
+        path = tmp_path / "digest-tuning.json"
+        tuning = {"source_tiers": tiers or {"premium": ["FT"], "standard": ["BBC"]}}
+        path.write_text(json.dumps(tuning), encoding="utf-8")
+        return str(path)
+
+    def test_adds_new_source_to_standard(self, tmp_path):
+        path = self._make_tuning(tmp_path)
+        added = assign_default_tier("Wired", tuning_path=path)
+        assert added is True
+        tuning = json.loads(open(path).read())
+        assert "Wired" in tuning["source_tiers"]["standard"]
+
+    def test_skips_if_already_in_any_tier(self, tmp_path):
+        path = self._make_tuning(tmp_path, tiers={
+            "premium": ["FT"], "standard": ["BBC"], "commodity": ["Solidot"]
+        })
+        added = assign_default_tier("Solidot", tuning_path=path)
+        assert added is False
+        tuning = json.loads(open(path).read())
+        assert tuning["source_tiers"]["commodity"] == ["Solidot"]
+        assert "Solidot" not in tuning["source_tiers"]["standard"]
+
+    def test_respects_custom_default_tier(self, tmp_path):
+        path = self._make_tuning(tmp_path)
+        added = assign_default_tier("DawnPK", default_tier="commodity", tuning_path=path)
+        assert added is True
+        tuning = json.loads(open(path).read())
+        assert "DawnPK" in tuning["source_tiers"]["commodity"]
+        assert "DawnPK" not in tuning["source_tiers"]["standard"]
+
+    def test_creates_default_tier_if_missing(self, tmp_path):
+        path = self._make_tuning(tmp_path, tiers={"premium": ["FT"]})
+        added = assign_default_tier("Newcomer", tuning_path=path)
+        assert added is True
+        tuning = json.loads(open(path).read())
+        assert "Newcomer" in tuning["source_tiers"]["standard"]
+
+    def test_returns_false_when_tuning_file_missing(self, tmp_path):
+        added = assign_default_tier("Anything", tuning_path=str(tmp_path / "nope.json"))
+        assert added is False

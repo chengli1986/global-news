@@ -34,6 +34,13 @@ def _make_sources(tmp_path, feeds: list) -> str:
     return path
 
 
+def _make_tuning(tmp_path) -> str:
+    path = str(tmp_path / "digest-tuning.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"source_tiers": {"standard": []}}, f)
+    return path
+
+
 def _load_json(path: str) -> dict:
     with open(path, "r", encoding="utf-8") as f:
         return json.load(f)
@@ -61,6 +68,7 @@ def test_promote_existing_candidate(tmp_path):
         limit=5,
         registry_file=registry_file,
         sources_file=sources_file,
+        tuning_file=_make_tuning(tmp_path),
     )
 
     assert result is True
@@ -94,6 +102,7 @@ def test_promote_nonexistent(tmp_path):
         name="Nonexistent Feed",
         registry_file=registry_file,
         sources_file=sources_file,
+        tuning_file=_make_tuning(tmp_path),
     )
 
     assert result is False
@@ -118,6 +127,7 @@ def test_promote_already_production(tmp_path):
         name="Already Done",
         registry_file=registry_file,
         sources_file=sources_file,
+        tuning_file=_make_tuning(tmp_path),
     )
 
     assert result is False
