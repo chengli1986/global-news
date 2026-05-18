@@ -5760,6 +5760,34 @@
         "final": 0.721
       },
       "status": "discovered"
+    },
+    {
+      "name": "Deutsche Welle English",
+      "url": "https://rss.dw.com/xml/rss-en-world",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 11,
+        "newest_age_hours": 6.31,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 168,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.8,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.82,
+        "uniqueness": 0.8,
+        "final": 0.778
+      },
+      "status": "discovered"
     }
   ]
 }
