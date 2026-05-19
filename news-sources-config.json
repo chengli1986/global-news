@@ -324,12 +324,18 @@
         "name": "IEEE Spectrum",
         "url": "https://spectrum.ieee.org/feeds/feed.rss",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Foreign Policy",
         "url": "https://foreignpolicy.com/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "澎湃新闻",
+        "url": "https://rsshub.rssforever.com/thepaper/featured",
         "keywords": [],
         "limit": 3,
         "trial": true

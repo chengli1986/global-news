@@ -809,7 +809,7 @@
       "url": "https://spectrum.ieee.org/feeds/feed.rss",
       "language": "en",
       "category": "tech_ai",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -834,7 +834,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-05-17",
-        "end_date": null,
+        "end_date": "2026-05-20",
         "report_sent": false,
         "daily_stats": [
           {
@@ -849,15 +849,23 @@
           },
           {
             "date": "2026-05-19",
-            "fetched": 2,
-            "selected": 2
+            "fetched": 8,
+            "selected": 8
+          },
+          {
+            "date": "2026-05-20",
+            "fetched": 3,
+            "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.892
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "Engadget",
@@ -1169,7 +1177,18 @@
         "start_date": "2026-05-19",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-05-19",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-05-20",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.889
@@ -5427,7 +5446,16 @@
         "uniqueness": 0.82,
         "final": 0.889
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-05-20",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.889
+      }
     },
     {
       "name": "Science Daily",
