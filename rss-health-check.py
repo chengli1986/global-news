@@ -47,6 +47,7 @@ FALLBACK_URLS = {
     "界面新闻": "https://rsshub.rssforever.com/jiemian/list/4",
     "Solidot":  "https://rsshub.rssforever.com/solidot",
     "南方周末": "https://rsshub.rssforever.com/infzm/2",
+    "澎湃新闻": "https://plink.anyfeeder.com/thepaper",
 }
 
 
