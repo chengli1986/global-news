@@ -2596,7 +2596,18 @@
         "start_date": "2026-05-22",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-05-22",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-05-23",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.885
@@ -4932,7 +4943,7 @@
       "url": "https://rsshub.rssforever.com/yicai/news",
       "language": "cn",
       "category": "china_depth",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -4955,7 +4966,15 @@
         "final": 0.88
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-05-23",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.88
+      },
       "production": null
     },
     {
@@ -5284,7 +5303,11 @@
         "final": 0.623
       },
       "status": "rejected",
-      "reject_reason": "pool-cap"
+      "reject_reason": "pool-cap",
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "Wall Street Journal",
@@ -5468,10 +5491,10 @@
         "uniqueness": 0.82,
         "final": 0.889
       },
-      "status": "trialing",
+      "status": "production",
       "trial": {
         "start_date": "2026-05-20",
-        "end_date": null,
+        "end_date": "2026-05-23",
         "report_sent": false,
         "daily_stats": [
           {
@@ -5488,10 +5511,15 @@
             "date": "2026-05-22",
             "fetched": 3,
             "selected": 3
+          },
+          {
+            "date": "2026-05-23",
+            "fetched": 3,
+            "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.889
       }
     },

@@ -324,12 +324,18 @@
         "name": "澎湃新闻",
         "url": "https://rsshub.rssforever.com/thepaper/featured",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Quanta Magazine",
         "url": "https://www.quantamagazine.org/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "第一财经",
+        "url": "https://rsshub.rssforever.com/yicai/news",
         "keywords": [],
         "limit": 3,
         "trial": true
