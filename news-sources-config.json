@@ -81,12 +81,6 @@
         "limit": 3
       },
       {
-        "name": "RTHK中文",
-        "url": "https://rthk.hk/rthk/news/rss/c_expressnews_clocal.xml",
-        "keywords": [],
-        "limit": 3
-      },
-      {
         "name": "HKFP",
         "url": "https://hongkongfp.com/feed/",
         "keywords": [],

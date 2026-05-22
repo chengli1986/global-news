@@ -568,7 +568,7 @@ class UnifiedNewsSender:
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.3,
                 "response_format": {"type": "json_object"},
-            }, timeout=60)
+            }, timeout=90)
             content = result["choices"][0]["message"]["content"]
             parsed = self._extract_json_from_text(content)
             # Accept either a plain array or {"translations": [...]} or any key with array value
