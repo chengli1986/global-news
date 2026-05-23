@@ -6151,6 +6151,63 @@
         "final": 0.812
       },
       "status": "discovered"
+    },
+    {
+      "name": "Euractiv",
+      "url": "https://www.euractiv.com/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 100,
+        "newest_age_hours": 6.3,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 97,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 1.0,
+        "content_depth": 0.3,
+        "authority": 0.78,
+        "uniqueness": 0.88,
+        "final": 0.88
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "The Africa Report",
+      "url": "https://www.theafricareport.com/feed/",
+      "language": "en",
+      "category": "global_south",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 271.13,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 186,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.68,
+        "uniqueness": 0.85,
+        "final": 0.704
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     }
   ]
 }
