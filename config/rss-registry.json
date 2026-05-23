@@ -2604,8 +2604,13 @@
           },
           {
             "date": "2026-05-23",
-            "fetched": 3,
-            "selected": 3
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-05-24",
+            "fetched": 1,
+            "selected": 1
           }
         ],
         "outcome": null,
@@ -4970,7 +4975,18 @@
         "start_date": "2026-05-23",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-05-23",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-05-24",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.88
