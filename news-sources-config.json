@@ -41,7 +41,8 @@
         "name": "少数派",
         "url": "https://sspai.com/feed",
         "keywords": [],
-        "limit": 6
+        "limit": 6,
+        "max_age_hours": 96
       },
       {
         "name": "Solidot",
@@ -108,7 +109,8 @@
         "name": "BBC Technology",
         "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
         "keywords": [],
-        "limit": 6
+        "limit": 6,
+        "max_age_hours": 96
       },
       {
         "name": "TechCrunch",
@@ -180,7 +182,8 @@
         "name": "NYT Technology",
         "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
         "keywords": [],
-        "limit": 6
+        "limit": 6,
+        "max_age_hours": 96
       },
       {
         "name": "Economist Leaders",
@@ -240,19 +243,22 @@
         "name": "STAT News",
         "url": "https://www.statnews.com/feed/",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 96
       },
       {
         "name": "MIT Technology Review",
         "url": "https://www.technologyreview.com/topnews.rss",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 96
       },
       {
         "name": "ProPublica",
         "url": "https://feeds.propublica.org/propublica/main",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 96
       },
       {
         "name": "Politico Europe",
@@ -267,12 +273,6 @@
         "limit": 3
       },
       {
-        "name": "Endpoints News",
-        "url": "https://endpts.com/feed/",
-        "keywords": [],
-        "limit": 3
-      },
-      {
         "name": "Dawn Pakistan",
         "url": "https://www.dawn.com/feeds/home",
         "keywords": [],
@@ -282,7 +282,8 @@
         "name": "KFF Health News",
         "url": "https://kffhealthnews.org/feed/",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 96
       },
       {
         "name": "Daily Maverick",
@@ -300,7 +301,8 @@
         "name": "The Guardian Science",
         "url": "https://www.theguardian.com/science/rss",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 96
       },
       {
         "name": "RFI中文",
@@ -319,7 +321,8 @@
         "name": "Foreign Policy",
         "url": "https://foreignpolicy.com/feed/",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 96
       },
       {
         "name": "澎湃新闻",
@@ -337,13 +340,6 @@
       {
         "name": "第一财经",
         "url": "https://rsshub.rssforever.com/yicai/news",
-        "keywords": [],
-        "limit": 3,
-        "trial": true
-      },
-      {
-        "name": "Euractiv",
-        "url": "https://www.euractiv.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
