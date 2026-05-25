@@ -312,7 +312,8 @@
         "name": "IEEE Spectrum",
         "url": "https://spectrum.ieee.org/feeds/feed.rss",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 168
       },
       {
         "name": "Foreign Policy",
@@ -330,7 +331,8 @@
         "name": "Quanta Magazine",
         "url": "https://www.quantamagazine.org/feed/",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 168
       },
       {
         "name": "第一财经",
