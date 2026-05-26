@@ -646,3 +646,86 @@ class TestLogTrialSourceStats:
         s._log_trial_source_stats()
         lines = log_path.read_text(encoding="utf-8").splitlines()
         assert len(lines) == 3
+
+
+class TestLogProductionSourceStats:
+    """Phase 0 fitness telemetry (2026-05-26): production sources must be
+    logged on every send so that 30/60/90-day baselines can be built for
+    later fitness checks (selection rate decay, contribution collapse).
+
+    Symmetric to TestLogTrialSourceStats; both methods now delegate to
+    _log_source_stats(status, log_filename).
+    """
+
+    def _make_sender_with_mixed_registry(self, tmp_path, monkeypatch,
+                                         trialing=(), production=()):
+        """Build a sender with both trialing and production sources in registry."""
+        import unified_global_news_sender as ug
+        monkeypatch.setattr(ug.os.path, "realpath",
+                            lambda p: str(tmp_path / "unified-global-news-sender.py"))
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        sources = (
+            [{"name": n, "status": "trialing", "trial": {}} for n in trialing]
+            + [{"name": n, "status": "production"} for n in production]
+        )
+        (config_dir / "rss-registry.json").write_text(
+            json.dumps({"sources": sources}, ensure_ascii=False), encoding="utf-8"
+        )
+
+        os.environ.setdefault("OPENAI_API_KEY", "test-key-not-real")
+        cfg = tmp_path / "minimal-config.json"
+        cfg.write_text(json.dumps({
+            "news_sources": {"rss_feeds": [], "sina_api": [], "hn_api": []}
+        }), encoding="utf-8")
+        s = ug.UnifiedNewsSender(config_file=str(cfg))
+        all_names = list(trialing) + list(production)
+        s.news_data = {name: [("title", "url", "src", None)] * (i + 1)
+                        for i, name in enumerate(all_names)}
+        s._count_trial_selected = lambda src: len(s.news_data.get(src, []))
+        return (
+            s,
+            tmp_path / "logs" / "trial-source-log.jsonl",
+            tmp_path / "logs" / "production-source-log.jsonl",
+        )
+
+    def test_production_sources_logged_separately(self, tmp_path, monkeypatch):
+        """Trial and production sources go to different log files."""
+        s, trial_log, prod_log = self._make_sender_with_mixed_registry(
+            tmp_path, monkeypatch,
+            trialing=["TrialX"],
+            production=["ProdA", "ProdB", "ProdC"],
+        )
+        s._log_trial_source_stats()
+        s._log_production_source_stats()
+
+        trial_lines = trial_log.read_text(encoding="utf-8").splitlines()
+        prod_lines = prod_log.read_text(encoding="utf-8").splitlines()
+        assert len(trial_lines) == 1
+        assert json.loads(trial_lines[0])["source"] == "TrialX"
+        assert len(prod_lines) == 3
+        prod_sources = sorted(json.loads(line)["source"] for line in prod_lines)
+        assert prod_sources == ["ProdA", "ProdB", "ProdC"]
+
+    def test_no_production_writes_nothing(self, tmp_path, monkeypatch):
+        s, _, prod_log = self._make_sender_with_mixed_registry(
+            tmp_path, monkeypatch, trialing=["T"], production=[]
+        )
+        s._log_production_source_stats()
+        assert not prod_log.exists() or prod_log.read_text() == ""
+
+    def test_production_log_has_full_schema(self, tmp_path, monkeypatch):
+        """Each entry must have ts, source, fetched, selected — same shape
+        as trial-source-log so analysis tooling can read both uniformly."""
+        s, _, prod_log = self._make_sender_with_mixed_registry(
+            tmp_path, monkeypatch, production=["ProdA"]
+        )
+        s._log_production_source_stats()
+        entry = json.loads(prod_log.read_text().splitlines()[0])
+        assert set(entry.keys()) == {"ts", "source", "fetched", "selected"}
+        assert entry["source"] == "ProdA"
+        assert entry["fetched"] == 1
+        assert entry["selected"] == 1
+        # ISO timestamp parseable
+        from datetime import datetime as _dt
+        _dt.fromisoformat(entry["ts"])

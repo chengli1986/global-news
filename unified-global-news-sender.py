@@ -1459,19 +1459,18 @@ class UnifiedNewsSender:
         )
         return in_region + in_ungrouped
 
-    def _log_trial_source_stats(self) -> None:
-        """Log today's fetched/selected counts to JSONL for EVERY active trial.
+    def _log_source_stats(self, status: str, log_filename: str) -> None:
+        """Log today's fetched/selected counts to a JSONL file for every source matching `status`.
 
-        With MAX_CONCURRENT_TRIALS=2 (since 2026-04-25 `2d9507d`), there can
-        be up to N concurrent trialing sources. The earlier `next()` call only
-        logged the first one returned by registry-array order, silently
-        skipping the rest — directly causing day-3 auto-remove FAIL on
-        sources that were never logged in the first place (verified case:
-        El País English 2026-04-29 → 2026-05-01, all daily_stats 0/0).
+        Shared helper for both trial-source logging (drives trial gate decisions)
+        and production-source logging (Phase 0 fitness telemetry added 2026-05-26).
+        Each line: {ts, source, fetched, selected}. Source-agnostic: status string
+        and log filename are the only knobs.
+
+        Defensive: registry-read failure → silently skip (don't break the send);
+        per-line write failure → log warning + continue with remaining sources.
         """
         script_dir = os.path.dirname(os.path.realpath(__file__))
-        # Trial state lives in rss-registry.json since cc680c4 (RSS Registry Migration,
-        # 2026-04-21). The legacy trial-state.json was removed.
         registry_file = os.path.join(script_dir, "config", "rss-registry.json")
         if not os.path.isfile(registry_file):
             return
@@ -1483,14 +1482,14 @@ class UnifiedNewsSender:
 
         actives = [
             s for s in registry.get("sources", [])
-            if s.get("status") == "trialing"
+            if s.get("status") == status
         ]
         if not actives:
             return
 
         log_dir = os.path.join(script_dir, "logs")
         os.makedirs(log_dir, exist_ok=True)
-        log_file = os.path.join(log_dir, "trial-source-log.jsonl")
+        log_file = os.path.join(log_dir, log_filename)
         ts = datetime.now(BJT).isoformat()
 
         for active in actives:
@@ -1507,7 +1506,34 @@ class UnifiedNewsSender:
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
             except Exception as e:
-                logging.warning("Failed to write trial source log for %s: %s", source_name, e)
+                logging.warning("Failed to write source log (%s) for %s: %s", log_filename, source_name, e)
+
+    def _log_trial_source_stats(self) -> None:
+        """Log today's fetched/selected counts to JSONL for EVERY active trial.
+
+        With MAX_CONCURRENT_TRIALS=2 (since 2026-04-25 `2d9507d`), there can
+        be up to N concurrent trialing sources. The earlier `next()` call only
+        logged the first one returned by registry-array order, silently
+        skipping the rest — directly causing day-3 auto-remove FAIL on
+        sources that were never logged in the first place (verified case:
+        El País English 2026-04-29 → 2026-05-01, all daily_stats 0/0).
+
+        Trial state lives in rss-registry.json since cc680c4 (RSS Registry
+        Migration, 2026-04-21). The legacy trial-state.json was removed.
+        """
+        self._log_source_stats(status="trialing", log_filename="trial-source-log.jsonl")
+
+    def _log_production_source_stats(self) -> None:
+        """Phase 0 fitness telemetry (added 2026-05-26): log per-source fetched/selected
+        for every PRODUCTION source on every send.
+
+        Output: logs/production-source-log.jsonl, same schema as trial-source-log.
+        Purpose: build 30-day baseline so future fitness checks can detect drift
+        (selection rate decay, daily contribution collapse, etc.) and trigger
+        tier demotion or removal — analogous to S&P 500 quarterly rebalancing.
+        Phase 0 is data collection only; no automated action taken on this data yet.
+        """
+        self._log_source_stats(status="production", log_filename="production-source-log.jsonl")
 
     def _apply_pipeline(self, all_region_articles):
         """Apply dedup + rank + quota pipeline if digest-tuning.json exists."""
@@ -2028,6 +2054,7 @@ class UnifiedNewsSender:
         self.classify_articles()
         self._save_fixture()
         self._log_trial_source_stats()
+        self._log_production_source_stats()
 
         # 零文章保护 — 全部源失败时不发送空邮件
         if self._total_article_count() == 0:
