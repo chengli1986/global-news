@@ -13,7 +13,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from conftest import (
     SAMPLE_RSS_XML, SAMPLE_ATOM_XML, SAMPLE_SINA_RESPONSE,
-    SAMPLE_HN_TOP_IDS, SAMPLE_HN_ITEMS,
+    SAMPLE_HN_TOP_IDS, SAMPLE_HN_ITEMS, SAMPLE_RSS_WITH_METADATA,
 )
 
 # Module is imported via conftest's session-scoped fixture; access it here.
@@ -729,3 +729,120 @@ class TestLogProductionSourceStats:
         # ISO timestamp parseable
         from datetime import datetime as _dt
         _dt.fromisoformat(entry["ts"])
+
+
+class TestPhase05ArticleMetadata:
+    """Phase 0.5 (2026-05-26): fetch-time per-article quality signals.
+
+    Validates:
+      - fetch_rss_news returns 4-tuples (title, link, pub_dt, meta) with
+        title_len / desc_len / has_desc / has_author extracted.
+      - _log_source_stats aggregates these into per-source averages when
+        article_metadata is populated; omits the fields gracefully when not.
+    """
+
+    @patch("unified_global_news_sender.UnifiedNewsSender.fetch_text")
+    @patch("time.time")
+    def test_fetch_rss_extracts_full_metadata(self, mock_time, mock_fetch_text):
+        """Item with description + RSS-2.0 author: has_desc=True, has_author=True."""
+        mock_time.return_value = datetime(2026, 4, 5, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        mock_fetch_text.return_value = SAMPLE_RSS_WITH_METADATA
+        results = UnifiedNewsSender.fetch_rss_news("https://example.com/full", limit=10)
+        # Each result is a 4-tuple
+        assert all(isinstance(r, tuple) and len(r) == 4 for r in results)
+        full_item = results[0]
+        title, link, pub_dt, meta = full_item
+        assert "Full Metadata" in title
+        assert link == "https://example.com/full"
+        assert meta["title_len"] == len(title)
+        assert meta["desc_len"] >= 50
+        assert meta["has_desc"] is True
+        assert meta["has_author"] is True
+
+    @patch("unified_global_news_sender.UnifiedNewsSender.fetch_text")
+    @patch("time.time")
+    def test_fetch_rss_metadata_short_desc_dc_creator(self, mock_time, mock_fetch_text):
+        """Item with tiny description + Dublin Core creator: has_desc=False, has_author=True."""
+        mock_time.return_value = datetime(2026, 4, 5, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        mock_fetch_text.return_value = SAMPLE_RSS_WITH_METADATA
+        results = UnifiedNewsSender.fetch_rss_news("https://example.com/short", limit=10)
+        short_item = results[1]
+        _title, _link, _pub_dt, meta = short_item
+        assert meta["desc_len"] == 5  # "Tiny."
+        assert meta["has_desc"] is False
+        # dc:creator should be recognized as author
+        assert meta["has_author"] is True
+
+    @patch("unified_global_news_sender.UnifiedNewsSender.fetch_text")
+    @patch("time.time")
+    def test_fetch_rss_metadata_bare_item(self, mock_time, mock_fetch_text):
+        """Item without description or author: has_desc=False, has_author=False, desc_len=0."""
+        mock_time.return_value = datetime(2026, 4, 5, 12, 0, 0, tzinfo=timezone.utc).timestamp()
+        mock_fetch_text.return_value = SAMPLE_RSS_WITH_METADATA
+        results = UnifiedNewsSender.fetch_rss_news("https://example.com/bare", limit=10)
+        bare_item = results[2]
+        _title, _link, _pub_dt, meta = bare_item
+        assert meta["desc_len"] == 0
+        assert meta["has_desc"] is False
+        assert meta["has_author"] is False
+
+    def _make_sender_with_metadata(self, tmp_path, monkeypatch, source_name,
+                                    articles, metadatas):
+        """Build a sender with pre-populated news_data + article_metadata."""
+        import unified_global_news_sender as ug
+        monkeypatch.setattr(ug.os.path, "realpath",
+                            lambda p: str(tmp_path / "unified-global-news-sender.py"))
+        config_dir = tmp_path / "config"
+        config_dir.mkdir()
+        (config_dir / "rss-registry.json").write_text(
+            json.dumps({"sources": [{"name": source_name, "status": "production"}]},
+                       ensure_ascii=False),
+            encoding="utf-8",
+        )
+        os.environ.setdefault("OPENAI_API_KEY", "test-key-not-real")
+        cfg = tmp_path / "minimal-config.json"
+        cfg.write_text(json.dumps({
+            "news_sources": {"rss_feeds": [], "sina_api": [], "hn_api": []}
+        }), encoding="utf-8")
+        s = ug.UnifiedNewsSender(config_file=str(cfg))
+        s.news_data = {source_name: articles}
+        for art, meta in zip(articles, metadatas):
+            if meta is not None and len(art) >= 2 and art[1]:
+                s.article_metadata[(source_name, art[1])] = meta
+        s._count_trial_selected = lambda src: len(s.news_data.get(src, []))
+        return s, tmp_path / "logs" / "production-source-log.jsonl"
+
+    def test_log_aggregates_metadata_when_present(self, tmp_path, monkeypatch):
+        """When all articles have metadata, log entry includes the 4 aggregate fields."""
+        articles = [
+            ("Title One", "https://x.com/a", None),
+            ("Longer Title Number Two", "https://x.com/b", None),
+        ]
+        metas = [
+            {"title_len": 9, "desc_len": 100, "has_desc": True, "has_author": True},
+            {"title_len": 23, "desc_len": 30, "has_desc": False, "has_author": False},
+        ]
+        s, log_path = self._make_sender_with_metadata(
+            tmp_path, monkeypatch, "FT", articles, metas
+        )
+        s._log_production_source_stats()
+        entry = json.loads(log_path.read_text().splitlines()[0])
+        assert entry["avg_title_len"] == 16.0      # (9+23)/2
+        assert entry["avg_desc_len"] == 65.0       # (100+30)/2
+        assert entry["pct_with_desc"] == 0.5
+        assert entry["pct_with_author"] == 0.5
+
+    def test_log_omits_metadata_when_absent(self, tmp_path, monkeypatch):
+        """Sina/HN style: no metadata captured → log entry stays minimal (no new fields)."""
+        articles = [("Sina Title", "https://sina.com/a", None)]
+        metas = [None]  # no metadata
+        s, log_path = self._make_sender_with_metadata(
+            tmp_path, monkeypatch, "SinaSource", articles, metas
+        )
+        s._log_production_source_stats()
+        entry = json.loads(log_path.read_text().splitlines()[0])
+        # Phase 0 fields present
+        assert set(entry.keys()) == {"ts", "source", "fetched", "selected"}
+        # Phase 0.5 fields ABSENT — analysis tooling must handle missing fields
+        assert "avg_title_len" not in entry
+        assert "avg_desc_len" not in entry

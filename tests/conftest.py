@@ -72,6 +72,38 @@ SAMPLE_ATOM_XML = """\
 """
 
 # ---------------------------------------------------------------------------
+# Sample RSS with description + author (Phase 0.5 metadata signals, added 2026-05-26)
+# Item 1: full metadata. Item 2: no author, short description. Item 3: nothing.
+# ---------------------------------------------------------------------------
+SAMPLE_RSS_WITH_METADATA = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:dc="http://purl.org/dc/elements/1.1/">
+  <channel>
+    <title>Test Feed With Metadata</title>
+    <item>
+      <title>Full Metadata Article About AI Research and Breakthrough Discoveries</title>
+      <link>https://example.com/full</link>
+      <pubDate>Sun, 05 Apr 2026 12:00:00 +0000</pubDate>
+      <description>This is a substantial article description with more than fifty characters of meaningful content explaining the topic in depth.</description>
+      <author>reporter@example.com (Jane Reporter)</author>
+    </item>
+    <item>
+      <title>Short Desc Only</title>
+      <link>https://example.com/short</link>
+      <pubDate>Sun, 05 Apr 2026 11:00:00 +0000</pubDate>
+      <description>Tiny.</description>
+      <dc:creator>Bob Editor</dc:creator>
+    </item>
+    <item>
+      <title>Bare Item</title>
+      <link>https://example.com/bare</link>
+      <pubDate>Sun, 05 Apr 2026 10:00:00 +0000</pubDate>
+    </item>
+  </channel>
+</rss>
+"""
+
+# ---------------------------------------------------------------------------
 # Sample Sina API response
 # ---------------------------------------------------------------------------
 SAMPLE_SINA_RESPONSE = {

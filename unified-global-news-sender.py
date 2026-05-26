@@ -180,6 +180,10 @@ class UnifiedNewsSender:
         self.config_file = config_file
         self.config = self.load_config()
         self.news_data = {}
+        # Per-article quality metadata, keyed by (source_name, url).
+        # Populated by fetch_all_news from fetcher results; aggregated by
+        # _log_source_stats. RSS feeds populate; Sina/HN don't (skip).
+        self.article_metadata: dict[tuple[str, str], dict] = {}
         self._openai_key = os.getenv("OPENAI_API_KEY", "")
         self._gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
         self._last_provider = ""  # set by _llm_api_call to the provider that handled each call
@@ -316,7 +320,14 @@ class UnifiedNewsSender:
 
     @staticmethod
     def fetch_rss_news(url, keywords=None, limit=5, max_age_hours=72):
-        """从RSS源获取新闻，返回 [(title, url, pub_dt), ...]"""
+        """从RSS源获取新闻，返回 [(title, url, pub_dt, meta_dict), ...]
+
+        meta_dict (Phase 0.5 fitness telemetry, added 2026-05-26):
+            title_len: int, characters in title
+            desc_len: int, characters in description (HTML stripped)
+            has_desc: bool, description >= 50 chars (meaningful body, not just teaser)
+            has_author: bool, author/creator field present and non-empty
+        """
         text = UnifiedNewsSender.fetch_text(url)
         if not text:
             return []
@@ -325,6 +336,7 @@ class UnifiedNewsSender:
             root = ET.fromstring(text.encode("utf-8"))
             items = root.findall(".//item")
             atom_ns = "{http://www.w3.org/2005/Atom}"
+            dc_ns = "{http://purl.org/dc/elements/1.1/}"
             if not items:
                 items = root.findall(f".//{atom_ns}entry")
 
@@ -355,11 +367,34 @@ class UnifiedNewsSender:
                     if link_el is not None:
                         link = link_el.get("href", "")
 
+                # --- Phase 0.5 metadata extraction (free signals) ---
+                desc_raw = (item.findtext("description")
+                            or item.findtext(f"{atom_ns}summary")
+                            or item.findtext(f"{atom_ns}content")
+                            or "")
+                desc_clean = re.sub(r"<[^>]+>", "", desc_raw).strip()
+
+                # Author: try 3 formats (RSS 2.0 <author>, Dublin Core <dc:creator>, Atom <author><name>)
+                author = (item.findtext("author") or "").strip()
+                if not author:
+                    author = (item.findtext(f"{dc_ns}creator") or "").strip()
+                if not author:
+                    name_el = item.find(f"{atom_ns}author/{atom_ns}name")
+                    if name_el is not None and (name_el.text or "").strip():
+                        author = name_el.text.strip()
+
+                meta = {
+                    "title_len": len(title),
+                    "desc_len": len(desc_clean),
+                    "has_desc": len(desc_clean) >= 50,
+                    "has_author": bool(author),
+                }
+
                 if keywords:
                     if any(kw in title for kw in keywords):
-                        results.append((title, link, pub_dt))
+                        results.append((title, link, pub_dt, meta))
                 else:
-                    results.append((title, link, pub_dt))
+                    results.append((title, link, pub_dt, meta))
 
                 if len(results) >= limit:
                     break
@@ -403,10 +438,25 @@ class UnifiedNewsSender:
             for future in as_completed(futures):
                 name = futures[future]
                 try:
-                    self.news_data[name] = future.result()
+                    raw = future.result()
                 except Exception as e:
                     logging.exception("Thread failed fetching source %s", name)
                     self.news_data[name] = []
+                    continue
+                # Split fetcher results: RSS returns 4-tuples (title, link, pub_dt, meta),
+                # Sina/HN still return 3-tuples (title, link, pub_dt). Strip meta into the
+                # article_metadata side table; keep news_data as 3-tuples so all downstream
+                # code (translate_titles, region collection, classifier) is unchanged.
+                articles = []
+                for item in raw:
+                    if isinstance(item, tuple) and len(item) == 4 and isinstance(item[3], dict):
+                        title, link, pub_dt, meta = item
+                        articles.append((title, link, pub_dt))
+                        if link:
+                            self.article_metadata[(name, link)] = meta
+                    else:
+                        articles.append(item)
+                self.news_data[name] = articles
 
         # Pre-filter: discard articles whose titles contain ETF fund codes (e.g. 512730)
         # Pattern: 6-digit number inside parentheses, e.g. "(512730)" — signals advertorial soft content
@@ -1494,7 +1544,8 @@ class UnifiedNewsSender:
 
         for active in actives:
             source_name = active["name"]
-            fetched = len(self.news_data.get(source_name, []))
+            articles = self.news_data.get(source_name, [])
+            fetched = len(articles)
             selected = self._count_trial_selected(source_name)
             log_entry = {
                 "ts": ts,
@@ -1502,6 +1553,20 @@ class UnifiedNewsSender:
                 "fetched": fetched,
                 "selected": selected,
             }
+            # Phase 0.5 (2026-05-26): aggregate per-article quality metadata
+            # when available. RSS sources populate article_metadata; Sina/HN
+            # don't, so log entry simply omits these fields for those sources.
+            metas = [
+                self.article_metadata.get((source_name, art[1]))
+                for art in articles if len(art) >= 2 and art[1]
+            ]
+            metas = [m for m in metas if m]
+            if metas:
+                n = len(metas)
+                log_entry["avg_title_len"] = round(sum(m["title_len"] for m in metas) / n, 1)
+                log_entry["avg_desc_len"] = round(sum(m["desc_len"] for m in metas) / n, 1)
+                log_entry["pct_with_desc"] = round(sum(1 for m in metas if m["has_desc"]) / n, 3)
+                log_entry["pct_with_author"] = round(sum(1 for m in metas if m["has_author"]) / n, 3)
             try:
                 with open(log_file, "a", encoding="utf-8") as f:
                     f.write(json.dumps(log_entry, ensure_ascii=False) + "\n")
