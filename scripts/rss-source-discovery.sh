@@ -240,11 +240,13 @@ if [ $TRIAL_EXIT -ne 0 ]; then
     echo "$LOG_PREFIX WARNING: trial manager exited with code $TRIAL_EXIT"
 fi
 
-# Commit trial state changes if any
+# Commit trial state changes if any (incl. digest-tuning.json tier assignments
+# written by rss_registry.assign_default_tier() during graduation — without
+# this, freshly-graduated sources silently get tier_boost=1.0 in fresh clones)
 cd "$REPO_DIR"
-if ! git diff --quiet config/rss-registry.json news-sources-config.json 2>/dev/null; then
-    git add config/rss-registry.json news-sources-config.json
-    git diff --cached --quiet || git commit -m "trial: update trial state $(TZ='Asia/Shanghai' date '+%Y-%m-%d')"
+if ! git diff --quiet config/rss-registry.json news-sources-config.json digest-tuning.json 2>/dev/null; then
+    git add config/rss-registry.json news-sources-config.json digest-tuning.json
+    git diff --cached --quiet || git commit -m "trial: update trial state + auto-tier graduates $(TZ='Asia/Shanghai' date '+%Y-%m-%d')"
     git push 2>&1 || echo "$LOG_PREFIX WARNING: git push (trial) failed"
 fi
 
