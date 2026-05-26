@@ -194,7 +194,7 @@ Daily LLM-driven pipeline that surfaces new high-quality RSS candidates and queu
   - `global_finance`, `tech_ai`, `china_depth`, `hk_sea` (incl. Japan/Korea/India queries),
   - `europe`, `north_america`, `healthcare`, `vertical`, `global_south` (Latin America + Africa + Middle East — added Apr 29)
 - **Score dimensions**: reliability, freshness, content_quality, content_depth, authority, uniqueness → weighted final
-- **Pool cap**: top 50 candidates kept; lowest-scoring auto-rejected as `pool-cap` when exceeded
+- **Pool cap**: top 70 candidates kept (raised 50→70 on 2026-05-26 — pool was permanently saturated, masking demand for under-represented categories); lowest-scoring auto-rejected as `pool-cap` when exceeded
 - **Excellent badge**: score ≥ 0.85 = will auto-promote on next trial-manager run
 
 ## RSS Trial Manager

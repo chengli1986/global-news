@@ -34,7 +34,7 @@ SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 FETCH_TIMEOUT = 15
-MAX_POOL_SIZE = 50  # keep only top-N pending candidates; auto-reject the rest
+MAX_POOL_SIZE = 70  # keep only top-N pending candidates; auto-reject the rest (raised 50→70 on 2026-05-26 — pool sat at 49/50 every day; 109/112 rejections were pool-cap, masking demand for under-represented categories like global_south)
 MAX_RESPONSE_BYTES = 5 * 1024 * 1024  # 5 MB cap to prevent memory exhaustion
 SCORE_THRESHOLD = 0.60
 SCORE_EXCELLENT = 0.85  # aligned with PROMOTE_THRESHOLD (rss-trial-manager.py): Excellent badge now means "will auto-promote to trial on next discovery run"
