@@ -1576,7 +1576,7 @@
       "url": "https://endpts.com/feed/",
       "language": "en",
       "category": "healthcare",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1598,7 +1598,7 @@
         "uniqueness": 0.9,
         "final": 0.896
       },
-      "reject_reason": null,
+      "reject_reason": "persistent-403-removed-from-sources-2026-05-25",
       "trial": {
         "start_date": "2026-05-06",
         "end_date": "2026-05-09",
@@ -3004,7 +3004,7 @@
       "url": "https://rsshub.rssforever.com/nikkei/asia",
       "language": "en",
       "category": "hk_sea",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3026,7 +3026,7 @@
         "uniqueness": 0.72,
         "final": 0.899
       },
-      "reject_reason": null,
+      "reject_reason": "persistent-timeout-removed-from-sources-2026-05-21",
       "trial": {
         "start_date": "2026-05-03",
         "end_date": "2026-05-06",
@@ -6347,6 +6347,468 @@
         "final": 0.841
       },
       "status": "discovered"
+    },
+    {
+      "name": "南方周末",
+      "url": "https://plink.anyfeeder.com/infzm/news",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "虎嗅",
+      "url": "https://plink.anyfeeder.com/huxiu",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "IT之家",
+      "url": "https://www.ithome.com/rss/",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "少数派",
+      "url": "https://sspai.com/feed",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "Solidot",
+      "url": "https://www.solidot.org/index.rss",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "钛媒体",
+      "url": "https://plink.anyfeeder.com/tmtpost",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "36氪",
+      "url": "https://36kr.com/feed",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "纽约时报中文",
+      "url": "https://cn.nytimes.com/rss.html",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "BBC中文",
+      "url": "https://rsshub.rssforever.com/bbc/chinese",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "SCMP Hong Kong",
+      "url": "https://www.scmp.com/rss/2/feed",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
+    },
+    {
+      "name": "HKFP",
+      "url": "https://hongkongfp.com/feed/",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
+    },
+    {
+      "name": "Straits Times",
+      "url": "https://www.straitstimes.com/news/singapore/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
+    },
+    {
+      "name": "BBC World",
+      "url": "https://feeds.bbci.co.uk/news/world/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "BBC Business",
+      "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "BBC Technology",
+      "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "TechCrunch",
+      "url": "https://techcrunch.com/feed/",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "CNBC",
+      "url": "https://search.cnbc.com/rs/search/combinedcms/view.xml?partnerId=wrss01&id=100003114",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "Bloomberg",
+      "url": "https://feeds.bloomberg.com/markets/news.rss",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "Bloomberg Econ",
+      "url": "https://feeds.bloomberg.com/economics/news.rss",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "Bloomberg Politics",
+      "url": "https://feeds.bloomberg.com/politics/news.rss",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "SCMP",
+      "url": "https://www.scmp.com/rss/91/feed",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "CNA",
+      "url": "https://www.channelnewsasia.com/api/v1/rss-outbound-feed?_format=xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "FT",
+      "url": "https://www.ft.com/?format=rss",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "Ars Technica",
+      "url": "https://feeds.arstechnica.com/arstechnica/index",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "The Verge",
+      "url": "https://www.theverge.com/rss/index.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "NYT Business",
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/Business.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "NYT Technology",
+      "url": "https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "Economist Leaders",
+      "url": "https://www.economist.com/leaders/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "Economist Finance",
+      "url": "https://www.economist.com/finance-and-economics/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "Economist Business",
+      "url": "https://www.economist.com/business/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "Economist Science",
+      "url": "https://www.economist.com/science-and-technology/rss.xml",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 8
+      }
+    },
+    {
+      "name": "CBC Business",
+      "url": "https://www.cbc.ca/webfeed/rss/rss-business",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
+    },
+    {
+      "name": "Globe & Mail",
+      "url": "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/business/",
+      "status": "production",
+      "discovered_via": "legacy",
+      "validation": null,
+      "scores": null,
+      "reject_reason": null,
+      "trial": null,
+      "production": {
+        "keywords": [],
+        "limit": 6
+      }
     }
   ]
 }
