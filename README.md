@@ -213,6 +213,16 @@ Automated source promotion pipeline that turns high-scoring discovery candidates
 - **State**: `config/rss-registry.json` (unified — replaced the old `trial-state.json` + `discovered-rss.json`)
 - **Integration**: called automatically at the end of `scripts/rss-source-discovery.sh`
 
+## Production Source Fitness (Phase 0 / 0.5)
+
+Per-send telemetry that captures whether each production source is still pulling its weight — the long-term input to a future S&P-500-style rebalancing of the source list:
+
+- **Phase 0** (2026-05-26): every send writes `(ts, source, fetched, selected)` to `logs/production-source-log.jsonl` for every registry production source
+- **Phase 0.5** (2026-05-26): RSS sources additionally write 4 per-article quality signals — `avg_title_len`, `avg_desc_len`, `pct_with_desc`, `pct_with_author`
+- **Coverage** (2026-05-27): registry production = 51 sources (18 AI-discovered + 33 legacy backfilled). Earlier coverage was 18/52 RSS — Bloomberg / FT / CNBC / BBC / Economist / SCMP and other pre-2026-04-21 sources had no registry entry until `scripts/backfill_legacy_to_registry.py` reconciled the two configs
+- **Lifecycle tools**: `rss-promote-candidate.py` (discovered → production), `rss-demote-source.py` (production → rejected, syncs both `news-sources-config.json` and `rss-registry.json` to prevent drift), `scripts/backfill_legacy_to_registry.py` (one-time legacy reconciliation, idempotent)
+- **Phase 0 scope**: data collection only; no automated action. Phase 1+ (monthly health email → Watch List → auto tier-demote → auto-remove) is deferred until 30+ days of baseline are collected
+
 ## Scoring v2
 
 Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0.25, authority 0.20→0.30. New `content_depth` sub-dimension (avg description length post-HTML-strip) penalizes paywall summaries. Low-frequency correction: sources with ≤10 articles/check use gentle freshness decay (weekly journals not penalized).
@@ -220,7 +230,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 231 tests (pipeline + trial manager + discovery + sender + rss_registry + contract defenses)
+python3 -m pytest tests/ -q   # 255 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + contract defenses)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```
