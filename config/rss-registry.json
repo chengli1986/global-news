@@ -4491,7 +4491,7 @@
       "url": "https://ecfr.eu/feed/",
       "language": "en",
       "category": "europe",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -4514,7 +4514,15 @@
         "final": 0.874
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-05-28",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.874
+      },
       "production": null
     },
     {
@@ -6088,6 +6096,11 @@
           },
           {
             "date": "2026-05-27",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-05-28",
             "fetched": 3,
             "selected": 3
           }
@@ -6236,10 +6249,10 @@
         "uniqueness": 0.88,
         "final": 0.88
       },
-      "status": "trialing",
+      "status": "rejected",
       "trial": {
         "start_date": "2026-05-25",
-        "end_date": null,
+        "end_date": "2026-05-28",
         "report_sent": false,
         "daily_stats": [
           {
@@ -6256,10 +6269,15 @@
             "date": "2026-05-27",
             "fetched": 0,
             "selected": 0
+          },
+          {
+            "date": "2026-05-28",
+            "fetched": 0,
+            "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.88
       }
     },
