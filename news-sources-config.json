@@ -347,12 +347,18 @@
         "name": "端傳媒 Initium Media",
         "url": "https://theinitium.com/rss/",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "ECFR Analysis",
         "url": "https://ecfr.eu/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Philippine Daily Inquirer",
+        "url": "https://newsinfo.inquirer.net/feed",
         "keywords": [],
         "limit": 3,
         "trial": true
