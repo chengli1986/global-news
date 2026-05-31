@@ -353,12 +353,18 @@
         "name": "Philippine Daily Inquirer",
         "url": "https://newsinfo.inquirer.net/feed",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "RFI English",
         "url": "https://www.rfi.fr/en/rss",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Rappler",
+        "url": "https://www.rappler.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
