@@ -338,12 +338,6 @@
         "max_age_hours": 168
       },
       {
-        "name": "第一财经",
-        "url": "https://rsshub.rssforever.com/yicai/news",
-        "keywords": [],
-        "limit": 3
-      },
-      {
         "name": "端傳媒 Initium Media",
         "url": "https://theinitium.com/rss/",
         "keywords": [],
