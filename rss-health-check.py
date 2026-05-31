@@ -30,7 +30,7 @@ LOGS_DIR = os.path.join(SCRIPT_DIR, "logs")
 STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")
 ENV_FILE = os.path.expanduser("~/.smtp.env")
 
-FETCH_TIMEOUT = 10
+FETCH_TIMEOUT = 15  # increased from 10 — rsshub.rssforever.com has occasional latency spikes
 FAIL_THRESHOLD = 3  # consecutive failures before auto-swap
 DEFAULT_MAX_AGE_HOURS = 72
 HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
