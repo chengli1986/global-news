@@ -1510,7 +1510,18 @@
         "start_date": "2026-06-01",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-06-01",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-06-02",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.868
@@ -1869,6 +1880,11 @@
           },
           {
             "date": "2026-06-01",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-06-02",
             "fetched": 3,
             "selected": 3
           }
