@@ -359,12 +359,18 @@
         "name": "RFI English",
         "url": "https://www.rfi.fr/en/rss",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Rappler",
         "url": "https://www.rappler.com/feed/",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "IPS News",
+        "url": "https://www.ipsnews.net/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
