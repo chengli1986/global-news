@@ -96,8 +96,17 @@ def load_config():
 
 def swap_url_in_config(old_url, new_url):
     """Replace a URL in the config file via text substitution, preserving formatting.
-    Uses atomic write (temp file + rename) to prevent corruption."""
-    with open(CONFIG_FILE, "r", encoding="utf-8") as f:
+    Uses atomic write (temp file + rename) to prevent corruption.
+
+    CONFIG_FILE may be a symlink (the workspace deploy links to the git-managed
+    repo copy, same as digest-tuning.json). os.replace() on the symlink path
+    would replace the symlink itself with a regular file — silently splitting
+    production config from the repo (incident: 2026-05-27..06-02, 5 promoted
+    sources never reached production). Resolve to the real file first so the
+    atomic write lands on the target and the symlink survives.
+    """
+    config_path = os.path.realpath(CONFIG_FILE)
+    with open(config_path, "r", encoding="utf-8") as f:
         text = f.read()
     # JSON-escape the URLs for safe matching
     old_json = json.dumps(old_url)  # includes surrounding quotes
@@ -106,11 +115,11 @@ def swap_url_in_config(old_url, new_url):
         return False
     text = text.replace(old_json, new_json, 1)
     # Atomic write: write to temp file in same directory, then rename
-    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(CONFIG_FILE), suffix=".tmp")
+    fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(config_path), suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8") as f:
             f.write(text)
-        os.replace(tmp_path, CONFIG_FILE)
+        os.replace(tmp_path, config_path)
     except Exception as e:
         logging.warning("Config write failed, cleaning up temp file: %s", e)
         os.unlink(tmp_path)
