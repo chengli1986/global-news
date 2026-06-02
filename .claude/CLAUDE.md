@@ -1,6 +1,6 @@
 # Global News
 
-~43-source news digest system (40 RSS + 2 Sina API + 1 HN Firebase API; trial-promoted sources rotate ±1–2): fetches feeds in parallel, classifies articles via GPT-4.1-mini, generates categorized HTML email, sends 3x daily (BJT 08/16/00).
+~58-source news digest system (55 RSS + 2 Sina API + 1 HN Firebase API; trial-promoted sources rotate ±1–2): fetches feeds in parallel, classifies articles via GPT-4.1-mini, generates categorized HTML email, sends 3x daily (BJT 08/16/00).
 
 ## Architecture
 - `unified-global-news-sender.py`: main script — stdlib only (no pip deps), uses `urllib.request`, `xml.etree.ElementTree`, `concurrent.futures`
