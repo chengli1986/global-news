@@ -6935,6 +6935,62 @@
         "keywords": [],
         "limit": 6
       }
+    },
+    {
+      "name": "Deutsche Welle English",
+      "url": "https://rss.dw.com/xml/rss-en-top",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 21,
+        "newest_age_hours": 3.17,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 191,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.82,
+        "uniqueness": 0.8,
+        "final": 0.829
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "Caixin Global Blog",
+      "url": "https://rsshub.rssforever.com/caixin/blog",
+      "language": "en",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 13.14,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 4434,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.81,
+        "content_depth": 1.0,
+        "authority": 0.82,
+        "uniqueness": 0.8,
+        "final": 0.829
+      },
+      "status": "discovered"
     }
   ]
 }
