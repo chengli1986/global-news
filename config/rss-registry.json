@@ -6983,7 +6983,10 @@
         "uniqueness": 0.8,
         "final": 0.829
       },
-      "status": "discovered"
+      "status": "discovered",
+      "reject_reason": null,
+      "trial": null,
+      "production": null
     },
     {
       "name": "Caixin Global Blog",
@@ -7011,7 +7014,10 @@
         "uniqueness": 0.8,
         "final": 0.829
       },
-      "status": "discovered"
+      "status": "discovered",
+      "reject_reason": null,
+      "trial": null,
+      "production": null
     }
   ]
 }
