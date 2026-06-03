@@ -347,7 +347,8 @@
         "name": "ECFR Analysis",
         "url": "https://ecfr.eu/feed/",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 168
       },
       {
         "name": "Philippine Daily Inquirer",
