@@ -260,6 +260,11 @@
           },
           {
             "date": "2026-06-05",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-06-06",
             "fetched": 3,
             "selected": 3
           }
@@ -2340,7 +2345,7 @@
       "url": "https://www.carbonbrief.org/feed/",
       "language": "en",
       "category": "vertical",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2363,7 +2368,15 @@
         "final": 0.864
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-06-06",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.864
+      },
       "production": null
     },
     {
@@ -4669,7 +4682,7 @@
       "url": "https://www.ipsnews.net/feed/",
       "language": "en",
       "category": "vertical",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -4694,7 +4707,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-03",
-        "end_date": null,
+        "end_date": "2026-06-06",
         "report_sent": false,
         "daily_stats": [
           {
@@ -4709,15 +4722,23 @@
           },
           {
             "date": "2026-06-05",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-06-06",
             "fetched": 3,
             "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.868
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "OC Media",
