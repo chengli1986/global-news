@@ -500,7 +500,18 @@
         "start_date": "2026-06-07",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-06-07",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-06-08",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.863
@@ -2396,8 +2407,13 @@
           },
           {
             "date": "2026-06-07",
-            "fetched": 3,
-            "selected": 3
+            "fetched": 7,
+            "selected": 7
+          },
+          {
+            "date": "2026-06-08",
+            "fetched": 2,
+            "selected": 2
           }
         ],
         "outcome": null,
