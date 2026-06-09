@@ -391,12 +391,18 @@
         "name": "Politico US Politics",
         "url": "https://rss.politico.com/politics-news.xml",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Al Jazeera English",
         "url": "https://www.aljazeera.com/xml/rss/all.xml",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "量子位",
+        "url": "https://www.qbitai.com/feed",
         "keywords": [],
         "limit": 3,
         "trial": true
