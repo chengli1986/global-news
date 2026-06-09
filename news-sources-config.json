@@ -384,7 +384,8 @@
         "name": "Carbon Brief",
         "url": "https://www.carbonbrief.org/feed/",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 168
       },
       {
         "name": "Politico US Politics",
