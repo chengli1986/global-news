@@ -214,13 +214,6 @@
         "max_age_hours": 168
       },
       {
-        "name": "CBC Business",
-        "url": "https://www.cbc.ca/webfeed/rss/rss-business",
-        "keywords": [],
-        "limit": 6,
-        "max_age_hours": 96
-      },
-      {
         "name": "Globe & Mail",
         "url": "https://www.theglobeandmail.com/arc/outboundfeeds/rss/category/business/",
         "keywords": [],
