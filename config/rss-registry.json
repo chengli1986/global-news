@@ -1516,7 +1516,7 @@
       "url": "https://www.qbitai.com/feed",
       "language": "cn",
       "category": "tech_ai",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1541,7 +1541,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-10",
-        "end_date": null,
+        "end_date": "2026-06-13",
         "report_sent": false,
         "daily_stats": [
           {
@@ -1556,15 +1556,23 @@
           },
           {
             "date": "2026-06-12",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-06-13",
             "fetched": 3,
             "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.859
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "Rappler",
@@ -1692,7 +1700,18 @@
         "start_date": "2026-06-12",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-06-12",
+            "fetched": 6,
+            "selected": 6
+          },
+          {
+            "date": "2026-06-13",
+            "fetched": 3,
+            "selected": 3
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.856
@@ -3726,7 +3745,7 @@
       "url": "https://nautil.us/feed/",
       "language": "en",
       "category": "vertical",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3749,7 +3768,15 @@
         "final": 0.856
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-06-13",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.856
+      },
       "production": null
     },
     {

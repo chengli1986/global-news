@@ -396,12 +396,18 @@
         "name": "量子位",
         "url": "https://www.qbitai.com/feed",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "Science News",
         "url": "https://www.sciencenews.org/feed",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Nautilus Magazine",
+        "url": "https://nautil.us/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
