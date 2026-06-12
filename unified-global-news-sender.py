@@ -522,7 +522,7 @@ class UnifiedNewsSender:
             stripped = "\n".join(lines)
         return json.loads(stripped)
 
-    def _llm_api_call(self, payload: dict, timeout: int = 60, max_retries: int = 3) -> dict:
+    def _llm_api_call(self, payload: dict, timeout: int = 90, max_retries: int = 3) -> dict:
         """Make LLM API call: try OpenAI first, fallback to Gemini.
         Sets self._last_provider to the provider that actually handled the call."""
         # Try OpenAI (gpt-4.1-mini)
@@ -945,7 +945,7 @@ class UnifiedNewsSender:
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "response_format": {"type": "json_object"},
-            }, timeout=60)
+            }, timeout=90)
             content = result["choices"][0]["message"]["content"]
             parsed = self._extract_json_from_text(content)
 
