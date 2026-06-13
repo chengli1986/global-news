@@ -5303,7 +5303,7 @@
       "url": "https://rsshub.rssforever.com/yicai/news",
       "language": "cn",
       "category": "china_depth",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -5325,7 +5325,7 @@
         "uniqueness": 0.7,
         "final": 0.88
       },
-      "reject_reason": null,
+      "reject_reason": "removed-from-config-2026-05-31-yicai-unreachable",
       "trial": {
         "start_date": "2026-05-23",
         "end_date": "2026-05-26",
@@ -5355,10 +5355,6 @@
         "outcome": "auto-graduated",
         "auto_decided": true,
         "candidate_score": 0.88
-      },
-      "production": {
-        "keywords": [],
-        "limit": 3
       }
     },
     {
@@ -7151,16 +7147,12 @@
     {
       "name": "CBC Business",
       "url": "https://www.cbc.ca/webfeed/rss/rss-business",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
-      "trial": null,
-      "production": {
-        "keywords": [],
-        "limit": 6
-      }
+      "reject_reason": "absent-from-config-stale-registry-sync-2026-06-13",
+      "trial": null
     },
     {
       "name": "Globe & Mail",
