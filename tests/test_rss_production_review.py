@@ -56,3 +56,24 @@ def test_aggregate_by_source_sums_and_active_days(tmp_path):
     assert agg["A"]["selected"] == 3
     assert agg["A"]["active_days"] == 2   # 06-01 and 06-03 had fetched>0
     assert agg["B"]["active_days"] == 0   # fetched=0 day doesn't count
+
+
+def test_graduation_date_from_trial_end():
+    src = {"name": "Wired", "trial": {"outcome": "auto-graduated", "end_date": "2026-05-15"}}
+    assert _mod.graduation_date(src).isoformat() == "2026-05-15"
+
+
+def test_graduation_date_legacy_is_none():
+    assert _mod.graduation_date({"name": "BBC World", "trial": None}) is None
+    assert _mod.graduation_date({"name": "X"}) is None
+
+
+def test_tenure_days_legacy_is_none():
+    now = datetime(2026, 6, 13, 8, 0, tzinfo=BJT)
+    assert _mod.tenure_days({"trial": None}, now) is None
+
+
+def test_tenure_days_counts_from_graduation():
+    now = datetime(2026, 6, 13, 8, 0, tzinfo=BJT)
+    src = {"trial": {"outcome": "graduated", "end_date": "2026-05-14"}}
+    assert _mod.tenure_days(src, now) == 30

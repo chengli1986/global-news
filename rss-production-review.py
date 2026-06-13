@@ -75,3 +75,22 @@ def aggregate_by_source(records: list) -> dict:
     for src, dates in days_seen.items():
         agg[src]["active_days"] = len(dates)
     return agg
+
+
+def graduation_date(source: dict):
+    """Return date a source graduated from trial, or None for legacy/non-trial sources."""
+    t = source.get("trial")
+    if isinstance(t, dict) and t.get("outcome") in ("graduated", "auto-graduated") and t.get("end_date"):
+        try:
+            return datetime.strptime(t["end_date"], "%Y-%m-%d").date()
+        except ValueError:
+            return None
+    return None
+
+
+def tenure_days(source: dict, now: datetime):
+    """Days since graduation; None if legacy (no graduation date → treated as long-tenured)."""
+    g = graduation_date(source)
+    if g is None:
+        return None
+    return (now.date() - g).days
