@@ -94,3 +94,34 @@ def tenure_days(source: dict, now: datetime):
     if g is None:
         return None
     return (now.date() - g).days
+
+
+def find_zombies(registry, records, now, *, window_days=30, grace_days=30,
+                 min_active_days=7, max_selected=1) -> list:
+    """A: production sources still publishing (fetched>0) but ~never selected.
+
+    Skips: non-production, in-grace (tenure<grace_days), insufficient sample
+    (active_days<min_active_days), and dead feeds (fetched==0 → health-check's job).
+    """
+    windowed = filter_window(records, now, window_days)
+    agg = aggregate_by_source(windowed)
+    zombies = []
+    for s in _reg.get_by_status(registry, "production"):
+        name = s.get("name")
+        a = agg.get(name)
+        if not a or a["fetched"] <= 0:            # dead/never-seen → not a zombie
+            continue
+        t = tenure_days(s, now)
+        if t is not None and t < grace_days:       # in grace
+            continue
+        if a["active_days"] < min_active_days:      # insufficient sample (low-freq safety)
+            continue
+        if a["selected"] <= max_selected:
+            zombies.append({
+                "name": name,
+                "category": s.get("category", "?"),
+                "fetched": a["fetched"],
+                "selected": a["selected"],
+                "tenure_days": t,
+            })
+    return zombies

@@ -77,3 +77,61 @@ def test_tenure_days_counts_from_graduation():
     now = datetime(2026, 6, 13, 8, 0, tzinfo=BJT)
     src = {"trial": {"outcome": "graduated", "end_date": "2026-05-14"}}
     assert _mod.tenure_days(src, now) == 30
+
+
+def _registry(sources):
+    return {"version": 1, "sources": sources}
+
+
+def _prod(name, category="x", trial=None):
+    return {"name": name, "category": category, "status": "production", "trial": trial}
+
+
+def test_zombie_high_freq_no_selected_is_flagged():
+    """30 天天天出文(active_days>=7)、selected<=1、在岗>=30天 → 僵尸。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(d, "Zombie", 3, 0) for d in range(1, 29)]  # 28 active days, 0 selected
+    reg = _registry([_prod("Zombie", trial={"outcome": "auto-graduated", "end_date": "2026-04-01"})])
+    z = _mod.find_zombies(reg, recs, now)
+    assert [x["name"] for x in z] == ["Zombie"]
+    assert z[0]["selected"] == 0
+
+
+def test_low_freq_high_quality_not_zombie():
+    """低频但有 selected(>1) → 不是僵尸。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(d, "Weekly", 2, 1) for d in (2, 9, 16, 23, 25, 27, 28, 29)]  # 8 days, selected=8
+    reg = _registry([_prod("Weekly", trial={"outcome": "graduated", "end_date": "2026-04-01"})])
+    assert _mod.find_zombies(reg, recs, now) == []
+
+
+def test_insufficient_sample_skipped():
+    """active_days < 7 → 样本不足，跳过(不判僵尸)。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(d, "Sparse", 2, 0) for d in (2, 9, 16, 23)]  # only 4 active days
+    reg = _registry([_prod("Sparse", trial={"outcome": "graduated", "end_date": "2026-04-01"})])
+    assert _mod.find_zombies(reg, recs, now) == []
+
+
+def test_grace_period_new_source_skipped():
+    """在岗 < 30 天 → 宽限期，跳过。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(d, "Newbie", 3, 0) for d in range(1, 29)]
+    reg = _registry([_prod("Newbie", trial={"outcome": "auto-graduated", "end_date": "2026-06-15"})])  # 15d tenure
+    assert _mod.find_zombies(reg, recs, now) == []
+
+
+def test_legacy_source_passes_grace():
+    """legacy(trial=None) 视为早已在岗 → 不被宽限跳过。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(d, "OldZombie", 3, 0) for d in range(1, 29)]
+    reg = _registry([_prod("OldZombie", trial=None)])
+    assert [x["name"] for x in _mod.find_zombies(reg, recs, now)] == ["OldZombie"]
+
+
+def test_dead_feed_fetched_zero_not_zombie():
+    """fetched 全 0(源没出文) → 不算僵尸(归 health-check)。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(d, "Dead", 0, 0) for d in range(1, 29)]
+    reg = _registry([_prod("Dead", trial=None)])
+    assert _mod.find_zombies(reg, recs, now) == []
