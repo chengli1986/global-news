@@ -125,3 +125,53 @@ def find_zombies(registry, records, now, *, window_days=30, grace_days=30,
                 "tenure_days": t,
             })
     return zombies
+
+
+def median_or_none(xs: list):
+    vals = [x for x in xs if isinstance(x, (int, float))]
+    return statistics.median(vals) if vals else None
+
+
+def _meta_series(records, source, field):
+    return [r[field] for r in records if r.get("source") == source and field in r]
+
+
+def find_degraded(registry, records, now, *, recent_days=7,
+                  min_baseline=10, min_recent=5) -> list:
+    """B: content-quality drift vs the source's OWN baseline (never absolute thresholds).
+
+    baseline = records older than recent_days; recent = last recent_days. Warning only.
+    """
+    cutoff = now - timedelta(days=recent_days)
+    baseline_recs, recent_recs = [], []
+    for r in records:
+        try:
+            ts = parse_ts(r["ts"])
+        except (KeyError, ValueError):
+            continue
+        (recent_recs if ts >= cutoff else baseline_recs).append(r)
+
+    out = []
+    for s in _reg.get_by_status(registry, "production"):
+        name = s.get("name")
+        for field, check, label in (
+            ("pct_with_desc",
+             lambda b, r: b is not None and r is not None and b > 0.8 and r < 0.3,
+             "desc-collapse"),
+            ("avg_desc_len",
+             lambda b, r: b is not None and r is not None and b > 0 and r < b * 0.4,
+             "desc-len-shrink"),
+            ("pct_with_author",
+             lambda b, r: b is not None and r is not None and b > 0.5 and r < b * 0.5,
+             "author-drop"),
+        ):
+            b_series = _meta_series(baseline_recs, name, field)
+            r_series = _meta_series(recent_recs, name, field)
+            if len(b_series) < min_baseline or len(r_series) < min_recent:
+                continue
+            b, r = median_or_none(b_series), median_or_none(r_series)
+            if check(b, r):
+                out.append({"name": name, "signal": field + ":" + label,
+                            "baseline": round(b, 2), "recent": round(r, 2),
+                            "detail": f"{field} {b:.2f} → {r:.2f}"})
+    return out

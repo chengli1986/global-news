@@ -135,3 +135,44 @@ def test_dead_feed_fetched_zero_not_zombie():
     recs = [_rec(d, "Dead", 0, 0) for d in range(1, 29)]
     reg = _registry([_prod("Dead", trial=None)])
     assert _mod.find_zombies(reg, recs, now) == []
+
+
+def test_degraded_desc_collapse_flagged():
+    """pct_with_desc 基线>0.8、近期<0.3 → 描述变空预警。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    base = [_rec(d, "Decayed", 3, 2, avg_desc_len=200, pct_with_desc=1.0, pct_with_author=0.9)
+            for d in range(1, 16)]              # baseline (older than recent 7d)
+    recent = [_rec(d, "Decayed", 3, 2, avg_desc_len=180, pct_with_desc=0.1, pct_with_author=0.9)
+              for d in range(24, 31)]            # last 7d: desc collapsed
+    reg = _registry([_prod("Decayed")])
+    d = _mod.find_degraded(reg, base + recent, now)
+    assert any(x["name"] == "Decayed" and "desc" in x["signal"] for x in d)
+
+
+def test_degraded_desc_len_shrink_flagged():
+    """avg_desc_len 近期 < 基线*0.4 → 标题党预警。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    base = [_rec(d, "Shrink", 3, 2, avg_desc_len=200, pct_with_desc=1.0, pct_with_author=0.9)
+            for d in range(1, 16)]
+    recent = [_rec(d, "Shrink", 3, 2, avg_desc_len=50, pct_with_desc=1.0, pct_with_author=0.9)
+              for d in range(24, 31)]
+    reg = _registry([_prod("Shrink")])
+    d = _mod.find_degraded(reg, base + recent, now)
+    assert any(x["name"] == "Shrink" and "len" in x["signal"] for x in d)
+
+
+def test_natively_short_source_not_flagged():
+    """基线本就短摘要(150)、近期也短(140) → 不误判。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = ([_rec(d, "FP", 3, 2, avg_desc_len=150, pct_with_desc=1.0, pct_with_author=0.9) for d in range(1, 16)]
+            + [_rec(d, "FP", 3, 2, avg_desc_len=140, pct_with_desc=1.0, pct_with_author=0.9) for d in range(24, 31)])
+    reg = _registry([_prod("FP")])
+    assert _mod.find_degraded(reg, recs, now) == []
+
+
+def test_degraded_insufficient_sample_skipped():
+    """基线/近期样本不足 → 跳过。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(d, "Tiny", 3, 2, avg_desc_len=200, pct_with_desc=1.0, pct_with_author=0.9) for d in (24, 25)]
+    reg = _registry([_prod("Tiny")])
+    assert _mod.find_degraded(reg, recs, now) == []
