@@ -237,3 +237,82 @@ def build_report_html(zombies, degraded, snapshot, now) -> str:
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
             f"{a_section}{b_section}{snap_section}")
+
+
+def _load_env(path: str = ENV_FILE) -> dict:
+    env = {}
+    if not os.path.isfile(path):
+        return env
+    with open(path, encoding="utf-8") as f:
+        for line in f:
+            line = line.strip()
+            if line and not line.startswith("#") and "=" in line:
+                k, v = line.split("=", 1)
+                env[k.strip()] = v.strip().strip('"').strip("'")
+    return env
+
+
+def send_report_email(html: str, subject: str, env_path: str = ENV_FILE) -> bool:
+    """Send the HTML report via curl SMTP (same pattern as discovery)."""
+    env = _load_env(env_path)
+    mail_to = env.get("MAIL_TO", "")
+    smtp_user = env.get("SMTP_USER", "")
+    smtp_pass = env.get("SMTP_PASS", "")
+    if not all([mail_to, smtp_user, smtp_pass]):
+        print("Missing SMTP credentials", file=sys.stderr)
+        return False
+    subject_b64 = base64.b64encode(subject.encode("utf-8")).decode("ascii")
+    msg_id = f"<rss-prod-review-{datetime.now(BJT).strftime('%Y%m%d%H%M%S')}-{os.getpid()}@ec2.sinostor.com.cn>"
+    content = (f'From: "RSS Pool Review" <{smtp_user}>\r\n'
+               f"To: {mail_to}\r\nMessage-ID: {msg_id}\r\n"
+               f"Subject: =?UTF-8?B?{subject_b64}?=\r\n"
+               f"Content-Type: text/html; charset=UTF-8\r\nMIME-Version: 1.0\r\n\r\n{html}")
+    fd, mail_file = tempfile.mkstemp(suffix=".eml")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(content)
+        r = subprocess.run(
+            ["curl", "--silent", "--ssl-reqd", "--max-time", "30",
+             "--url", f"smtps://{env.get('SMTP_SERVER', 'smtp.163.com')}:{env.get('SMTP_PORT', '465')}",
+             "--user", f"{smtp_user}:{smtp_pass}", "--mail-from", smtp_user,
+             "--mail-rcpt", mail_to, "--upload-file", mail_file],
+            capture_output=True, text=True, timeout=45)
+        if r.returncode == 0:
+            print(f"Report email sent to {mail_to}")
+            return True
+        print(f"Email send failed: {r.stderr}", file=sys.stderr)
+        return False
+    finally:
+        if os.path.exists(mail_file):
+            os.unlink(mail_file)
+
+
+def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool = True) -> int:
+    registry = _reg.load_registry(registry_path)
+    if now is None:
+        now = datetime.now(BJT)
+    records = load_records(log_path)
+    zombies = find_zombies(registry, records, now)
+    degraded = find_degraded(registry, records, now)
+    snapshot = snapshot_rows(registry, records, now)
+    html = build_report_html(zombies, degraded, snapshot, now)
+    subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸候选 / {len(degraded)} 变质预警 "
+               f"— {now.strftime('%m月%d日')}")
+    print(f"[prod-review] {len(zombies)} zombies, {len(degraded)} degraded, "
+          f"{len(snapshot)} sources reviewed.")
+    if send:
+        if not send_report_email(html, subject):
+            return 1
+    return 0
+
+
+def main() -> int:
+    cmd = sys.argv[1] if len(sys.argv) > 1 else "run"
+    if cmd == "run":
+        return cmd_run()
+    print(f"Usage: {os.path.basename(__file__)} run", file=sys.stderr)
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

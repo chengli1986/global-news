@@ -5,7 +5,10 @@ import json
 import importlib.util
 from datetime import datetime, timezone, timedelta
 
+import sys
 _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, _repo)
+import rss_registry as _reg
 _spec = importlib.util.spec_from_file_location(
     "rss_production_review", os.path.join(_repo, "rss-production-review.py"))
 _mod = importlib.util.module_from_spec(_spec)
@@ -197,3 +200,46 @@ def test_build_report_html_has_sections_and_command():
     assert "rss-demote-source.py" in html        # 可粘贴命令
     assert "Z &amp; Co" in html                  # HTML escape
     assert "desc-len-shrink" in html
+
+
+def test_cmd_run_builds_and_sends(tmp_path, monkeypatch):
+    """端到端：tmp registry+log → cmd_run 调 send 一次，邮件含 MIME 头 + 僵尸命令。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(_registry([_prod("Zombie", trial=None)]), f)
+    log_path = _write_log(tmp_path, [_rec(d, "Zombie", 3, 0) for d in range(1, 29)])
+
+    captured = {}
+    def fake_send(html, subject, env_path=_mod.ENV_FILE):
+        captured["html"] = html
+        captured["subject"] = subject
+        return True
+    monkeypatch.setattr(_mod, "send_report_email", fake_send)
+    monkeypatch.setattr(_reg, "REGISTRY_FILE", reg_path)
+
+    rc = _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True)
+    assert rc == 0
+    assert "rss-demote-source.py" in captured["html"]
+    assert "1 僵尸" in captured["subject"]
+
+
+def test_send_report_email_builds_mime(monkeypatch):
+    """send_report_email 拼出含 MIME-Version 的信封并调 curl 一次。"""
+    calls = {}
+    class R:  # fake CompletedProcess
+        returncode = 0
+        stderr = ""
+    def fake_run(cmd, **kw):
+        calls["cmd"] = cmd
+        path = cmd[cmd.index("--upload-file") + 1]
+        with open(path, encoding="utf-8") as f:
+            calls["content"] = f.read()
+        return R()
+    monkeypatch.setattr(_mod.subprocess, "run", fake_run)
+    monkeypatch.setattr(_mod, "_load_env", lambda p=_mod.ENV_FILE: {
+        "MAIL_TO": "to@x.com", "SMTP_USER": "u@163.com", "SMTP_PASS": "pw"})
+    ok = _mod.send_report_email("<p>body</p>", "Subj", env_path="/dev/null")
+    assert ok is True
+    assert "MIME-Version: 1.0" in calls["content"]
+    assert "curl" in calls["cmd"][0]
