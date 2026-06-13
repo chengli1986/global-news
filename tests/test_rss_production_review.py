@@ -243,3 +243,15 @@ def test_send_report_email_builds_mime(monkeypatch):
     assert ok is True
     assert "MIME-Version: 1.0" in calls["content"]
     assert "curl" in calls["cmd"][0]
+
+
+def test_degraded_ancient_baseline_excluded():
+    """baseline 在 60 天窗口外 → 被排除，样本不足 → 不告警（#1: 不被远古历史污染）。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    ancient = [{"ts": f"2026-03-{d:02d}T08:00:00.000000+08:00", "source": "Old",
+                "fetched": 3, "selected": 2, "avg_desc_len": 200,
+                "pct_with_desc": 1.0, "pct_with_author": 0.9} for d in range(1, 16)]
+    recent = [_rec(d, "Old", 3, 2, avg_desc_len=180, pct_with_desc=0.1, pct_with_author=0.9)
+              for d in range(24, 31)]
+    reg = _registry([_prod("Old")])
+    assert _mod.find_degraded(reg, ancient + recent, now) == []

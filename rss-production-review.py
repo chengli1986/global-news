@@ -136,15 +136,18 @@ def _meta_series(records, source, field):
     return [r[field] for r in records if r.get("source") == source and field in r]
 
 
-def find_degraded(registry, records, now, *, recent_days=7,
+def find_degraded(registry, records, now, *, recent_days=7, baseline_days=60,
                   min_baseline=10, min_recent=5) -> list:
     """B: content-quality drift vs the source's OWN baseline (never absolute thresholds).
 
-    baseline = records older than recent_days; recent = last recent_days. Warning only.
+    recent = last recent_days; baseline = records in [now-baseline_days, now-recent_days).
+    Capping the baseline at baseline_days stops ancient pre-degradation history from
+    firing a warning long after the change has stabilised as the new normal. Warning only.
     """
+    windowed = filter_window(records, now, baseline_days)
     cutoff = now - timedelta(days=recent_days)
     baseline_recs, recent_recs = [], []
-    for r in records:
+    for r in windowed:
         try:
             ts = parse_ts(r["ts"])
         except (KeyError, ValueError):
@@ -291,6 +294,8 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     registry = _reg.load_registry(registry_path)
     if now is None:
         now = datetime.now(BJT)
+    elif now.tzinfo is None:
+        now = now.replace(tzinfo=BJT)   # guard: aware-vs-naive compare would raise in filter_window
     records = load_records(log_path)
     zombies = find_zombies(registry, records, now)
     degraded = find_degraded(registry, records, now)
