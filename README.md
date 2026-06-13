@@ -221,7 +221,17 @@ Per-send telemetry that captures whether each production source is still pulling
 - **Phase 0.5** (2026-05-26): RSS sources additionally write 4 per-article quality signals — `avg_title_len`, `avg_desc_len`, `pct_with_desc`, `pct_with_author`
 - **Coverage** (2026-05-27): registry production = 51 sources (18 AI-discovered + 33 legacy backfilled). Earlier coverage was 18/52 RSS — Bloomberg / FT / CNBC / BBC / Economist / SCMP and other pre-2026-04-21 sources had no registry entry until `scripts/backfill_legacy_to_registry.py` reconciled the two configs
 - **Lifecycle tools**: `rss-promote-candidate.py` (discovered → production), `rss-demote-source.py` (production → rejected, syncs both `news-sources-config.json` and `rss-registry.json` to prevent drift), `scripts/backfill_legacy_to_registry.py` (one-time legacy reconciliation, idempotent)
-- **Phase 0 scope**: data collection only; no automated action. Phase 1+ (monthly health email → Watch List → auto tier-demote → auto-remove) is deferred until 30+ days of baseline are collected
+- **Phase 0 scope**: data collection only; no automated action.
+- **Phase 1** (2026-06-13, `rss-production-review.py`): a weekly evaluator now consumes this telemetry — see below. Demote stays human-confirmed.
+
+### Production source review (`rss-production-review.py`)
+
+Weekly in-production quality review (test-period cadence) that reads `logs/production-source-log.jsonl` + the registry and emails a report. It NEVER demotes anything itself.
+
+- **A — zombie sources** (auto-flagged, suggests demote): production sources still publishing (`fetched>0`) but ~never selected (`selected≤1` over a 30-day window), gated by a 30-day on-tenure grace period and an `active_days≥7` sample floor so low-frequency sources aren't misjudged. `fetched==0` (source not publishing) is left to `rss-health-check`. Each candidate carries a ready-to-paste `rss-demote-source.py` command.
+- **B — content degradation** (warning only): `pct_with_desc` / `avg_desc_len` / `pct_with_author` drifting down vs the source's OWN baseline (60-day cap, recent-7d vs prior) — never absolute thresholds, so natively-short-summary sources (Foreign Policy etc.) aren't penalised.
+- **Action model**: report only — demote is human-confirmed via `rss-demote-source.py`. Test period emails every week (incl. a full-pool contribution snapshot); cadence and thresholds to be tuned after observation.
+- **Spec**: `docs/superpowers/specs/2026-06-13-rss-production-quality-review-design.md`
 
 ## Scoring v2
 
@@ -230,7 +240,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 255 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + contract defenses)
+python3 -m pytest tests/ -q   # 281 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + contract defenses)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```
