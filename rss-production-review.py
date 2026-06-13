@@ -175,3 +175,65 @@ def find_degraded(registry, records, now, *, recent_days=7,
                             "baseline": round(b, 2), "recent": round(r, 2),
                             "detail": f"{field} {b:.2f} → {r:.2f}"})
     return out
+
+
+def snapshot_rows(registry, records, now, *, window_days=30) -> list:
+    """All production sources' 30d fetched/selected, for transparency in the report."""
+    agg = aggregate_by_source(filter_window(records, now, window_days))
+    rows = []
+    for s in _reg.get_by_status(registry, "production"):
+        a = agg.get(s.get("name"), {"fetched": 0, "selected": 0})
+        rows.append({"name": s.get("name"), "category": s.get("category", "?"),
+                     "fetched": a["fetched"], "selected": a["selected"]})
+    rows.sort(key=lambda r: r["selected"])
+    return rows
+
+
+def _esc(s) -> str:
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
+
+
+def build_report_html(zombies, degraded, snapshot, now) -> str:
+    """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
+    ts = now.strftime("%Y-%m-%d %H:%M BJT")
+
+    if zombies:
+        z_rows = "".join(
+            f"<tr><td>{_esc(z['name'])}</td><td>{_esc(z['category'])}</td>"
+            f"<td style='text-align:center'>{z['fetched']}</td>"
+            f"<td style='text-align:center'>{z['selected']}</td>"
+            f"<td style='text-align:center'>{z['tenure_days'] if z['tenure_days'] is not None else 'legacy'}</td>"
+            f"<td><code>python3 ~/global-news/rss-demote-source.py --name \"{_esc(z['name'])}\" "
+            f"--reason \"zombie-30d-no-selected\"</code></td></tr>"
+            for z in zombies)
+        a_section = (f"<h3>🧟 A — 僵尸源候选（{len(zombies)}）建议 demote（确认后执行）</h3>"
+                     "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
+                     "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 抓取</th>"
+                     "<th>30d 入选</th><th>在岗天</th><th>确认后执行</th></tr>"
+                     f"{z_rows}</table>")
+    else:
+        a_section = "<h3>🧟 A — 僵尸源候选</h3><p>无。</p>"
+
+    if degraded:
+        d_rows = "".join(
+            f"<tr><td>{_esc(d['name'])}</td><td>{_esc(d['signal'])}</td>"
+            f"<td style='text-align:center'>{_esc(d['detail'])}</td></tr>" for d in degraded)
+        b_section = (f"<h3>⚠️ B — 内容变质预警（{len(degraded)}）仅供人工判断</h3>"
+                     "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
+                     "<tr style='background:#fff8e1'><th>源</th><th>信号</th><th>基线 → 近期</th></tr>"
+                     f"{d_rows}</table>")
+    else:
+        b_section = "<h3>⚠️ B — 内容变质预警</h3><p>无。</p>"
+
+    snap_rows = "".join(
+        f"<tr><td>{_esc(r['name'])}</td><td>{_esc(r['category'])}</td>"
+        f"<td style='text-align:center'>{r['fetched']}</td>"
+        f"<td style='text-align:center'>{r['selected']}</td></tr>" for r in snapshot)
+    snap_section = ("<h3>📊 全池 30 天贡献快照</h3>"
+                    "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
+                    "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 抓取</th><th>30d 入选</th></tr>"
+                    f"{snap_rows}</table>")
+
+    return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
+            f"{a_section}{b_section}{snap_section}")

@@ -176,3 +176,24 @@ def test_degraded_insufficient_sample_skipped():
     recs = [_rec(d, "Tiny", 3, 2, avg_desc_len=200, pct_with_desc=1.0, pct_with_author=0.9) for d in (24, 25)]
     reg = _registry([_prod("Tiny")])
     assert _mod.find_degraded(reg, recs, now) == []
+
+
+def test_snapshot_rows_cover_all_production():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    recs = [_rec(5, "A", 6, 4), _rec(6, "B", 3, 0)]
+    reg = _registry([_prod("A"), _prod("B")])
+    rows = _mod.snapshot_rows(reg, recs, now)
+    by = {r["name"]: r for r in rows}
+    assert by["A"]["selected"] == 4 and by["B"]["selected"] == 0
+
+
+def test_build_report_html_has_sections_and_command():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    zombies = [{"name": "Z & Co", "category": "x", "fetched": 80, "selected": 0, "tenure_days": 90}]
+    degraded = [{"name": "D", "signal": "avg_desc_len:desc-len-shrink", "baseline": 200, "recent": 40,
+                 "detail": "avg_desc_len 200.00 → 40.00"}]
+    snapshot = [{"name": "A", "category": "x", "fetched": 6, "selected": 4}]
+    html = _mod.build_report_html(zombies, degraded, snapshot, now)
+    assert "rss-demote-source.py" in html        # 可粘贴命令
+    assert "Z &amp; Co" in html                  # HTML escape
+    assert "desc-len-shrink" in html
