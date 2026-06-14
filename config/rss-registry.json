@@ -6771,11 +6771,11 @@
     {
       "name": "少数派",
       "url": "https://sspai.com/feed",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
+      "reject_reason": "zombie-30d-no-selected",
       "trial": null,
       "production": {
         "keywords": [],

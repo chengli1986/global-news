@@ -38,13 +38,6 @@
         "limit": 6
       },
       {
-        "name": "少数派",
-        "url": "https://sspai.com/feed",
-        "keywords": [],
-        "limit": 6,
-        "max_age_hours": 96
-      },
-      {
         "name": "Solidot",
         "url": "https://www.solidot.org/index.rss",
         "keywords": [],
