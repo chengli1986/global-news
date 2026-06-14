@@ -1477,11 +1477,11 @@ class UnifiedNewsSender:
     def _count_trial_selected(self, source_name: str) -> int:
         """Count articles of source_name that will actually appear in the sent output.
 
-        Trial sources may be classifier-locked into a region zone (then subject to
-        _apply_pipeline quota trimming), or fall through to the ungrouped 其他
-        section (all shown). Previously this was approximated as `selected = fetched`,
-        which silently overstated trial performance whenever the pipeline trimmed
-        region-grouped articles — pushing trials toward false-positive AUTO_KEEP.
+        方案 B (2026-06-14): every source now routes through _collect_region_articles
+        (no more ungrouped fall-through), so the real post-pipeline count is entirely
+        in region_articles. Counting an in_ungrouped term on top would DOUBLE-COUNT
+        new/trial sources (which now also appear in region_articles) and re-introduce
+        the false-positive AUTO_KEEP bias this function exists to prevent.
         """
         try:
             region_articles = self._apply_pipeline(self._collect_region_articles())
@@ -1490,24 +1490,12 @@ class UnifiedNewsSender:
             # toward KEEP matches prior behaviour — never fewer than before).
             return len(self.news_data.get(source_name, []))
 
-        in_region = sum(
+        return sum(
             1
             for _, arts in region_articles
             for art in arts
             if len(art) > 2 and art[2] == source_name
         )
-
-        # Articles from sources not claimed by any REGION_GROUP fall through to
-        # "其他 OTHER" and are all rendered.
-        grouped_sources: set[str] = set()
-        for _, sources in self.REGION_GROUPS:
-            grouped_sources.update(sources)
-        in_ungrouped = (
-            len(self.news_data.get(source_name, []))
-            if source_name not in grouped_sources
-            else 0
-        )
-        return in_region + in_ungrouped
 
     def _log_source_stats(self, status: str, log_filename: str) -> None:
         """Log today's fetched/selected counts to a JSONL file for every source matching `status`.

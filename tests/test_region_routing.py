@@ -79,3 +79,14 @@ def test_generate_html_no_duplicate_other_section():
     html = s.generate_html()
     assert html.count("Unclassified health item ZZZ") == 1
     assert html.count("其他 OTHER") == 1
+
+
+def test_count_trial_selected_no_double_count():
+    """方案 B 后 trial/new 源不再被 in_region+in_ungrouped 双计：selected <= fetched。"""
+    s = _sender()
+    s._use_pipeline = False
+    s.news_data = {"STAT News": [("Health A", "u1", None, None), ("Health B", "u2", None, None)]}
+    s._classifications = {("STAT News", 0): {"region": None}, ("STAT News", 1): {"region": None}}
+    sel = s._count_trial_selected("STAT News")
+    assert sel <= len(s.news_data["STAT News"])   # 双计会得 4 > 2
+    assert sel == 2   # 2 篇都进 REGION_OTHER（pipeline off，不裁剪）
