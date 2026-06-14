@@ -20,6 +20,8 @@ BJT = timezone(timedelta(hours=8))
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_PATH = os.path.join(SCRIPT_DIR, "logs", "production-source-log.jsonl")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
+SENDER_FILE = os.path.join(SCRIPT_DIR, "unified-global-news-sender.py")
+PLAN_C_CATEGORIES = ("healthcare", "vertical", "global_south")  # categories with no dedicated board until 方案 C
 
 
 def parse_ts(ts: str) -> datetime:
@@ -197,7 +199,7 @@ def _esc(s) -> str:
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-def build_report_html(zombies, degraded, snapshot, now) -> str:
+def build_report_html(zombies, degraded, snapshot, now, plan_c_html="") -> str:
     """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
     ts = now.strftime("%Y-%m-%d %H:%M BJT")
 
@@ -239,7 +241,46 @@ def build_report_html(zombies, degraded, snapshot, now) -> str:
                     f"{snap_rows}</table>")
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
-            f"{a_section}{b_section}{snap_section}")
+            f"{plan_c_html}{a_section}{b_section}{snap_section}")
+
+
+def _plan_c_done(sender_path: str = SENDER_FILE) -> bool:
+    """方案 C 是否已做：sender 里出现了科学/健康专属板块常量。"""
+    try:
+        with open(sender_path, encoding="utf-8") as f:
+            return "REGION_SCI_HEALTH" in f.read()
+    except Exception:
+        return False
+
+
+def plan_c_reminder_html(registry, records, now, *, window_days=30,
+                         sender_path: str = SENDER_FILE) -> str:
+    """周报里的"方案 C 待办"提醒条；C 做了（或无相关源）就返回空。
+
+    展示暂无专属板块的 category（healthcare/vertical/global_south）源的 30d 入选量，
+    帮判断它们够不够分量做方案 C。检测到 sender 出现 REGION_SCI_HEALTH 即自动消失。
+    """
+    if _plan_c_done(sender_path):
+        return ""
+    cat_of = {s.get("name"): s.get("category") for s in _reg.get_sources(registry)}
+    agg = aggregate_by_source(filter_window(records, now, window_days))
+    rows = [(n, cat_of.get(n), a["selected"]) for n, a in agg.items()
+            if cat_of.get(n) in PLAN_C_CATEGORIES]
+    if not rows:
+        return ""
+    rows.sort(key=lambda r: -r[2])
+    total = sum(r[2] for r in rows)
+    items = "；".join(f"{_esc(n)}({_esc(c)} {s}篇)" for n, c, s in rows[:8])
+    return (
+        "<div style='margin-top:16px;padding:12px 16px;background:#fff8e1;"
+        "border-left:4px solid #f9a825;font-size:13px;line-height:1.6;'>"
+        f"<strong>⏳ 方案 C 待办</strong>：healthcare/vertical/global_south 源暂无专属板块，"
+        f"近 30 天共 <strong>{total}</strong> 篇入选、散在现有板块（如社会观察）。"
+        "若想给它们建「科学/健康」「深度/专题」专属板块，扩 LLM topic 即可（见 spec §6）。"
+        f"<br>相关源：{items}。"
+        "<br><span style='color:#999;font-size:11px;'>做了方案 C（sender 出现 REGION_SCI_HEALTH）后此提醒自动消失。</span>"
+        "</div>"
+    )
 
 
 def _load_env(path: str = ENV_FILE) -> dict:
@@ -300,7 +341,8 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     zombies = find_zombies(registry, records, now)
     degraded = find_degraded(registry, records, now)
     snapshot = snapshot_rows(registry, records, now)
-    html = build_report_html(zombies, degraded, snapshot, now)
+    plan_c_html = plan_c_reminder_html(registry, records, now)
+    html = build_report_html(zombies, degraded, snapshot, now, plan_c_html)
     subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸候选 / {len(degraded)} 变质预警 "
                f"— {now.strftime('%m月%d日')}")
     print(f"[prod-review] {len(zombies)} zombies, {len(degraded)} degraded, "

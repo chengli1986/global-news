@@ -255,3 +255,38 @@ def test_degraded_ancient_baseline_excluded():
               for d in range(24, 31)]
     reg = _registry([_prod("Old")])
     assert _mod.find_degraded(reg, ancient + recent, now) == []
+
+
+def test_plan_c_done_detects_sci_health(tmp_path):
+    sp = str(tmp_path / "sender.py")
+    with open(sp, "w") as f: f.write("REGION_SCI_HEALTH = 'x'\n")
+    assert _mod._plan_c_done(sp) is True
+    sp2 = str(tmp_path / "s2.py")
+    with open(sp2, "w") as f: f.write("nothing special\n")
+    assert _mod._plan_c_done(sp2) is False
+
+
+def test_plan_c_reminder_shows_when_not_done(tmp_path):
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    sp = str(tmp_path / "sender.py")
+    with open(sp, "w") as f: f.write("no new region constant\n")  # C 未做
+    reg = _registry([_prod("STAT News", category="healthcare")])
+    recs = [_rec(d, "STAT News", 3, 2) for d in range(1, 10)]
+    html = _mod.plan_c_reminder_html(reg, recs, now, sender_path=sp)
+    assert "方案 C 待办" in html
+    assert "STAT News" in html
+
+
+def test_plan_c_reminder_hidden_when_done(tmp_path):
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    sp = str(tmp_path / "sender.py")
+    with open(sp, "w") as f: f.write("REGION_SCI_HEALTH = 'x'\n")  # C 已做
+    reg = _registry([_prod("STAT News", category="healthcare")])
+    recs = [_rec(d, "STAT News", 3, 2) for d in range(1, 10)]
+    assert _mod.plan_c_reminder_html(reg, recs, now, sender_path=sp) == ""
+
+
+def test_build_report_includes_plan_c():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now, "<div>PLANC_MARKER</div>")
+    assert "PLANC_MARKER" in html
