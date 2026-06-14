@@ -94,6 +94,10 @@ English news titles are batch-translated to Chinese using GPT-4.1-mini (approxim
 
 Articles from mixed-content sources are classified into correct sections using GPT-4.1-mini. The `classify_articles()` method sends all article titles (except locked sources: Canada, Economist) in a single API call, receiving a numbered JSON dict mapping each article to one of five categories: `tech`, `finance`, `politics`, `china`, `asia`. Falls back to keyword-based reclassification if the API call fails.
 
+### 文章级分区路由（2026-06-14, 方案 B）
+
+所有 production 源的文章统一走上面的文章级 LLM 标签归入邮件板块（`_collect_region_articles` 遍历**全部** `news_data` 源，而非只手工 `REGION_GROUPS` 清单）；不再有"源不在手工清单就全堆其他区"的盲区。新源无 LLM 标签时兜底 `REGION_OTHER`（"其他 OTHER"，理想接近空）。healthcare/vertical 等暂散入现有板块（医疗→社会观察、科学→AI前沿等），专属板块见方案 C。Spec: `docs/superpowers/specs/2026-06-14-category-driven-region-grouping-design.md`
+
 ## LLM Fallback Chain
 
 Both translation and classification use a multi-provider fallback chain to ensure resilience:
