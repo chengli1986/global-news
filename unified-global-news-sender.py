@@ -1302,37 +1302,36 @@ class UnifiedNewsSender:
         return None
 
     def _collect_region_articles(self):
-        """Collect articles grouped by region, with LLM-based reclassification."""
-        all_region_articles = []
-        reclassified = []  # (target_region, article_tuple)
-        for region_title, source_names in self.REGION_GROUPS:
-            region_articles = []
-            for src in source_names:
-                if src in self.news_data:
-                    for idx, item in enumerate(self.news_data[src]):
-                        if isinstance(item, tuple) and len(item) >= 4:
-                            title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
-                        elif isinstance(item, tuple) and len(item) >= 3:
-                            title, url, pub_dt, orig_title = item[0], item[1], item[2], None
-                        elif isinstance(item, tuple):
-                            title, url, pub_dt, orig_title = item[0], item[1], None, None
-                        else:
-                            title, url, pub_dt, orig_title = item, "", None, None
-                        art = (title, url, src, pub_dt, orig_title)
-                        target = self._reclassify_article(title, src, idx)
-                        if target and target != region_title:
-                            reclassified.append((target, art))
-                        else:
-                            region_articles.append(art)
-            all_region_articles.append((region_title, region_articles))
+        """Collect ALL sources' articles grouped by region (方案 B).
 
-        # Insert reclassified articles into their target regions
-        region_map = {rt: arts for rt, arts in all_region_articles}
-        for target_region, art in reclassified:
-            if target_region in region_map:
-                region_map[target_region].append(art)
+        Every source's articles are routed by their per-article LLM label
+        (_reclassify_article reads _classifications); when the label is None the
+        article stays in the source's default region (_source_default_region:
+        legacy sources → manual REGION_GROUPS, new sources → REGION_OTHER).
+        Returns [(region_title, [art...])] for every REGION_GROUPS region plus
+        REGION_OTHER, in display order. The render loop iterates this directly.
+        """
+        region_order = [rt for rt, _ in self.REGION_GROUPS] + [REGION_OTHER]
+        region_map = {rt: [] for rt in region_order}
 
-        return all_region_articles
+        for src, items in self.news_data.items():
+            default_region = self._source_default_region(src)
+            for idx, item in enumerate(items):
+                if isinstance(item, tuple) and len(item) >= 4:
+                    title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
+                elif isinstance(item, tuple) and len(item) >= 3:
+                    title, url, pub_dt, orig_title = item[0], item[1], item[2], None
+                elif isinstance(item, tuple):
+                    title, url, pub_dt, orig_title = item[0], item[1], None, None
+                else:
+                    title, url, pub_dt, orig_title = item, "", None, None
+                art = (title, url, src, pub_dt, orig_title)
+                target = self._reclassify_article(title, src, idx) or default_region
+                if target not in region_map:
+                    target = REGION_OTHER
+                region_map[target].append(art)
+
+        return [(rt, region_map[rt]) for rt in region_order]
 
     def _sent_today_path(self) -> str:
         """Path to today's sent-article log. Cleans up files >2 days old."""
