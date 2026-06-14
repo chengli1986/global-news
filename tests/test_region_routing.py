@@ -63,3 +63,19 @@ def test_collect_returns_all_known_regions_plus_other():
     titles = [rt for rt, _ in s._collect_region_articles()]
     expected = [rt for rt, _ in US.REGION_GROUPS] + [_mod.REGION_OTHER]
     assert titles == expected
+
+
+def test_generate_html_no_duplicate_other_section():
+    """新源文章只在"其他"板块出现一次，不被旧 ungrouped 段重复渲染。"""
+    s = _sender()
+    s._use_pipeline = False
+    s._last_sent_articles = []
+    s.news_data = {"STAT News": [("Unclassified health item ZZZ", "http://x/1", None, None)]}
+    s._classifications = {}   # 无标签 → 进 REGION_OTHER
+    # Minimal attributes needed by generate_html
+    s._llm_status = []
+    s.beijing_time = US.get_beijing_time()
+    s.period_info = US.get_period_info()
+    html = s.generate_html()
+    assert html.count("Unclassified health item ZZZ") == 1
+    assert html.count("其他 OTHER") == 1

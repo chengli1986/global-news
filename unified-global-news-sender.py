@@ -1851,86 +1851,6 @@ class UnifiedNewsSender:
 </td></tr>
 """
 
-        # Check for any ungrouped sources
-        grouped_sources = set()
-        for _, sources in self.REGION_GROUPS:
-            grouped_sources.update(sources)
-
-        ungrouped = {src: articles for src, articles in self.news_data.items() if src not in grouped_sources and articles}
-        if ungrouped:
-            html += f"""
-<tr><td style="padding:25px 30px 0 30px;">
-  <table width="100%" cellpadding="0" cellspacing="0" border="0">
-    <tr><td style="border-top:2px solid {C_RULE};height:1px;font-size:0;line-height:0;">&nbsp;</td></tr>
-  </table>
-  <div style="font-size:18px;font-weight:700;font-family:{FONT};letter-spacing:3px;color:{C_INK};margin-top:12px;margin-bottom:2px;">
-    其他 OTHER
-  </div>
-  <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:4px;">
-    <tr><td style="border-top:1px solid {C_RULE_LT};height:1px;font-size:0;line-height:0;">&nbsp;</td></tr>
-  </table>
-</td></tr>
-"""
-            all_other = []
-            for src, articles in ungrouped.items():
-                for item in articles:
-                    if isinstance(item, tuple) and len(item) >= 4:
-                        title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
-                    elif isinstance(item, tuple) and len(item) >= 3:
-                        title, url, pub_dt, orig_title = item[0], item[1], item[2], None
-                    elif isinstance(item, tuple):
-                        title, url, pub_dt, orig_title = item[0], item[1], None, None
-                    else:
-                        title, url, pub_dt, orig_title = item, "", None, None
-                    all_other.append((title, url, src, pub_dt, orig_title))
-
-            html += '<tr><td style="padding:8px 30px 0 30px;">\n'
-            html += '  <table width="100%" cellpadding="0" cellspacing="0" border="0">\n'
-            for idx, (title, url, src, pub_dt, orig_title) in enumerate(all_other):
-                title_esc = self._esc(title)
-                border_style = f"border-bottom:1px solid {C_RULE_LT};" if idx < len(all_other) - 1 else ""
-                if url:
-                    title_html = f'<a href="{self._esc(url)}" style="color:{C_LINK};text-decoration:none;border-bottom:1px solid {C_RULE_LT};" target="_blank">{title_esc}</a>'
-                else:
-                    title_html = title_esc
-
-                time_html = ""
-                if pub_dt is not None:
-                    try:
-                        now_utc = datetime.now(timezone.utc)
-                        delta = now_utc - pub_dt.astimezone(timezone.utc)
-                        hours = int(delta.total_seconds() // 3600)
-                        minutes = int(delta.total_seconds() // 60)
-                        if hours >= 24:
-                            age = f"{delta.days}d ago"
-                        elif hours >= 1:
-                            age = f"{hours}h ago"
-                        elif minutes >= 1:
-                            age = f"{minutes}m ago"
-                        else:
-                            age = "just now"
-                        bjt_str = pub_dt.astimezone(BJT).strftime("%m/%d %H:%M")
-                        time_html = f' &middot; {bjt_str} ({age})'
-                    except Exception:
-                        pass
-
-                orig_title_html_other = ""
-                if orig_title:
-                    orig_title_html_other = f'\n        <div style="font-size:12px;font-family:{FONT_SANS};color:{C_MUTED};margin-top:2px;font-style:italic;">{self._esc(orig_title)}</div>'
-
-                html += f"""    <tr>
-      <td style="padding:10px 0;{border_style}vertical-align:top;">
-        <div style="font-size:15px;font-family:{FONT};color:{C_INK};line-height:1.6;">
-          {title_html}
-        </div>{orig_title_html_other}
-        <div style="font-size:11px;font-family:{FONT_SANS};color:{C_SRC};margin-top:3px;">
-          via {self._esc(src)}{' <span style="background:#e8f4fd;color:#0066cc;font-size:10px;padding:1px 5px;border-radius:3px;font-weight:bold;">🆕试用</span>' if src == trial_source_name else ""}{time_html}
-        </div>
-      </td>
-    </tr>
-"""
-            html += '  </table>\n</td></tr>\n'
-
         # === ROUTING HEALTH METRICS (Task 12 add-on) ===
         health = self._compute_routing_health(all_region_articles)
         health_html = self._render_routing_health_html(health, FONT_SANS, C_MUTED, C_RULE_LT)
@@ -2064,44 +1984,6 @@ class UnifiedNewsSender:
                             print(f"     ({orig_title})")
             else:
                 print("  (暂无新闻)")
-
-        # Ungrouped sources
-        grouped_sources = set()
-        for _, sources in self.REGION_GROUPS:
-            grouped_sources.update(sources)
-        ungrouped = {src: articles for src, articles in self.news_data.items() if src not in grouped_sources and articles}
-        if ungrouped:
-            print(f"\n{'━' * 70}")
-            print(f"  📌 其他 OTHER")
-            print(f"{'━' * 70}")
-            idx = 1
-            for src, articles in ungrouped.items():
-                for item in articles:
-                    if isinstance(item, tuple) and len(item) >= 4:
-                        title, url, pub_dt, orig_title = item[0], item[1], item[2], item[3]
-                    elif isinstance(item, tuple) and len(item) >= 3:
-                        title, url, pub_dt, orig_title = item[0], item[1], item[2], None
-                    elif isinstance(item, tuple):
-                        title, url, pub_dt, orig_title = item[0], item[1], None, None
-                    else:
-                        title, url, pub_dt, orig_title = item, "", None, None
-                    time_str = ""
-                    if pub_dt is not None:
-                        try:
-                            time_str = f" [{pub_dt.astimezone(BJT).strftime('%m/%d %H:%M')}]"
-                        except Exception:
-                            pass
-                    if url:
-                        print(f"  {idx}. {title}")
-                        if orig_title:
-                            print(f"     ({orig_title})")
-                        print(f"     {url}")
-                        print(f"     via {src}{time_str}")
-                    else:
-                        print(f"  {idx}. {title}  (via {src}){time_str}")
-                        if orig_title:
-                            print(f"     ({orig_title})")
-                    idx += 1
 
         print("\n" + "=" * 70)
         print(f"⏰ 更新时间: {self.beijing_time}")
