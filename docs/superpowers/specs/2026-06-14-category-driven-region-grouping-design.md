@@ -1,112 +1,93 @@
-# Category 驱动的 Production 源自动归组（治本）— 设计文档
+# 文章级分类驱动的源自动归组（治本，方案 B）— 设计文档
 
 - **日期**: 2026-06-14
-- **状态**: 设计中（待用户深入讨论老源/板块后定稿）
-- **关联**: [rss-production-review](2026-06-13-rss-production-quality-review-design.md)（发现本问题的来源）
+- **状态**: 设计中 v2（方案从"源级 category 映射"改为"放开排版入口、复用已有文章级 LLM 分类"；用户 2026-06-14 拍板**先 B 后 C**）
+- **关联**: [rss-production-review](2026-06-13-rss-production-quality-review-design.md)
+- **取代**: 本文件 v1（源级 `CATEGORY_TO_REGION` 映射 + 新建 2 组）—— 经讨论否决，见下"认知反转"
 
-## 1. 背景与缺口
+## 1. 背景与认知反转
 
-global-news 有**两套互不相通的分类系统**：
+**两套分类系统**（同 v1）：registry 的 `category`（discovery 自动，9 类） vs sender 的 `REGION_GROUPS`（手工硬编码源名清单，邮件板块+配额分区）。
 
-| 系统 | 位置 | 用途 | 维护方式 |
-|------|------|------|---------|
-| `category` | `rss-registry.json`（每个源一个字段） | discovery 发现时打的主题标签（9 类） | discovery 自动 |
-| `REGION_GROUPS` | `unified-global-news-sender.py:665` | 邮件排版板块 + 配额竞争分区 | **手工硬编码源名清单** |
+**认知反转（v1→v2 的关键）**：pipeline **早已有文章级 LLM 实时分类**：
+- `classify_articles`（`:749`）对 **`self.news_data` 全部源的每篇文章**跑 4-stage + LLM(gpt-4.1-mini)，打 `(topic, geo, subtopic)` 标签，`_route`(`:1223`) 文章级 route 到 region。
+- 主题体系 `TOPIC_LABELS = {politics, business, tech, consumer_tech, society}`（`:44`）。
+- **每篇文章按自己的标题分类**——天然解决"一个源产出多 category 新闻"的难点（不看源、只看文章）。
 
-`_collect_region_articles`（`:1303`）**只遍历 `REGION_GROUPS` 清单里的源**。不在清单的源，其文章连"被分区/被 Stage 4 改判"的机会都没有，直接兜底进"其他"区**全量展示**（`_count_trial_selected` 的 `in_ungrouped` 分支）。
+**真正的断层**：渲染入口 `_collect_region_articles`（`:1303`）**只遍历 `REGION_GROUPS` 手工清单的 35 个源**；不在清单的 27 个源，文章被 `ungrouped` 逻辑（`:1859`）**整批塞进"其他 OTHER"板块** —— 它们的 LLM 标签打好了，**渲染时却没用上**。
 
-**断层根因**：discovery/trial 自动毕业新源时只更新 registry/config，**从不同步那份手工 `REGION_GROUPS` 清单** → 每个新源默认掉进"其他"区。
+> 所以问题不是"缺文章级分类功能"，而是"排版那步把 27 个源漏了"。v1 的源级 `CATEGORY_TO_REGION` 映射会与这套已有的文章级分类**冗余打架**，且把多 category 的源钉死——故否决。
 
-**现状量化**（2026-06-14 实测）：
-- production 59 源中 **28 个有 category（全在"其他"区裸奔）/ 31 个无 category（legacy 老源，靠手工清单归组）**
-- "其他"区 27 个源（含 STAT/Foreign Policy/Wired/Politico Europe/澎湃/端传媒 等优质源）全量展示、不参与任何配额竞争
+## 2. 目标 / 非目标
 
-> 历史注：曾有过 `_CATEGORY_TO_REGION` 映射，Task 6 删除改为 Stage 4 LLM routing（`:704` 注释）。本设计以更稳的形式复活"category→组"映射，且与现有 LLM routing 共存。
+### 目标（方案 B）
+- **放开渲染入口**：让所有 production 源的文章都进 `_collect_region_articles`，用每篇**已有的 LLM 文章级标签** route 到板块。
+- 解决"一个源多 category"（文章级天然处理）。
+- "其他"区大幅缩小（理想接近空）。
+- **完全复用现有引擎**：不动 4-stage 分类器、不扩主题、不建新组。
 
-## 2. 目标与非目标
+### 非目标
+- 不扩 `TOPIC_LABELS`、不改 `_route` 矩阵、不建新板块 → 这些归**方案 C**（后续阶段，§6）
+- 不动 31 个老源的归属（向后兼容、零回归）
 
-### 目标
-- 让**有 category 的源按 category 自动归入对应板块**（治本：以后 discovery 毕业的源自动归位，断层永久消除）
-- "其他"区大幅缩小（理想接近空）
+## 3. 设计（方案 B）
 
-### 非目标（YAGNI）
-- **不动 31 个无 category 老源**（继续走手工 `REGION_GROUPS` 清单 → 零回归）
-- **不补全老源 category**（混合模式即达成治本目标）
-- **不改 Stage 4 LLM routing 矩阵**（`_route`）
-- 不做 UI
+### 改动 1：`_collect_region_articles` 遍历所有源
+- **现**：`for region_title, source_names in REGION_GROUPS: for src in source_names:` —— 只收清单内源。
+- **改**：遍历 `self.news_data` 全部源；每篇文章查 `self._classifications[(src, idx)]` 的 `region`：
+  - `region` 非空 → 进该板块（已由 Stage 4 LLM route）
+  - `region is None` → fallback `_source_default_region(src)`
 
-## 3. 设计
+### 改动 2：`_source_default_region` 支持新源（fallback 默认组）
+- **现**（`:1268`）：只查手工 `REGION_GROUPS`，找不到 fallback `REGION_GROUPS[0]`（AI/前沿）—— 对 27 个新源会错误归入 AI/前沿。
+- **改**为三级 fallback：
+  1. 手工 `REGION_GROUPS` 清单（31 老源，**优先、不变**）
+  2. 找不到 → registry `category` → `CATEGORY_TO_REGION`（**B 版全部指向现有组**，见下）
+  3. 再找不到（无 category 又不在清单）→ "综合/其他"兜底
+- `CATEGORY_TO_REGION`（B 版，仅作 fallback 默认组用，全指现有组）：
+  ```
+  tech_ai→AI/前沿  china_depth→中国要闻  hk_sea→亚太
+  europe→全球政治  north_america→全球政治  global_finance→市场/宏观
+  healthcare→社会观察   vertical→全球政治   global_south→全球政治
+  ```
+  （healthcare/vertical/global_south 暂指现有组；方案 C 时改指新建的科学/健康、深度/专题）
 
-### 3.1 核心：`CATEGORY_TO_REGION` 映射表（新增常量）
+### 改动 3：`ungrouped`/"其他"区
+B 后所有源都进分区，`ungrouped`（`:1859`/`:2072`）只剩"无 LLM 标签 + 无 category 默认"的极少数。保留为小兜底"综合 OTHER"，理想接近空。
 
-```
-CATEGORY_TO_REGION = {
-    "tech_ai":       REGION_AI_FRONTIER,
-    "china_depth":   REGION_CHINA,
-    "hk_sea":        REGION_ASIA_PAC,
-    "europe":        REGION_POLITICS,
-    "north_america": REGION_POLITICS,
-    "healthcare":    REGION_SCI_HEALTH,    # 新组
-    "vertical":      REGION_DEEP_DIVE,     # 新组
-    "global_south":  REGION_DEEP_DIVE,
-    "global_finance": REGION_MACRO_MARKETS, # 当前 production 无此 category 源，映射备将来
-}
-```
+### 配额
+B **不建新组**，沿用现有 `region_quotas`。27 源文章涌入现有组会加剧竞争——上线后随 rss-production-review 快照观察 1–2 周，看哪组 max 不够再调。
 
-当前各 category 源数（有 category 的 28 个）：tech_ai 4 / china_depth 4 / europe 6 / north_america 2 / healthcare 3 / vertical 5 / hk_sea 3 / global_south 1。
+## 4. 已知结果（B 的预期，已与用户确认接受）
 
-### 3.2 新建 2 个板块
+`TOPIC_LABELS` 无 science/health，故 healthcare/vertical 文章**主要靠 LLM 散进现有板块**（不集中成专属板块）：
+- healthcare（STAT/KFF/Guardian Science）→ 多半 `society`，部分 `tech`
+- vertical：Foreign Policy/ProPublica→`politics`/`society`；Quanta→`tech`/`society`；Carbon Brief→`society`/`business`；IPS→`politics`
+- 少数无 LLM 标签的 → 走改动 2 的 category 默认组
 
-- `REGION_SCI_HEALTH` =「🔬 科学/健康」（收 healthcare：STAT News / KFF Health News / The Guardian Science）
-- `REGION_DEEP_DIVE` =「📑 深度/专题」（收 vertical + global_south：Foreign Policy / ProPublica / Quanta / Carbon Brief / IPS News / Daily Maverick）
+这是 B 的设计取舍：先用现成引擎把 27 源接入分区竞争（消除"其他区裸奔"），暂不追求专属新板块。
 
-两组加入 `REGION_GROUPS`，**源名清单留空**（成员由 3.3 的 category 派生动态填充）。
+## 5. 影响 / 风险
 
-**验证发现（修正"挪用空组"的原方案）**：原计划改造现有 2 个空组（消费科技/社会观察），但 `_route`（`:1251/1254/1263`）显示这俩空组实际在接 Stage 4 LLM 路由（consumer_tech / society 主题文章）——**空的只是源名清单，不是没内容**。故改为**新建独立组**，2 个空组保留不动。板块总数 10 → 12。
+- ✅ 31 老源、现有板块逻辑**零变化**（手工 fallback 路径不变）
+- ⚠️ 27 源文章从"其他区全量展示"→"现有板块配额竞争"，**曝光下降**（已接受；换版面均衡）
+- ✅ "其他"区从 27 源缩到接近空
+- ⚠️ 动核心 `_collect_region_articles` + `_source_default_region` + `ungrouped` 渲染（每天 3 封邮件排版）→ **必须充分测试 + 真实数据改动前后对拍**
 
-### 3.3 源→组 派生（混合模式核心）
+## 6. 方案 C（后续阶段，本次不实现）
 
-构建一张 `{源名: 板块}` 映射（建议在 sender 初始化时一次性构建），优先级：
+B 上线观察后，若 healthcare/vertical 散落确实需要专属板块：扩 `TOPIC_LABELS`（+science/health 等）+ 改 `_route` 输出新组 + 建「科学/健康」「深度/专题」组 + 配额 + 重新验证分类质量。**动 4-stage 分类器核心、风险高，届时单独 spec。**
 
-1. **手工 `REGION_GROUPS` 清单**（31 个老源，**最高优先**，保持原归属）
-2. 手工没有 → 查 registry 该源 `category` → `CATEGORY_TO_REGION` → 板块（28 个新源自动归位）
-3. 都没有 → 兜底"其他"区（今后理想为空）
+## 7. 测试策略
 
-`_collect_region_articles` 改为用这张派生表确定每个源的 default 板块，**取代当前"只遍历手工 source_names"**。Stage 4 的 `_reclassify_article` 逻辑不变（文章仍可被 LLM 改判到其他板块）。
+pytest：
+- `_collect_region_articles` 遍历所有源、按 `_classifications` route（有标签进对应组）
+- `_source_default_region` 三级 fallback（手工优先 / category 默认 / 兜底）各分支
+- **向后兼容**：31 老源的文章归属与改动前逐一一致（防回归）
+- 集成：27 源的文章按 LLM 标签进区域板块，不再整批落"其他"区
+- 真实数据对拍：改动前后每篇文章所属板块 diff，人工抽查符合预期
 
-### 3.4 配额
+## 8. 开放问题（待 review 敲定）
 
-`digest-tuning.json` `region_quotas` 新增 2 个 key，沿用空组量级：
-- 科学/健康：`min 3 / max 8`
-- 深度/专题：`min 6 / max 10`
-
-现有组配额**不变**（实测现有组 max 足够装下新增源：AI/前沿 13+4=17≤20、全球政治 6+8=14≤22、亚太 6+3=9≤14、中国要闻 3+4=7≤22）。上线后随 rss-production-review 快照观察 1–2 周再调。
-
-### 3.5 已知行为（可接受）
-
-`_route` 不认识这 2 个新组，所以新归组源的文章**仍可能被 Stage 4 LLM 改判**到现有组（如某 healthcare 文章被判 `topic=society` → 进社会观察组）。这不影响治本目标——目标是"让源进入分区系统、参与配额竞争"，而非钉死每篇文章去向。新组的稳定内容 = 该组 category 源中未被 LLM 改判走的文章。
-
-## 4. 影响与风险
-
-- ✅ 31 个老源、现有板块**零变化**（混合模式）
-- ⚠️ 28 个新归组源从"全量展示"→"配额竞争"，**曝光下降**（已与用户确认接受；换取版面均衡 + 冷门组 min 保底 + 主题板块清晰）
-- ✅ "其他"区大幅缩小
-- 风险：动了核心 `_collect_region_articles`（每天 3 封邮件的排版）→ 必须充分测试 + 真实数据对拍
-
-## 5. 测试策略
-
-pytest，覆盖：
-- `CATEGORY_TO_REGION` 映射完整性
-- 源→组 派生三优先级：手工优先（老源不变）/ category 兜底（新源归位）/ fallback 其他
-- 2 个新组出现在 `REGION_GROUPS`，且能被 quota 逻辑识别
-- 集成：有 category 的源文章进对应板块（不再 fall through 其他区）
-- **向后兼容**：31 个老源归属与改动前逐一一致（防回归）
-- 真实数据对拍：改动前后各源所属板块 diff，人工确认符合预期
-
-## 6. 开放问题（待用户深入讨论）
-
-> 用户已预告：定稿前要就**老源 / 板块**做更深入的讨论。以下为可能的议题，讨论后回填并更新本 spec：
-- 31 个无 category 老源是否要补 category（从混合 → 彻底纯派生）？
-- 板块体系是否要进一步重整（现有 12 组是否有合并/拆分空间）？
-- europe / north_america 都并入"全球政治"是否会让该组过载？是否需要独立"欧洲"组？
-- 新组命名 / emoji / 排序位置？
+- 改动 2 中 healthcare/vertical 的 fallback 默认组具体指哪个现有组（healthcare→社会观察？vertical→全球政治 vs 社会观察？）—— 仅影响**少数无 LLM 标签**的文章，可定个合理默认
+- "综合/其他"兜底区：保留（极小）还是取消（强制每篇有归属）
