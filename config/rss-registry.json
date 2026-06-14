@@ -1673,7 +1673,7 @@
       "url": "https://www.sciencenews.org/feed",
       "language": "en",
       "category": "healthcare",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1698,7 +1698,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-12",
-        "end_date": null,
+        "end_date": "2026-06-15",
         "report_sent": false,
         "daily_stats": [
           {
@@ -1713,15 +1713,23 @@
           },
           {
             "date": "2026-06-14",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-06-15",
             "fetched": 3,
             "selected": 3
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.856
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "Endpoints News",
@@ -1947,7 +1955,7 @@
       "url": "https://theintercept.com/feed/?lang=en",
       "language": "en",
       "category": "north_america",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1970,7 +1978,15 @@
         "final": 0.855
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-06-15",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.855
+      },
       "production": null
     },
     {
@@ -3785,6 +3801,11 @@
           },
           {
             "date": "2026-06-14",
+            "fetched": 9,
+            "selected": 9
+          },
+          {
+            "date": "2026-06-15",
             "fetched": 3,
             "selected": 3
           }
