@@ -70,6 +70,7 @@ REGION_ASIA_PAC      = "🌏 亚太要闻 ASIA-PACIFIC"
 REGION_CANADA        = "🇨🇦 加拿大 CANADA"
 REGION_ECONOMIST     = "📕 经济学人 THE ECONOMIST"
 REGION_SOCIETY       = "🌐 社会观察 SOCIETY"
+REGION_OTHER         = "其他 OTHER"   # catch-all for sources/articles with no region home
 
 # Stage 2 — Soft source lock + escape rule (spec §4.1 Stage 2)
 # Sources whose default region is geographically tied to their content type, but
@@ -1275,7 +1276,7 @@ class UnifiedNewsSender:
         for region, sources in self.REGION_GROUPS:
             if source in sources:
                 return region
-        return self.REGION_GROUPS[0][0]
+        return REGION_OTHER
 
     def _reclassify_article(self, title: str, source: str, source_idx: int) -> str | None:
         """Return target region for an article, or None to keep in original region.

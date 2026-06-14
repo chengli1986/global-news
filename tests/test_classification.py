@@ -653,8 +653,9 @@ class TestRegionGroupsStructure:
         assert sender._source_default_region("CBC Business") == "🇨🇦 加拿大 CANADA"
         assert sender._source_default_region("Bloomberg Econ") == "📈 市场/宏观 MACRO & MARKETS"
         assert sender._source_default_region("Economist Finance") == "📕 经济学人 THE ECONOMIST"
-        # Unknown source falls back to first region
-        assert sender._source_default_region("Unknown Source") == "🧠 AI/前沿 AI FRONTIER"
+        # Unknown source falls back to REGION_OTHER (Task 1 routing change)
+        import unified_global_news_sender as _m
+        assert sender._source_default_region("Unknown Source") == _m.REGION_OTHER
 
 
 # ===== Task 7: digest-tuning.json + AR program.md sync =====
