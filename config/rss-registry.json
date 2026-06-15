@@ -7546,6 +7546,34 @@
         "final": 0.808
       },
       "status": "discovered"
+    },
+    {
+      "name": "African Arguments",
+      "url": "https://africanarguments.org/feed/",
+      "language": "en",
+      "category": "global_south",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 10.62,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 788,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.68,
+        "uniqueness": 0.8,
+        "final": 0.844
+      },
+      "status": "discovered"
     }
   ]
 }
