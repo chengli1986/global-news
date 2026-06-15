@@ -1,7 +1,7 @@
 # 源池实测优胜劣汰（S&P 式 rebalance）— 设计文档
 
 - **日期**: 2026-06-15
-- **状态**: 设计中（待用户 review，重点确认 §6 待定参数）
+- **状态**: ✅ 已实现（2026-06-15 上线；参数用默认：保底 3 / 垫底=组内最低且<中位数½ / legacy 豁免）
 - **关联**: [rss-production-review](2026-06-13-rss-production-quality-review-design.md)（本设计是它的进化）、[方案 B 文章级分区](2026-06-14-category-driven-region-grouping-design.md)
 
 ## 1. 背景与动机

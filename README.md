@@ -234,6 +234,7 @@ Weekly in-production quality review (test-period cadence) that reads `logs/produ
 
 - **A — zombie sources** (auto-flagged, suggests demote): production sources still publishing (`fetched>0`) but ~never selected (`selected≤1` over a 30-day window), gated by a 30-day on-tenure grace period and an `active_days≥7` sample floor so low-frequency sources aren't misjudged. `fetched==0` (source not publishing) is left to `rss-health-check`. Each candidate carries a ready-to-paste `rss-demote-source.py` command.
 - **B — content degradation** (warning only): `pct_with_desc` / `avg_desc_len` / `pct_with_author` drifting down vs the source's OWN baseline (60-day cap, recent-7d vs prior) — never absolute thresholds, so natively-short-summary sources (Foreign Policy etc.) aren't penalised.
+- **♻️ Rotation — 组内实测优胜劣汰** (2026-06-15, suggests demote): within each `category`, the lowest-selection source that's *also clearly below the group median* is flagged for rotation — 沉淀精品同时保多元. legacy(无 category)豁免；每类保底 3 个；沿用 A 的低频/在岗宽限保护；与 A 绝对僵尸不重复. Spec: `docs/superpowers/specs/2026-06-15-source-fitness-rebalance-design.md`
 - **Action model**: report only — demote is human-confirmed via `rss-demote-source.py`. Test period emails every week (incl. a full-pool contribution snapshot); cadence and thresholds to be tuned after observation.
 - **Spec**: `docs/superpowers/specs/2026-06-13-rss-production-quality-review-design.md`
 
