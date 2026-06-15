@@ -22,6 +22,10 @@ LOG_PATH = os.path.join(SCRIPT_DIR, "logs", "production-source-log.jsonl")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 SENDER_FILE = os.path.join(SCRIPT_DIR, "unified-global-news-sender.py")
 PLAN_C_CATEGORIES = ("healthcare", "vertical", "global_south")  # categories with no dedicated board until 方案 C
+ROTATION_MIN_GROUP = 3
+ROTATION_WINDOW_DAYS = 30
+ROTATION_MIN_ACTIVE_DAYS = 7
+ROTATION_GRACE_DAYS = 30
 
 
 def parse_ts(ts: str) -> datetime:
@@ -179,6 +183,44 @@ def find_degraded(registry, records, now, *, recent_days=7, baseline_days=60,
                 out.append({"name": name, "signal": field + ":" + label,
                             "baseline": round(b, 2), "recent": round(r, 2),
                             "detail": f"{field} {b:.2f} → {r:.2f}"})
+    return out
+
+
+def find_rotation_candidates(registry, records, now, *, window_days=30,
+                             min_group=3, min_active_days=7, grace_days=30,
+                             zombie_max=1) -> list:
+    """组内实测优胜劣汰：每个 category 内 selected 垫底且明显低于同类的源 → 建议轮换。
+
+    保多元：legacy(无 category)豁免；组内有数据源 <= min_group 整组豁免；每组最多标 1 个。
+    去重：selected <= zombie_max 的归 A 僵尸，不在此重复。低频保护沿用 active_days/在岗宽限。
+    """
+    import collections
+    agg = aggregate_by_source(filter_window(records, now, window_days))
+    by_cat = collections.defaultdict(list)
+    for s in _reg.get_by_status(registry, "production"):
+        if s.get("category"):                      # legacy(无 category)豁免
+            by_cat[s["category"]].append(s)
+
+    out = []
+    for cat in sorted(by_cat):
+        live = [(s, agg[s["name"]]) for s in by_cat[cat]
+                if agg.get(s["name"], {}).get("fetched", 0) > 0]
+        if len(live) <= min_group:                 # 领域保底：组太小豁免
+            continue
+        median = statistics.median(sorted(a["selected"] for _, a in live))
+        s, a = min(live, key=lambda x: x[1]["selected"])   # 组内最低
+        sel, ad = a["selected"], a["active_days"]
+        if sel <= zombie_max:                      # 归 A 僵尸，不重复
+            continue
+        if ad < min_active_days:                   # 低频样本保护
+            continue
+        t = tenure_days(s, now)
+        if t is not None and t < grace_days:       # 在岗宽限
+            continue
+        if sel < median / 2:                       # 明显低于同类
+            out.append({"name": s["name"], "category": cat, "selected": sel,
+                        "group_median": median, "group_size": len(live),
+                        "tenure_days": t})
     return out
 
 

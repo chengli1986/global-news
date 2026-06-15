@@ -290,3 +290,57 @@ def test_build_report_includes_plan_c():
     now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
     html = _mod.build_report_html([], [], [], now, "<div>PLANC_MARKER</div>")
     assert "PLANC_MARKER" in html
+
+
+def _prod_cat(name, category, trial=None):
+    return {"name": name, "category": category, "status": "production", "trial": trial}
+
+
+def test_rotation_flags_group_laggard():
+    """组内 selected 最低、且 < 组内中位数一半、组>3 → 建议轮换。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Lag")])
+    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]  # 各 20 selected, active_days=10
+    recs += [_rec(d, "Lag", 3, 1) for d in range(1, 8)]  # active_days=7, selected=7 (>1 且 < 中位数20/2=10)
+    out = _mod.find_rotation_candidates(reg, recs, now)
+    assert [x["name"] for x in out] == ["Lag"]
+
+
+def test_rotation_small_group_exempt():
+    """组内有数据源 <= 保底(3) → 整组豁免。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat("A", "hk_sea"), _prod_cat("B", "hk_sea"), _prod_cat("Lag", "hk_sea")])
+    recs = [_rec(d, "A", 3, 2) for d in range(1, 11)] + [_rec(d, "B", 3, 2) for d in range(1, 11)] \
+        + [_rec(d, "Lag", 3, 0) for d in range(1, 11)]
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def test_rotation_legacy_no_category_exempt():
+    """legacy(无 category) 不参与轮换。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    srcs = [_prod("A"), _prod("B"), _prod("C"), _prod("Lag")]
+    for s in srcs: s["category"] = None
+    reg = _registry(srcs)
+    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")] \
+        + [_rec(d, "Lag", 3, 0) for d in range(1, 11)]
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def test_rotation_skips_absolute_zombie():
+    """组内最低若 selected<=1（绝对僵尸，归 A）→ 不被轮换重复标记。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    srcs = [_prod_cat(n, "europe") for n in ("A", "B", "C", "Z")]
+    reg = _registry(srcs)
+    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")] \
+        + [_rec(d, "Z", 3, 0) for d in range(1, 11)]  # Z selected=0 → A 僵尸
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def test_rotation_low_freq_protected():
+    """组内最低但 active_days<7（低频）→ 不轮换。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    srcs = [_prod_cat(n, "europe") for n in ("A", "B", "C", "Lo")]
+    reg = _registry(srcs)
+    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")] \
+        + [_rec(d, "Lo", 3, 1) for d in (2, 9)]  # 仅 2 天有内容 → active_days=2<7
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
