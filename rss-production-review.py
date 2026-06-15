@@ -241,7 +241,7 @@ def _esc(s) -> str:
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-def build_report_html(zombies, degraded, snapshot, now, plan_c_html="") -> str:
+def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None) -> str:
     """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
     ts = now.strftime("%Y-%m-%d %H:%M BJT")
 
@@ -261,6 +261,23 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="") -> str:
                      f"{z_rows}</table>")
     else:
         a_section = "<h3>🧟 A — 僵尸源候选</h3><p>无。</p>"
+
+    if rotation:
+        r_rows = "".join(
+            f"<tr><td>{_esc(r['name'])}</td><td>{_esc(r['category'])}</td>"
+            f"<td style='text-align:center'>{r['selected']}</td>"
+            f"<td style='text-align:center'>{r['group_median']:.0f}</td>"
+            f"<td style='text-align:center'>{r['group_size']}</td>"
+            f"<td><code>python3 ~/global-news/rss-demote-source.py --name \"{_esc(r['name'])}\" "
+            f"--reason \"rotation-group-laggard\"</code></td></tr>"
+            for r in rotation)
+        rot_section = (f"<h3>♻️ 建议轮换（{len(rotation)}）组内垫底，确认后 demote 换新源</h3>"
+                       "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
+                       "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 入选</th>"
+                       "<th>组内中位</th><th>组大小</th><th>确认后执行</th></tr>"
+                       f"{r_rows}</table>")
+    else:
+        rot_section = ""
 
     if degraded:
         d_rows = "".join(
@@ -283,7 +300,7 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="") -> str:
                     f"{snap_rows}</table>")
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
-            f"{plan_c_html}{a_section}{b_section}{snap_section}")
+            f"{plan_c_html}{a_section}{rot_section}{b_section}{snap_section}")
 
 
 def _plan_c_done(sender_path: str = SENDER_FILE) -> bool:
@@ -383,10 +400,11 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     zombies = find_zombies(registry, records, now)
     degraded = find_degraded(registry, records, now)
     snapshot = snapshot_rows(registry, records, now)
+    rotation = find_rotation_candidates(registry, records, now)
     plan_c_html = plan_c_reminder_html(registry, records, now)
-    html = build_report_html(zombies, degraded, snapshot, now, plan_c_html)
-    subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸候选 / {len(degraded)} 变质预警 "
-               f"— {now.strftime('%m月%d日')}")
+    html = build_report_html(zombies, degraded, snapshot, now, plan_c_html, rotation)
+    subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸 / {len(rotation)} 建议轮换 / "
+               f"{len(degraded)} 变质 — {now.strftime('%m月%d日')}")
     print(f"[prod-review] {len(zombies)} zombies, {len(degraded)} degraded, "
           f"{len(snapshot)} sources reviewed.")
     if send:

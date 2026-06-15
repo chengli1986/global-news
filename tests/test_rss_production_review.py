@@ -344,3 +344,19 @@ def test_rotation_low_freq_protected():
     recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")] \
         + [_rec(d, "Lo", 3, 1) for d in (2, 9)]  # 仅 2 天有内容 → active_days=2<7
     assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def test_build_report_includes_rotation_section():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    rotation = [{"name": "Lag News", "category": "europe", "selected": 7,
+                 "group_median": 20, "group_size": 4, "tenure_days": 90}]
+    html = _mod.build_report_html([], [], [], now, "", rotation)
+    assert "建议轮换" in html
+    assert "Lag News" in html
+    assert "rss-demote-source.py" in html
+
+
+def test_build_report_no_rotation_section_when_empty():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now, "", [])
+    assert "建议轮换" not in html
