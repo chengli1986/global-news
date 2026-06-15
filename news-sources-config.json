@@ -401,12 +401,18 @@
         "name": "Nautilus Magazine",
         "url": "https://nautil.us/feed/",
         "keywords": [],
-        "limit": 3,
-        "trial": true
+        "limit": 3
       },
       {
         "name": "The Intercept",
         "url": "https://theintercept.com/feed/?lang=en",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
+      },
+      {
+        "name": "Frontier Myanmar",
+        "url": "https://www.frontiermyanmar.net/en/feed",
         "keywords": [],
         "limit": 3,
         "trial": true

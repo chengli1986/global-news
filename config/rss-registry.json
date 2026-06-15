@@ -1982,7 +1982,18 @@
         "start_date": "2026-06-15",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-06-15",
+            "fetched": 6,
+            "selected": 0
+          },
+          {
+            "date": "2026-06-16",
+            "fetched": 3,
+            "selected": 0
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.855
@@ -3704,7 +3715,7 @@
       "url": "https://www.frontiermyanmar.net/en/feed",
       "language": "en",
       "category": "hk_sea",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3727,7 +3738,15 @@
         "final": 0.855
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-06-16",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.855
+      },
       "production": null
     },
     {
@@ -3766,7 +3785,7 @@
       "url": "https://nautil.us/feed/",
       "language": "en",
       "category": "vertical",
-      "status": "trialing",
+      "status": "production",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3791,7 +3810,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-13",
-        "end_date": null,
+        "end_date": "2026-06-16",
         "report_sent": false,
         "daily_stats": [
           {
@@ -3806,15 +3825,23 @@
           },
           {
             "date": "2026-06-15",
-            "fetched": 3,
+            "fetched": 9,
             "selected": 3
+          },
+          {
+            "date": "2026-06-16",
+            "fetched": 3,
+            "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.856
       },
-      "production": null
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "The Conversation UK",
