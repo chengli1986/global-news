@@ -409,6 +409,13 @@
         "keywords": [],
         "limit": 3,
         "trial": true
+      },
+      {
+        "name": "China Digital Times",
+        "url": "https://chinadigitaltimes.net/chinese/feed",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [

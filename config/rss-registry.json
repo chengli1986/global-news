@@ -1990,6 +1990,11 @@
           },
           {
             "date": "2026-06-16",
+            "fetched": 9,
+            "selected": 0
+          },
+          {
+            "date": "2026-06-17",
             "fetched": 3,
             "selected": 0
           }
@@ -7628,7 +7633,16 @@
         "uniqueness": 0.85,
         "final": 0.86
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-06-17",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.86
+      }
     },
     {
       "name": "Euronews",
