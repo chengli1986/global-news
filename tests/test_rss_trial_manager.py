@@ -223,7 +223,7 @@ class TestClearHealthStateForRemovedTrial(unittest.TestCase):
                     "Other":     {"consecutive_fails": 0, "last_check": "2026-04-21 BJT"},
                 }, f)
             with patch.object(tm, "SOURCES_FILE", sources_path), \
-                 patch.object(tm, "HEALTH_STATE_FILE", health_path):
+                 patch.object(tm, "HEALTH_STATE_FILES", [health_path]):
                 removed = tm.remove_trial_from_config("Trial Foo")
             self.assertTrue(removed)
             with open(health_path) as f:
@@ -239,9 +239,38 @@ class TestClearHealthStateForRemovedTrial(unittest.TestCase):
                     {"name": "Trial Foo", "url": "https://foo/rss", "trial": True}]}}, f)
             health_path = os.path.join(tmp_dir, "rss-health.json")  # intentionally absent
             with patch.object(tm, "SOURCES_FILE", sources_path), \
-                 patch.object(tm, "HEALTH_STATE_FILE", health_path):
+                 patch.object(tm, "HEALTH_STATE_FILES", [health_path]):
                 # Must not raise even when health state file doesn't exist
                 self.assertTrue(tm.remove_trial_from_config("Trial Foo"))
+
+    def test_clears_from_all_health_state_locations(self):
+        """The production health-check (rss-health-check.py) runs via its workspace
+        symlink and writes the WORKSPACE copy of rss-health.json, while this manager
+        runs from the repo and would otherwise only touch the repo copy — two
+        DIFFERENT files. A removal must scrub the source from every distinct
+        health-state location, else stale consecutive_fails survives in the live
+        (workspace) copy and keeps tripping the health-check cron (exit 1)."""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            sources_path = os.path.join(tmp_dir, "news-sources-config.json")
+            with open(sources_path, "w") as f:
+                json.dump({"news_sources": {"rss_feeds": [
+                    {"name": "Trial Foo", "url": "https://foo/rss", "trial": True}]}}, f)
+            repo_health = os.path.join(tmp_dir, "repo-rss-health.json")
+            ws_health = os.path.join(tmp_dir, "workspace-rss-health.json")
+            for p in (repo_health, ws_health):
+                with open(p, "w") as f:
+                    json.dump({
+                        "Trial Foo": {"consecutive_fails": 2},
+                        "Other":     {"consecutive_fails": 0},
+                    }, f)
+            with patch.object(tm, "SOURCES_FILE", sources_path), \
+                 patch.object(tm, "HEALTH_STATE_FILES", [repo_health, ws_health]):
+                self.assertTrue(tm.remove_trial_from_config("Trial Foo"))
+            for p in (repo_health, ws_health):
+                with open(p) as f:
+                    state = json.load(f)
+                self.assertNotIn("Trial Foo", state, f"stale entry not cleared in {p}")
+                self.assertIn("Other", state)  # untouched
 
 
 class TestCmdRetry(unittest.TestCase):
@@ -383,7 +412,7 @@ class _CmdRunHarness:
             patch.object(_reg, "REGISTRY_FILE", self.reg_path),
             patch.object(_reg, "TUNING_FILE", self.tuning_path),
             patch.object(tm, "SOURCES_FILE", self.cfg_path),
-            patch.object(tm, "HEALTH_STATE_FILE", self.health_path),
+            patch.object(tm, "HEALTH_STATE_FILES", [self.health_path]),
             patch.object(tm, "TRIAL_LOG_FILE", self.log_path),
             patch.object(tm, "send_auto_decision_email", MagicMock(return_value=True)),
         ]
@@ -546,7 +575,7 @@ class TestCmdRemoveAndKeepWithMultiple(unittest.TestCase):
             ])
             with patch.object(_reg, "REGISTRY_FILE", reg_path), \
                  patch.object(tm, "SOURCES_FILE", cfg_path), \
-                 patch.object(tm, "HEALTH_STATE_FILE", os.path.join(d, "h.json")), \
+                 patch.object(tm, "HEALTH_STATE_FILES", [os.path.join(d, "h.json")]), \
                  patch.object(sys, "argv", ["rss-trial-manager.py", "remove"]):
                 with self.assertRaises(SystemExit):
                     tm.cmd_remove()
@@ -568,7 +597,7 @@ class TestCmdRemoveAndKeepWithMultiple(unittest.TestCase):
             ])
             with patch.object(_reg, "REGISTRY_FILE", reg_path), \
                  patch.object(tm, "SOURCES_FILE", cfg_path), \
-                 patch.object(tm, "HEALTH_STATE_FILE", os.path.join(d, "h.json")), \
+                 patch.object(tm, "HEALTH_STATE_FILES", [os.path.join(d, "h.json")]), \
                  patch.object(sys, "argv", ["rss-trial-manager.py", "remove", "A"]):
                 tm.cmd_remove()
             with open(reg_path) as f:
@@ -588,7 +617,7 @@ class TestCmdRemoveAndKeepWithMultiple(unittest.TestCase):
             ])
             with patch.object(_reg, "REGISTRY_FILE", reg_path), \
                  patch.object(tm, "SOURCES_FILE", cfg_path), \
-                 patch.object(tm, "HEALTH_STATE_FILE", os.path.join(d, "h.json")), \
+                 patch.object(tm, "HEALTH_STATE_FILES", [os.path.join(d, "h.json")]), \
                  patch.object(sys, "argv", ["rss-trial-manager.py", "keep"]):
                 with self.assertRaises(SystemExit):
                     tm.cmd_keep()

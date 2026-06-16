@@ -31,7 +31,18 @@ SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 
 import rss_registry as _reg
 TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
-HEALTH_STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")
+HEALTH_STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")  # repo-local copy
+
+# The production health-check (rss-health-check.py) is invoked through its
+# *workspace* symlink. os.path.abspath(__file__) does NOT resolve that symlink, so
+# the health-check's SCRIPT_DIR is the workspace and it reads/writes the workspace
+# copy below — a DIFFERENT file from the repo copy above (this manager is not
+# symlinked into the workspace, so it lands on the repo copy). A trial removal must
+# scrub the stale consecutive_fails from whichever copy is live, so clear BOTH.
+HEALTH_STATE_FILES = [
+    HEALTH_STATE_FILE,
+    os.path.expanduser("~/.openclaw/workspace/logs/rss-health.json"),
+]
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 PROMOTE_THRESHOLD = 0.85  # lowered from 0.90 (Apr 29) — let the trial system itself test edge candidates rather than relying on score alone
@@ -100,26 +111,37 @@ def add_trial_to_config(candidate: dict) -> None:
 
 
 def _clear_health_state_for(source_name: str) -> None:
-    """Remove a source's entry from rss-health.json.
+    """Remove a source's entry from every distinct health-state file.
 
     Called when a trial source is de-registered (auto-rejected or manually
     removed). Without this, stale `consecutive_fails` from the trial window
     would persist, and a future re-trial of the same name (or a monitoring
     dashboard query) would still see failures that belonged to a prior run.
+
+    The repo-local copy and the production workspace copy are DIFFERENT files
+    (see HEALTH_STATE_FILES), so scrub each distinct one that exists — clearing
+    only the repo copy leaves the live (workspace) consecutive_fails in place,
+    which keeps tripping the health-check cron (exit 1).
     """
-    if not os.path.isfile(HEALTH_STATE_FILE):
-        return
-    try:
-        with open(HEALTH_STATE_FILE, encoding="utf-8") as f:
-            state = json.load(f)
-    except Exception:
-        return
-    if source_name in state:
-        del state[source_name]
+    seen = set()
+    for path in HEALTH_STATE_FILES:
+        real = os.path.realpath(path)
+        if real in seen:
+            continue
+        seen.add(real)
+        if not os.path.isfile(path):
+            continue
         try:
-            _atomic_write(HEALTH_STATE_FILE, state)
+            with open(path, encoding="utf-8") as f:
+                state = json.load(f)
         except Exception:
-            pass
+            continue
+        if source_name in state:
+            del state[source_name]
+            try:
+                _atomic_write(path, state)
+            except Exception:
+                pass
 
 
 def remove_trial_from_config(source_name: str) -> bool:
