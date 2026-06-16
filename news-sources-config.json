@@ -409,13 +409,6 @@
         "keywords": [],
         "limit": 3,
         "trial": true
-      },
-      {
-        "name": "Frontier Myanmar",
-        "url": "https://www.frontiermyanmar.net/en/feed",
-        "keywords": [],
-        "limit": 3,
-        "trial": true
       }
     ],
     "hn_api": [

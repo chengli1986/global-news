@@ -3715,7 +3715,7 @@
       "url": "https://www.frontiermyanmar.net/en/feed",
       "language": "en",
       "category": "hk_sea",
-      "status": "trialing",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3740,10 +3740,10 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-16",
-        "end_date": null,
+        "end_date": "2026-06-16",
         "report_sent": false,
         "daily_stats": [],
-        "outcome": null,
+        "outcome": "removed",
         "auto_decided": false,
         "candidate_score": 0.855
       },
