@@ -1955,7 +1955,7 @@
       "url": "https://theintercept.com/feed/?lang=en",
       "language": "en",
       "category": "north_america",
-      "status": "trialing",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1980,7 +1980,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-15",
-        "end_date": null,
+        "end_date": "2026-06-18",
         "report_sent": false,
         "daily_stats": [
           {
@@ -1995,12 +1995,17 @@
           },
           {
             "date": "2026-06-17",
+            "fetched": 9,
+            "selected": 0
+          },
+          {
+            "date": "2026-06-18",
             "fetched": 3,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.855
       },
       "production": null
@@ -4440,7 +4445,7 @@
       "url": "https://blog.google/technology/ai/rss/",
       "language": "en",
       "category": "tech_ai",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -4463,7 +4468,15 @@
         "final": 0.855
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-06-18",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.855
+      },
       "production": null
     },
     {
@@ -7638,7 +7651,18 @@
         "start_date": "2026-06-17",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-06-17",
+            "fetched": 6,
+            "selected": 1
+          },
+          {
+            "date": "2026-06-18",
+            "fetched": 3,
+            "selected": 0
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.86
