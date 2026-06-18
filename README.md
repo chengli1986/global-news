@@ -1,11 +1,11 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 58 sources (55 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports three times daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 58 sources (55 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
 ```
-Cron (3x daily: 00:00, 08:00, 16:00 BJT)
+Cron (1x daily: 12:15 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
            ├── news-sources-config.json (58 sources)
@@ -13,7 +13,7 @@ Cron (3x daily: 00:00, 08:00, 16:00 BJT)
            ├── HN Firebase API (1 source, structured data with scores)
            └── RSS/Atom feeds (55 sources, includes active trials)
 
-Cron (every 6h: 02:12, 08:12, 14:12, 20:12 BJT)
+Cron (1x daily: 12:05 BJT)
  └── rss-health-check.py
       ├── news-sources-config.json (reads + auto-edits on failover)
       └── logs/rss-health.json (consecutive failure state)
@@ -115,7 +115,7 @@ The email includes an LLM Status banner when fallback is active (orange for FALL
 
 ## Cross-Send Deduplication
 
-Articles are tracked across the three daily sends via `logs/sent-today-YYYY-MM-DD.json`. Previously sent articles are filtered out to avoid repetition. Premium sources (Economist, FT, Bloomberg, NYT) can resurface after a 4-hour cooldown period.
+Articles are tracked across daily sends via `logs/sent-today-YYYY-MM-DD.json`. Previously sent articles are filtered out to avoid repetition. Premium sources (Economist, FT, Bloomberg, NYT) can resurface after a 4-hour cooldown period.
 
 ## Article Timestamps
 
@@ -156,13 +156,11 @@ Current recipients (4 TO + 1 BCC):
 ## Cron Schedule
 
 ```cron
-# News digest: 3x daily at 08:00, 16:15, 00:10 BJT (via cron-wrapper)
-0 0 * * * ~/cron-wrapper.sh --name global-news-00 --timeout 180 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
-15 8 * * * ~/cron-wrapper.sh --name global-news-08 --timeout 180 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
-10 16 * * * ~/cron-wrapper.sh --name global-news-16 --timeout 180 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
+# News digest: 1x daily at 12:15 BJT (04:15 UTC, via cron-wrapper)
+15 4 * * * ~/cron-wrapper.sh --name global-news-12 --timeout 720 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
 
-# RSS health check: every 6h at :20 past 0/6/12/18 UTC
-20 0,6,12,18 * * * ~/cron-wrapper.sh --name rss-health --timeout 120 -- python3 ~/.openclaw/workspace/rss-health-check.py
+# RSS health check: 1x daily at 12:05 BJT (04:05 UTC)
+5 4 * * * ~/cron-wrapper.sh --name rss-health-12 --timeout 120 -- python3 ~/.openclaw/workspace/rss-health-check.py
 ```
 
 ## AutoResearch — Digest Quality Pipeline

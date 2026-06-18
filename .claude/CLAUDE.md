@@ -1,10 +1,10 @@
 # Global News
 
-~58-source news digest system (55 RSS + 2 Sina API + 1 HN Firebase API; trial-promoted sources rotate ±1–2): fetches feeds in parallel, classifies articles via GPT-4.1-mini, generates categorized HTML email, sends 3x daily (BJT 08/16/00).
+~58-source news digest system (55 RSS + 2 Sina API + 1 HN Firebase API; trial-promoted sources rotate ±1–2): fetches feeds in parallel, classifies articles via GPT-4.1-mini, generates categorized HTML email, sends 1x daily (12:15 BJT).
 
 ## Architecture
 - `unified-global-news-sender.py`: main script — stdlib only (no pip deps), uses `urllib.request`, `xml.etree.ElementTree`, `concurrent.futures`
-- `rss-health-check.py`: monitors all sources every 6h, auto-swaps failed feeds after 3 consecutive failures
+- `rss-health-check.py`: monitors all sources 1x daily (12:05 BJT), auto-swaps failed feeds after 3 consecutive failures
 - `news-sources-config.json`: single source of truth for all feed URLs and backup URLs
 - Cron wrapper: `global-news-cron-wrapper.sh` with `SCRIPT_DIR` via `BASH_SOURCE[0]`
 
