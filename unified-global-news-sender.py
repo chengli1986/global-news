@@ -524,26 +524,13 @@ class UnifiedNewsSender:
         return json.loads(stripped)
 
     def _llm_api_call(self, payload: dict, timeout: int = 90, max_retries: int = 3) -> dict:
-        """Make LLM API call: try OpenAI first, fallback to Gemini.
-        Sets self._last_provider to the provider that actually handled the call."""
-        # Try OpenAI (gpt-4.1-mini)
-        if self._openai_key:
-            try:
-                result = self._api_call_with_retry(
-                    url="https://api.openai.com/v1/chat/completions",
-                    api_key=self._openai_key, payload=payload,
-                    timeout=timeout, max_retries=max_retries, provider="OpenAI",
-                )
-                self._last_provider = "OpenAI"
-                return result
-            except Exception as openai_err:
-                if self._gemini_key:
-                    print(f"  ⚠️  OpenAI failed ({openai_err}), switching to Gemini...")
-                else:
-                    raise
-
-        # Fallback: Gemini via OpenAI-compatible endpoint
-        # Strip response_format — Gemini's compat endpoint returns 503 with it on larger payloads.
+        """Make LLM API call: try Gemini first, fallback to OpenAI.
+        Sets self._last_provider to the provider that actually handled the call.
+        Primary = Gemini 2.5 Flash (free tier covers ~7K tokens/run, ~$0/month).
+        Fallback = OpenAI gpt-4.1-mini (requires API credits).
+        """
+        # Primary: Gemini via OpenAI-compatible endpoint
+        # Strip response_format — Gemini's compat endpoint ignores it; keep payload clean.
         # Try gemini-2.5-flash first, then gemini-2.5-flash-lite if capacity-limited.
         # Gemini 2.5 Flash 503 is a known regional capacity issue — fast-fail (max_retries=2,
         # i.e. 1 retry then move on) so we reach flash-lite in ~5s instead of burning ~15s.
@@ -563,7 +550,23 @@ class UnifiedNewsSender:
                     if gemini_model == "gemini-2.5-flash":
                         print(f"  ⚠️  {gemini_model} unavailable ({gemini_err}), trying flash-lite...")
                     else:
-                        raise
+                        if self._openai_key:
+                            print(f"  ⚠️  Gemini failed ({gemini_err}), switching to OpenAI...")
+                        else:
+                            raise
+
+        # Fallback: OpenAI gpt-4.1-mini
+        if self._openai_key:
+            try:
+                result = self._api_call_with_retry(
+                    url="https://api.openai.com/v1/chat/completions",
+                    api_key=self._openai_key, payload=payload,
+                    timeout=timeout, max_retries=max_retries, provider="OpenAI",
+                )
+                self._last_provider = "OpenAI"
+                return result
+            except Exception as openai_err:
+                raise
 
         raise RuntimeError("No LLM API keys available (OPENAI_API_KEY / GEMINI_API_KEY)")
 
@@ -1724,14 +1727,16 @@ class UnifiedNewsSender:
 <!-- === CONTENT === -->
 """
 
-        # LLM status banner — only shown when any step failed or used fallback
-        has_issue = any(not ok or (prov and prov != "OpenAI") for _, prov, ok in self._llm_status)
+        # LLM status banner — shown only when a step failed or fell back to OpenAI.
+        # Gemini is now primary; OpenAI is fallback (requires API credits).
+        GEMINI_MODELS = {"gemini-2.5-flash", "gemini-2.5-flash-lite"}
+        has_issue = any(not ok or (prov and prov not in GEMINI_MODELS) for _, prov, ok in self._llm_status)
         if has_issue and self._llm_status:
             status_lines = []
             for step, prov, ok in self._llm_status:
                 if not ok:
                     status_lines.append(f"&bull; {step}: <b style='color:#c0392b;'>FAILED</b> (降级为关键词/英文原文)")
-                elif prov and prov != "OpenAI":
+                elif prov and prov not in GEMINI_MODELS:
                     status_lines.append(f"&bull; {step}: <b style='color:#e67e22;'>FALLBACK</b> &rarr; {prov}")
             if status_lines:
                 html += f"""
