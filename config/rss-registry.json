@@ -4480,6 +4480,11 @@
           },
           {
             "date": "2026-06-19",
+            "fetched": 1,
+            "selected": 0
+          },
+          {
+            "date": "2026-06-20",
             "fetched": 0,
             "selected": 0
           }
@@ -4495,7 +4500,7 @@
       "url": "https://myanmar-now.org/en/feed/",
       "language": "en",
       "category": "hk_sea",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -4518,7 +4523,15 @@
         "final": 0.855
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-06-20",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.855
+      },
       "production": null
     },
     {
@@ -7657,10 +7670,10 @@
         "uniqueness": 0.85,
         "final": 0.86
       },
-      "status": "trialing",
+      "status": "rejected",
       "trial": {
         "start_date": "2026-06-17",
-        "end_date": null,
+        "end_date": "2026-06-20",
         "report_sent": false,
         "daily_stats": [
           {
@@ -7675,12 +7688,17 @@
           },
           {
             "date": "2026-06-19",
+            "fetched": 3,
+            "selected": 1
+          },
+          {
+            "date": "2026-06-20",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.86
       }
     },
