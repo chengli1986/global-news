@@ -525,23 +525,24 @@ class TestCmdRunMultipleTrials(unittest.TestCase):
             self.assertIn(_today_str(), dates)
 
     def test_evaluates_each_trial_independently_for_expiry(self):
-        """One trial expired (>= 3 days, ≥3 selected → auto-graduate),
+        """One trial expired (>= 7 days, ≥10 selected, ≥4 days → auto-graduate),
         one not yet expired (started today). Only the expired one ends.
         The expired trial's selections live in trial-source-log so backfill
         can reconstruct them — this is the real production data flow."""
         with tempfile.TemporaryDirectory() as d:
             h = _CmdRunHarness(d)
             log_entries = [
-                {"ts": f"{_days_ago(3)}T08:00:00+08:00", "source": "Ripe", "fetched": 5, "selected": 5},
-                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Ripe", "fetched": 5, "selected": 5},
-                {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "Ripe", "fetched": 5, "selected": 5},
+                {"ts": f"{_days_ago(7)}T08:00:00+08:00", "source": "Ripe", "fetched": 3, "selected": 3},
+                {"ts": f"{_days_ago(5)}T08:00:00+08:00", "source": "Ripe", "fetched": 3, "selected": 3},
+                {"ts": f"{_days_ago(3)}T08:00:00+08:00", "source": "Ripe", "fetched": 3, "selected": 3},
+                {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "Ripe", "fetched": 3, "selected": 3},
             ]
             with open(h.log_path, "w") as f:
                 for e in log_entries:
                     f.write(json.dumps(e) + "\n")
             h.write_registry([
                 _trialing("Ripe", "https://r.com/f", category="europe",
-                          start_days_ago=4, daily_stats=[]),
+                          start_days_ago=8, daily_stats=[]),
                 _trialing("Fresh", "https://f.com/f", category="healthcare",
                           start_days_ago=0),
             ])
@@ -824,32 +825,37 @@ class TestEmailRenderingNestedFields(unittest.TestCase):
 
 class TestStrictAutoKeepThresholds(unittest.TestCase):
     """Auto-keep requires BOTH gates to pass:
-      • volume: total_selected ≥ AUTO_KEEP_MIN_SELECTED (5)
-      • distribution: days_with_content ≥ MIN_DAYS_WITH_CONTENT (2)
+      • volume: total_selected ≥ AUTO_KEEP_MIN_SELECTED (10)
+      • distribution: days_with_content ≥ MIN_DAYS_WITH_CONTENT (4)
     Either gate failing → auto-remove. Distribution gate prevents promoting
     sources that pass the volume gate via a single bursty day (Politico Europe
-    pattern: 3 articles all on day 1, 0 on days 2-3 under old rules)."""
+    pattern: 3 articles all on day 1, 0 on days 2-3 under old rules).
+    Trial window extended to 7 days (mirrors GMIA ≥4/7d gate)."""
 
     def test_constants_match_strict_thresholds(self):
-        self.assertEqual(tm.AUTO_KEEP_MIN_SELECTED, 5)
-        self.assertEqual(tm.MIN_DAYS_WITH_CONTENT, 2)
+        self.assertEqual(tm.AUTO_KEEP_MIN_SELECTED, 10)
+        self.assertEqual(tm.MIN_DAYS_WITH_CONTENT, 4)
 
     def test_auto_keep_at_exact_thresholds(self):
-        """5 selected over exactly 2 days (3 + 2) → auto-graduated."""
+        """10 selected over exactly 4 days (4+3+2+1) → auto-graduated."""
         with tempfile.TemporaryDirectory() as d:
             h = _CmdRunHarness(d)
             log_entries = [
-                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Borderline",
+                {"ts": f"{_days_ago(4)}T08:00:00+08:00", "source": "Borderline",
+                 "fetched": 4, "selected": 4},
+                {"ts": f"{_days_ago(3)}T08:00:00+08:00", "source": "Borderline",
                  "fetched": 3, "selected": 3},
-                {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "Borderline",
+                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Borderline",
                  "fetched": 2, "selected": 2},
+                {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "Borderline",
+                 "fetched": 1, "selected": 1},
             ]
             with open(h.log_path, "w") as f:
                 for e in log_entries:
                     f.write(json.dumps(e) + "\n")
             h.write_registry([
                 _trialing("Borderline", "https://b.com/f", category="europe",
-                          start_days_ago=4),
+                          start_days_ago=8),
             ])
             _run_cmd_run(h)
             reg = h.read_registry()
@@ -857,24 +863,26 @@ class TestStrictAutoKeepThresholds(unittest.TestCase):
         self.assertEqual(statuses["Borderline"], "production")
 
     def test_auto_remove_below_selected_threshold(self):
-        """4 selected over 3 days (2+1+1) → auto-removed.
-        Distribution OK (3 ≥ 2) but volume fails (4 < 5)."""
+        """9 selected over 4 days (3+2+2+2) → auto-removed.
+        Distribution OK (4 ≥ 4) but volume fails (9 < 10)."""
         with tempfile.TemporaryDirectory() as d:
             h = _CmdRunHarness(d)
             log_entries = [
+                {"ts": f"{_days_ago(7)}T08:00:00+08:00", "source": "LowVolume",
+                 "fetched": 3, "selected": 3},
+                {"ts": f"{_days_ago(5)}T08:00:00+08:00", "source": "LowVolume",
+                 "fetched": 2, "selected": 2},
                 {"ts": f"{_days_ago(3)}T08:00:00+08:00", "source": "LowVolume",
                  "fetched": 2, "selected": 2},
-                {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "LowVolume",
-                 "fetched": 1, "selected": 1},
                 {"ts": f"{_days_ago(1)}T08:00:00+08:00", "source": "LowVolume",
-                 "fetched": 1, "selected": 1},
+                 "fetched": 2, "selected": 2},
             ]
             with open(h.log_path, "w") as f:
                 for e in log_entries:
                     f.write(json.dumps(e) + "\n")
             h.write_registry([
                 _trialing("LowVolume", "https://l.com/f", category="europe",
-                          start_days_ago=4),
+                          start_days_ago=8),
             ])
             _run_cmd_run(h)
             reg = h.read_registry()
@@ -882,22 +890,22 @@ class TestStrictAutoKeepThresholds(unittest.TestCase):
         self.assertEqual(statuses["LowVolume"], "rejected")
 
     def test_auto_remove_below_days_threshold_politico_pattern(self):
-        """6 selected ALL on a single day → auto-removed.
-        Volume OK (6 ≥ 5) but distribution fails (1 < 2). This is the exact
+        """15 selected ALL on a single day → auto-removed.
+        Volume OK (15 ≥ 10) but distribution fails (1 < 4). This is the exact
         pattern that motivated the rule: Politico Europe trial 2026-04-26→29
         had 3 selected on day 1, 0 on days 2–3."""
         with tempfile.TemporaryDirectory() as d:
             h = _CmdRunHarness(d)
             log_entries = [
                 {"ts": f"{_days_ago(2)}T08:00:00+08:00", "source": "Spike",
-                 "fetched": 6, "selected": 6},
+                 "fetched": 15, "selected": 15},
             ]
             with open(h.log_path, "w") as f:
                 for e in log_entries:
                     f.write(json.dumps(e) + "\n")
             h.write_registry([
                 _trialing("Spike", "https://s.com/f", category="europe",
-                          start_days_ago=4),
+                          start_days_ago=8),
             ])
             _run_cmd_run(h)
             reg = h.read_registry()
@@ -905,7 +913,7 @@ class TestStrictAutoKeepThresholds(unittest.TestCase):
         self.assertEqual(statuses["Spike"], "rejected")
 
     def test_auto_remove_when_both_gates_fail(self):
-        """3 selected on a single day → both gates fail (3 < 5 AND 1 < 2)."""
+        """3 selected on a single day → both gates fail (3 < 10 AND 1 < 4)."""
         with tempfile.TemporaryDirectory() as d:
             h = _CmdRunHarness(d)
             log_entries = [
@@ -917,7 +925,7 @@ class TestStrictAutoKeepThresholds(unittest.TestCase):
                     f.write(json.dumps(e) + "\n")
             h.write_registry([
                 _trialing("Both", "https://b.com/f", category="europe",
-                          start_days_ago=4),
+                          start_days_ago=8),
             ])
             _run_cmd_run(h)
             reg = h.read_registry()
@@ -926,7 +934,7 @@ class TestStrictAutoKeepThresholds(unittest.TestCase):
 
     def test_auto_decision_email_references_both_thresholds(self):
         """Auto-decision email body must reference both numerical thresholds
-        (≥ 5 篇 + ≥ 2 天) so the recipient can interpret the decision."""
+        (≥ 10 篇 + ≥ 4 天) so the recipient can interpret the decision."""
         trial = {
             "name": "Politico Pattern",
             "url": "https://p.com/f",
@@ -948,8 +956,8 @@ class TestStrictAutoKeepThresholds(unittest.TestCase):
             trial, kept=False, total_selected=6,
             smtp_user="bot@example.com", mail_to="user@example.com",
         )
-        self.assertIn("≥ 5", html, "volume threshold (5 篇) must appear")
-        self.assertIn("≥ 2", html, "distribution threshold (2 天) must appear")
+        self.assertIn("≥ 10", html, "volume threshold (10 篇) must appear")
+        self.assertIn("≥ 4", html, "distribution threshold (4 天) must appear")
 
 
 if __name__ == "__main__":

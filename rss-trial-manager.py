@@ -5,7 +5,7 @@ RSS Trial Manager — auto-promote high-scoring candidates into TRIAL_DAYS-day t
 
 Daily flow (called from rss-source-discovery.sh after discovery):
   1. If active trial: aggregate today's stats from trial-source-log.jsonl
-     - If 3 days elapsed → send 3-day report email → mark trial ended
+     - If 7 days elapsed → send 7-day report email → mark trial ended
   2. If no active trial: pick highest-scoring candidate (score >= PROMOTE_THRESHOLD,
      not in history), add to news-sources-config.json, start trial
 
@@ -46,9 +46,9 @@ HEALTH_STATE_FILES = [
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
 PROMOTE_THRESHOLD = 0.85  # lowered from 0.90 (Apr 29) — let the trial system itself test edge candidates rather than relying on score alone
-TRIAL_DAYS = 3
-AUTO_KEEP_MIN_SELECTED = 5  # volume gate: total articles selected over 3-day trial (raised from 3 on Apr 30)
-MIN_DAYS_WITH_CONTENT = 2   # distribution gate: trial must produce on ≥ N distinct days
+TRIAL_DAYS = 7
+AUTO_KEEP_MIN_SELECTED = 10  # volume gate: total articles selected over 7-day trial (scaled from 5/3d, mirrors GMIA 7-day window)
+MIN_DAYS_WITH_CONTENT = 4   # distribution gate: trial must produce on ≥ N distinct days (mirrors GMIA ≥4/7d)
                             # (Apr 30: prevents promoting bursty sources that pass volume on a single spike day —
                             # Politico Europe trial 2026-04-26→29 had 3 selected on day 1 + 0 on days 2–3)
 MAX_CONCURRENT_TRIALS = 2   # how many trials may run simultaneously; promote loop stops when reached
