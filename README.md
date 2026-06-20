@@ -205,11 +205,11 @@ Automated source promotion pipeline that turns high-scoring discovery candidates
 
 - **Auto-promotion**: candidates with score ≥ `PROMOTE_THRESHOLD` (0.85, lowered from 0.90 on Apr 29 — trial system arbitrates edge cases)
 - **Concurrency**: up to `MAX_CONCURRENT_TRIALS` = 2 active trials simultaneously (Apr 25 upgrade), max 1 promotion per day, category mutex (no two trials in the same category at once)
-- **Trial period**: `TRIAL_DAYS` = 3 days
-- **Graduation rule** (Apr 30, stricter): source must pass **both** gates to auto-graduate:
-  - **Volume**: `total selected ≥ AUTO_KEEP_MIN_SELECTED` (5, raised from 3)
-  - **Distribution**: `days_with_content ≥ MIN_DAYS_WITH_CONTENT` (2) — at least N distinct days must have produced ≥ 1 selected article
-  - Either gate failing → auto-removed. Distribution gate prevents promoting bursty sources that pass volume on a single spike day (Politico Europe pattern: 3 selected on day 1, 0 on days 2–3 under old rules)
+- **Trial period**: `TRIAL_DAYS` = 7 days (Jun 20, raised from 3 — mirrors GMIA 7-day model)
+- **Graduation rule** (Jun 20, tightened to match 7-day window): source must pass **both** gates to auto-graduate:
+  - **Volume**: `total selected ≥ AUTO_KEEP_MIN_SELECTED` (10, raised from 5; proportional: 5×7/3 rounded down)
+  - **Distribution**: `days_with_content ≥ MIN_DAYS_WITH_CONTENT` (4, raised from 2; mirrors GMIA ≥4/7 days gate) — at least N distinct days must have produced ≥ 1 selected article
+  - Either gate failing → auto-removed. Distribution gate prevents promoting bursty sources that pass volume on a single spike day
 - **Backfill** (Apr 29): each `cmd_run` re-aggregates `[start_date, today]` from `logs/trial-source-log.jsonl` so any missed day (including the trial-creation day) is reconstructed idempotently
 - **Script**: `rss-trial-manager.py` (subcommands: `run` / `status` / `keep [name]` / `remove [name]` / `retry name`)
 - **State**: `config/rss-registry.json` (unified — replaced the old `trial-state.json` + `discovered-rss.json`)
