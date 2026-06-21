@@ -4492,6 +4492,11 @@
             "date": "2026-06-21",
             "fetched": 0,
             "selected": 0
+          },
+          {
+            "date": "2026-06-22",
+            "fetched": 0,
+            "selected": 0
           }
         ],
         "outcome": null,
@@ -4540,8 +4545,13 @@
           },
           {
             "date": "2026-06-21",
-            "fetched": 0,
+            "fetched": 3,
             "selected": 0
+          },
+          {
+            "date": "2026-06-22",
+            "fetched": 2,
+            "selected": 1
           }
         ],
         "outcome": null,
