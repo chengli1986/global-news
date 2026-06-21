@@ -692,7 +692,7 @@ class TestRegionGroupsStructure:
 
 
 class TestDigestTuningConfig:
-    """Spec §4.6 + F1: digest-tuning.json must encode 10-zone region_quotas with
+    """Spec §4.6 + F1: digest-tuning.json must encode 11-zone region_quotas with
     max_total=150 and sum_max ≥ max_total (binding cap behavior).
     """
 
@@ -708,9 +708,9 @@ class TestDigestTuningConfig:
         assert cfg["target_article_count"] == 150
         assert cfg["max_total_articles"] == cfg["target_article_count"]
 
-    def test_region_quotas_has_10_zones(self):
+    def test_region_quotas_has_11_zones(self):
         cfg = self._load_tuning()
-        assert len(cfg["region_quotas"]) == 10
+        assert len(cfg["region_quotas"]) == 11
 
     def test_region_quotas_sum_bounds(self):
         cfg = self._load_tuning()
@@ -737,6 +737,24 @@ class TestDigestTuningConfig:
             assert tuning_key in sender_no_emoji, (
                 f"digest-tuning region key {tuning_key!r} does not match any sender "
                 f"REGION_GROUPS (after emoji strip): {sender_no_emoji}"
+            )
+
+    def test_sender_regions_all_have_quotas(self):
+        """Every sender REGION_GROUPS region must have a matching region_quotas entry (no-emoji form)."""
+        cfg = self._load_tuning()
+        tuning_keys = set(cfg["region_quotas"].keys())
+
+        def _strip_emoji(s):
+            for char in s:
+                if char.isalnum() or char in ' &':
+                    return s[s.index(char):].strip()
+            return s
+
+        for region, _ in UnifiedNewsSender.REGION_GROUPS:
+            key = _strip_emoji(region)
+            assert key in tuning_keys, (
+                f"sender REGION_GROUPS region {region!r} (stripped: {key!r}) has no "
+                f"region_quotas entry in digest-tuning.json"
             )
 
     def test_evaluator_source_to_region_matches_tuning(self):
