@@ -82,8 +82,8 @@ REGION_CONSUMER_TECH = "📱 消费科技 CONSUMER TECH"
 REGION_ASIA_PAC      = "🌏 亚太要闻 ASIA-PACIFIC"
 REGION_CANADA        = "🇨🇦 加拿大 CANADA"
 REGION_ECONOMIST     = "📕 经济学人 THE ECONOMIST"
-REGION_SOCIETY       = "🌐 社会观察 SOCIETY"
 REGION_SCI_HEALTH    = "🔬 科学·健康 SCIENCE & HEALTH"
+REGION_SOCIETY       = "🌐 社会观察 SOCIETY"
 REGION_OTHER         = "其他 OTHER"   # catch-all for sources/articles with no region home
 
 # Stage 2 — Soft source lock + escape rule (spec §4.1 Stage 2)
