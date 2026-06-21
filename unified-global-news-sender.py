@@ -47,6 +47,19 @@ SUBTOPIC_LABELS = {
     "tech": frozenset({"tech_ai", "tech_consumer"}),
     "business": frozenset({"business_macro", "business_corp"}),
 }
+# Stage 4 LLM prompt — topic definitions block. Extracted as a module constant so
+# tests can assert the vocabulary contract: science_health is defined, and tech/
+# society no longer claim science/health (overlap removed → stable routing).
+_TOPIC_DEFINITIONS_BLOCK = (
+    "Topics (pick exactly one):\n"
+    "- \"politics\": government, military, diplomacy, war, elections, protests, civic, policy\n"
+    "- \"business\": companies, markets, economy, trade, finance\n"
+    "- \"tech\": AI, software, hardware, semiconductors (NOT consumer product reviews, NOT basic science)\n"
+    "- \"consumer_tech\": gadget reviews, product launches/specs, app updates, smart home, lifestyle apps\n"
+    "- \"society\": culture, education, lifestyle, social issues\n"
+    "- \"science_health\": scientific discoveries (physics/math/astronomy/biology), medicine,"
+    " public health, medical research (NOT climate/environment → politics, NOT gadgets → consumer_tech)\n\n"
+)
 # reason_code prefix vocabulary used by Stage 1-4 + fallback. Validation set for
 # monitoring (Task 8) — every reason_code emitted by the pipeline must start with one of these.
 REASON_PREFIXES = frozenset({
@@ -888,12 +901,7 @@ class UnifiedNewsSender:
         prompt = (
             "Classify each numbered news title with three labels: topic, geo, subtopic.\n"
             "Titles may be in Chinese or English.\n\n"
-            "Topics (pick exactly one):\n"
-            "- \"politics\": government, military, diplomacy, war, elections, protests, civic, policy\n"
-            "- \"business\": companies, markets, economy, trade, finance\n"
-            "- \"tech\": AI, software, hardware, semiconductors, science breakthroughs (NOT consumer product reviews)\n"
-            "- \"consumer_tech\": gadget reviews, product launches/specs, app updates, smart home, lifestyle apps\n"
-            "- \"society\": culture, education, lifestyle, social issues, health\n\n"
+            + _TOPIC_DEFINITIONS_BLOCK +
             "Geos (pick exactly one — the article's PRIMARY geographic focus):\n"
             "- \"china\": primarily about mainland China\n"
             "- \"canada\": primarily about Canada\n"
@@ -917,8 +925,12 @@ class UnifiedNewsSender:
             "- \"OpenAI raises $100B\" → {topic:\"tech\", geo:\"us\", subtopic:\"tech_ai\"}\n"
             "- \"Iran-Israel ceasefire\" → {topic:\"politics\", geo:\"global\"}\n"
             "- \"卢特尼克对加拿大说糟透了\" → {topic:\"politics\", geo:\"canada\"}\n"
-            "- \"Guardian: 美国得州禁书法案\" → {topic:\"society\", geo:\"us\"}\n\n"
+            "- \"Guardian: 美国得州禁书法案\" → {topic:\"society\", geo:\"us\"}\n"
+            "- \"James Webb finds early galaxy\" → {topic:\"science_health\", geo:\"us\"}\n"
+            "- \"FDA approves new Alzheimer's drug\" → {topic:\"science_health\", geo:\"us\"}\n\n"
             "Examples (high-ambiguity, explicitly resolved):\n"
+            "# china + science_health → SCI-HEALTH (topic wins, like tech/politics)\n"
+            "- \"中国团队发表癌症免疫疗法突破\" → {topic:\"science_health\", geo:\"china\"}\n"
             "# china + tech_ai → topic region (NOT CHINA, per Q1B exemption)\n"
             "- \"DeepSeek 训练成本下降 80%\" → {topic:\"tech\", geo:\"china\", subtopic:\"tech_ai\"}\n"
             "- \"字节跳动 Sora 对标 OpenAI\" → {topic:\"tech\", geo:\"china\", subtopic:\"tech_ai\"}\n"

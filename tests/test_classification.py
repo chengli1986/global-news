@@ -1156,3 +1156,23 @@ class TestRoutingHealthMetrics:
         assert "#3a7a3a" in html  # green (ok)
         # Icons present
         assert "✓" in html and "⚠" in html and "✗" in html
+
+
+# ===== Task 4: science_health prompt vocabulary =====
+
+
+class TestSciHealthPrompt:
+    """Stage 4 prompt 含 science_health 定义，且 tech/society 不再含重叠词。"""
+
+    def test_prompt_defines_science_health(self):
+        from unified_global_news_sender import _TOPIC_DEFINITIONS_BLOCK
+        assert "science_health" in _TOPIC_DEFINITIONS_BLOCK
+
+    def test_tech_no_longer_claims_science(self):
+        from unified_global_news_sender import _TOPIC_DEFINITIONS_BLOCK
+        assert "science breakthroughs" not in _TOPIC_DEFINITIONS_BLOCK
+
+    def test_society_no_longer_claims_health(self):
+        from unified_global_news_sender import _TOPIC_DEFINITIONS_BLOCK
+        society_line = [l for l in _TOPIC_DEFINITIONS_BLOCK.splitlines() if '"society"' in l][0]
+        assert "health" not in society_line
