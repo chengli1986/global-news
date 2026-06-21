@@ -605,10 +605,19 @@ class TestRouteMatrix:
 
 
 class TestRegionGroupsStructure:
-    """Spec §4.6: 10-zone REGION_GROUPS in display order per F3."""
+    """Spec §4.6: 11-zone REGION_GROUPS in display order per F3."""
 
-    def test_region_groups_has_10_zones(self):
-        assert len(UnifiedNewsSender.REGION_GROUPS) == 10
+    def test_region_groups_has_11_zones(self):
+        assert len(UnifiedNewsSender.REGION_GROUPS) == 11
+
+    def test_sci_health_zone_between_economist_and_society(self):
+        """科学·健康 zone 插在 经济学人 之后、社会观察 之前（society 仍末位）。"""
+        keys = [r for r, _ in UnifiedNewsSender.REGION_GROUPS]
+        assert "🔬 科学·健康 SCIENCE & HEALTH" in keys
+        i = keys.index("🔬 科学·健康 SCIENCE & HEALTH")
+        assert keys[i - 1] == "📕 经济学人 THE ECONOMIST"
+        assert keys[i + 1] == "🌐 社会观察 SOCIETY"
+        assert keys[-1] == "🌐 社会观察 SOCIETY"  # society 保持末位
 
     def test_all_routed_regions_in_region_groups(self):
         """Every region key emitted by _route must exist in REGION_GROUPS."""
@@ -641,11 +650,12 @@ class TestRegionGroupsStructure:
         assert keys[1] == "📈 市场/宏观 MACRO & MARKETS"
         assert keys[2] == "🏛 全球政治 GLOBAL POLITICS"
         assert keys[3] == "🇨🇳 中国要闻 CHINA"
-        # Last 4 per F3: ASIA-PAC → CANADA → ECONOMIST → SOCIETY
+        # Last 5 per F3: ASIA-PAC → CANADA → ECONOMIST → SCI_HEALTH → SOCIETY
         assert keys[-1] == "🌐 社会观察 SOCIETY"
-        assert keys[-2] == "📕 经济学人 THE ECONOMIST"
-        assert keys[-3] == "🇨🇦 加拿大 CANADA"
-        assert keys[-4] == "🌏 亚太要闻 ASIA-PACIFIC"
+        assert keys[-2] == "🔬 科学·健康 SCIENCE & HEALTH"
+        assert keys[-3] == "📕 经济学人 THE ECONOMIST"
+        assert keys[-4] == "🇨🇦 加拿大 CANADA"
+        assert keys[-5] == "🌏 亚太要闻 ASIA-PACIFIC"
 
     def test_source_default_region_lookup(self):
         """_source_default_region returns the REGION_GROUPS region containing the source."""

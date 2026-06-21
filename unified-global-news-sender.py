@@ -70,6 +70,7 @@ REGION_ASIA_PAC      = "🌏 亚太要闻 ASIA-PACIFIC"
 REGION_CANADA        = "🇨🇦 加拿大 CANADA"
 REGION_ECONOMIST     = "📕 经济学人 THE ECONOMIST"
 REGION_SOCIETY       = "🌐 社会观察 SOCIETY"
+REGION_SCI_HEALTH    = "🔬 科学·健康 SCIENCE & HEALTH"
 REGION_OTHER         = "其他 OTHER"   # catch-all for sources/articles with no region home
 
 # Stage 2 — Soft source lock + escape rule (spec §4.1 Stage 2)
@@ -656,7 +657,7 @@ class UnifiedNewsSender:
             print(f"⚠️  Title translation failed ({e}), keeping original English titles")
             self._llm_status.append(("翻译 Translation", None, False))
 
-    # Region grouping (10 zones, display order per spec F3):
+    # Region grouping (11 zones, display order per spec F3):
     # Source-default placement determines fallback region when LLM/keyword routing
     # produces no decision. Most articles flow via Stage 1-4 → routing matrix; the
     # source-list here is the safety net.
@@ -693,6 +694,7 @@ class UnifiedNewsSender:
             "Economist Leaders", "Economist Finance",
             "Economist Business", "Economist Science",  # LOCKED via Stage 1
         ]),
+        (REGION_SCI_HEALTH, []),  # LLM-fed (science/health topic routed via Stage 4)
         (REGION_SOCIETY, []),  # LLM-fed (society topic in non-geo regions)
     ]
 
