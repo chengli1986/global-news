@@ -603,6 +603,24 @@ class TestRouteMatrix:
         assert region is None
         assert reason == "fallback:source_default"
 
+    def test_science_health_us_to_sci_health(self):
+        """science_health + us → 科学·健康（主题优先）。"""
+        region, reason = self._route("science_health", "us", None)
+        assert region == "🔬 科学·健康 SCIENCE & HEALTH"
+        assert reason == "llm:topic:science_health"
+
+    def test_science_health_china_not_intercepted(self):
+        """science_health + china → 科学·健康（china 不拦截，与 tech/politics 一致）。"""
+        region, reason = self._route("science_health", "china", None)
+        assert region == "🔬 科学·健康 SCIENCE & HEALTH"
+        assert reason == "llm:topic:science_health"
+
+    def test_science_health_global_to_sci_health(self):
+        """science_health + global → 科学·健康。"""
+        region, reason = self._route("science_health", "global", None)
+        assert region == "🔬 科学·健康 SCIENCE & HEALTH"
+        assert reason == "llm:topic:science_health"
+
 
 class TestRegionGroupsStructure:
     """Spec §4.6: 11-zone REGION_GROUPS in display order per F3."""
@@ -637,6 +655,8 @@ class TestRegionGroupsStructure:
             ("politics", "global", None),
             ("consumer_tech", "us", None),
             ("tech", "us", "tech_consumer"),
+            ("science_health", "us", None),
+            ("science_health", "china", None),
         ]
         for topic, geo, subtopic in test_cases:
             region, _reason = UnifiedNewsSender._route(topic, geo, subtopic)

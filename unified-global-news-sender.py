@@ -1261,6 +1261,8 @@ class UnifiedNewsSender:
             return (REGION_MACRO_MARKETS, "llm:topic:business_macro")
         if topic == "politics":
             return (REGION_POLITICS, "llm:topic:politics")
+        if topic == "science_health":
+            return (REGION_SCI_HEALTH, "llm:topic:science_health")
         if topic == "society":
             # canada/china/asia_other already handled in 4a; this is us/europe/global
             return (REGION_SOCIETY, "llm:topic:society")
