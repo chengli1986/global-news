@@ -96,7 +96,7 @@ Articles from mixed-content sources are classified into correct sections using G
 
 ### 文章级分区路由（2026-06-14, 方案 B）
 
-所有 production 源的文章统一走上面的文章级 LLM 标签归入邮件板块（`_collect_region_articles` 遍历**全部** `news_data` 源，而非只手工 `REGION_GROUPS` 清单）；不再有"源不在手工清单就全堆其他区"的盲区。新源无 LLM 标签时兜底 `REGION_OTHER`（"其他 OTHER"，理想接近空）。healthcare/vertical 等暂散入现有板块（医疗→社会观察、科学→AI前沿等），专属板块见方案 C。Spec: `docs/superpowers/specs/2026-06-14-category-driven-region-grouping-design.md`
+所有 production 源的文章统一走上面的文章级 LLM 标签归入邮件板块（`_collect_region_articles` 遍历**全部** `news_data` 源，而非只手工 `REGION_GROUPS` 清单）；不再有"源不在手工清单就全堆其他区"的盲区。新源无 LLM 标签时兜底 `REGION_OTHER`（"其他 OTHER"，理想接近空）。healthcare/科学类文章归入「🔬 科学·健康 SCIENCE & HEALTH」专属板块（方案 C 第一步，2026-06-21；`docs/superpowers/specs/2026-06-21-science-health-section-design.md`）；vertical 调查/地缘类（ProPublica/Foreign Policy 等）仍暂散现有板块，待方案 C 第二步「深度·专题」。Spec: `docs/superpowers/specs/2026-06-14-category-driven-region-grouping-design.md`
 
 ## LLM Fallback Chain
 
@@ -243,7 +243,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 301 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + contract defenses)
+python3 -m pytest tests/ -q   # 308 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + contract defenses)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```

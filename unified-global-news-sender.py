@@ -69,10 +69,10 @@ REASON_PREFIXES = frozenset({
     "fallback:source_default",
 })
 
-# 10-zone region keys (spec §4.6). String values are the section titles rendered
+# 11-zone region keys (spec §4.6). String values are the section titles rendered
 # in the email HTML and the JSON keys in digest-tuning.json region_quotas.
 # Display order matches F3: AI → Markets → POLITICS → CHINA → Corp → Consumer →
-# ASIA-PAC → CANADA → ECONOMIST → SOCIETY.
+# ASIA-PAC → CANADA → ECONOMIST → SCI-HEALTH → SOCIETY.
 REGION_AI_FRONTIER   = "🧠 AI/前沿 AI FRONTIER"
 REGION_MACRO_MARKETS = "📈 市场/宏观 MACRO & MARKETS"
 REGION_POLITICS      = "🏛 全球政治 GLOBAL POLITICS"
