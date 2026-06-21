@@ -41,7 +41,7 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 # Classification taxonomy — see docs/superpowers/specs/2026-04-19-classification-redesign.md §4.2-§4.4
 # These vocabularies are the contract between the LLM prompt (§5), the routing matrix (§4.5),
 # and the test suite. Keep in sync if any future spec revision changes them.
-TOPIC_LABELS = frozenset({"politics", "business", "tech", "consumer_tech", "society"})
+TOPIC_LABELS = frozenset({"politics", "business", "tech", "consumer_tech", "society", "science_health"})
 GEO_LABELS = frozenset({"china", "canada", "asia_other", "us", "europe", "global"})
 SUBTOPIC_LABELS = {
     "tech": frozenset({"tech_ai", "tech_consumer"}),

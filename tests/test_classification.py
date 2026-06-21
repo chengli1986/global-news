@@ -36,8 +36,8 @@ class TestLabelVocabularies:
     """
 
     def test_topic_labels_well_formed(self):
-        assert len(TOPIC_LABELS) == 5
-        assert TOPIC_LABELS == {"politics", "business", "tech", "consumer_tech", "society"}
+        assert len(TOPIC_LABELS) == 6
+        assert TOPIC_LABELS == {"politics", "business", "tech", "consumer_tech", "society", "science_health"}
         for label in TOPIC_LABELS:
             assert label == label.lower(), f"{label!r} not lowercase"
             assert " " not in label, f"{label!r} contains whitespace"
