@@ -375,7 +375,7 @@
       },
       {
         "name": "Politico US Politics",
-        "url": "https://rss.politico.com/politics-news.xml",
+        "url": "https://www.politico.com/rss/politicopicks.xml",
         "keywords": [],
         "limit": 3
       },
@@ -401,13 +401,15 @@
         "name": "Nautilus Magazine",
         "url": "https://nautil.us/feed/",
         "keywords": [],
-        "limit": 3
+        "limit": 3,
+        "max_age_hours": 168
       },
       {
         "name": "Google AI Blog",
         "url": "https://blog.google/technology/ai/rss/",
         "keywords": [],
         "limit": 3,
+        "max_age_hours": 168,
         "trial": true
       },
       {
