@@ -405,16 +405,15 @@
         "max_age_hours": 168
       },
       {
-        "name": "Google AI Blog",
-        "url": "https://blog.google/technology/ai/rss/",
+        "name": "Myanmar Now",
+        "url": "https://myanmar-now.org/en/feed/",
         "keywords": [],
         "limit": 3,
-        "max_age_hours": 168,
         "trial": true
       },
       {
-        "name": "Myanmar Now",
-        "url": "https://myanmar-now.org/en/feed/",
+        "name": "Premium Times Nigeria",
+        "url": "https://www.premiumtimesng.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true

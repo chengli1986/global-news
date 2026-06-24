@@ -4445,7 +4445,7 @@
       "url": "https://blog.google/technology/ai/rss/",
       "language": "en",
       "category": "tech_ai",
-      "status": "trialing",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -4470,7 +4470,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-18",
-        "end_date": null,
+        "end_date": "2026-06-25",
         "report_sent": false,
         "daily_stats": [
           {
@@ -4505,12 +4505,17 @@
           },
           {
             "date": "2026-06-24",
+            "fetched": 1,
+            "selected": 0
+          },
+          {
+            "date": "2026-06-25",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.855
       },
       "production": null
@@ -4570,6 +4575,11 @@
           },
           {
             "date": "2026-06-24",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-06-25",
             "fetched": 0,
             "selected": 0
           }
@@ -5995,7 +6005,16 @@
         "uniqueness": 0.9,
         "final": 0.855
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-06-25",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.855
+      }
     },
     {
       "name": "澎湃新闻",
