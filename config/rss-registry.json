@@ -4525,7 +4525,7 @@
       "url": "https://myanmar-now.org/en/feed/",
       "language": "en",
       "category": "hk_sea",
-      "status": "trialing",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -4550,7 +4550,7 @@
       "reject_reason": null,
       "trial": {
         "start_date": "2026-06-20",
-        "end_date": null,
+        "end_date": "2026-06-27",
         "report_sent": false,
         "daily_stats": [
           {
@@ -4585,12 +4585,17 @@
           },
           {
             "date": "2026-06-26",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-06-27",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.855
       },
       "production": null
@@ -6023,6 +6028,11 @@
           },
           {
             "date": "2026-06-26",
+            "fetched": 3,
+            "selected": 2
+          },
+          {
+            "date": "2026-06-27",
             "fetched": 0,
             "selected": 0
           }
@@ -7499,7 +7509,16 @@
         "uniqueness": 0.65,
         "final": 0.855
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-06-27",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.855
+      }
     },
     {
       "name": "Axios",

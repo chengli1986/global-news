@@ -405,15 +405,15 @@
         "max_age_hours": 168
       },
       {
-        "name": "Myanmar Now",
-        "url": "https://myanmar-now.org/en/feed/",
+        "name": "Premium Times Nigeria",
+        "url": "https://www.premiumtimesng.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
       },
       {
-        "name": "Premium Times Nigeria",
-        "url": "https://www.premiumtimesng.com/feed/",
+        "name": "Atlantic Council",
+        "url": "https://www.atlanticcouncil.org/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
