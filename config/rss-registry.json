@@ -6924,7 +6924,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "china_depth"
     },
     {
       "name": "虎嗅",
@@ -6938,7 +6939,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "IT之家",
@@ -6952,7 +6954,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "少数派",
@@ -6980,7 +6983,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "钛媒体",
@@ -6994,7 +6998,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "36氪",
@@ -7008,7 +7013,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "纽约时报中文",
@@ -7022,7 +7028,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "china_depth"
     },
     {
       "name": "BBC中文",
@@ -7036,7 +7043,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "china_depth"
     },
     {
       "name": "SCMP Hong Kong",
@@ -7050,7 +7058,8 @@
       "production": {
         "keywords": [],
         "limit": 3
-      }
+      },
+      "category": "hk_sea"
     },
     {
       "name": "HKFP",
@@ -7064,7 +7073,8 @@
       "production": {
         "keywords": [],
         "limit": 3
-      }
+      },
+      "category": "hk_sea"
     },
     {
       "name": "Straits Times",
@@ -7078,7 +7088,8 @@
       "production": {
         "keywords": [],
         "limit": 3
-      }
+      },
+      "category": "hk_sea"
     },
     {
       "name": "BBC World",
@@ -7092,7 +7103,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "europe"
     },
     {
       "name": "BBC Business",
@@ -7106,7 +7118,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "BBC Technology",
@@ -7120,7 +7133,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "TechCrunch",
@@ -7134,7 +7148,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "CNBC",
@@ -7148,7 +7163,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "Bloomberg",
@@ -7162,7 +7178,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "Bloomberg Econ",
@@ -7176,7 +7193,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "Bloomberg Politics",
@@ -7190,7 +7208,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "SCMP",
@@ -7204,7 +7223,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "hk_sea"
     },
     {
       "name": "CNA",
@@ -7218,7 +7238,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "hk_sea"
     },
     {
       "name": "FT",
@@ -7232,7 +7253,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "Ars Technica",
@@ -7246,7 +7268,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "The Verge",
@@ -7260,7 +7283,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "NYT Business",
@@ -7274,7 +7298,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "NYT Technology",
@@ -7288,7 +7313,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "tech_ai"
     },
     {
       "name": "Economist Leaders",
@@ -7302,7 +7328,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "Economist Finance",
@@ -7316,7 +7343,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "Economist Business",
@@ -7330,7 +7358,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "global_finance"
     },
     {
       "name": "Economist Science",
@@ -7344,7 +7373,8 @@
       "production": {
         "keywords": [],
         "limit": 8
-      }
+      },
+      "category": "vertical"
     },
     {
       "name": "CBC Business",
@@ -7368,7 +7398,8 @@
       "production": {
         "keywords": [],
         "limit": 6
-      }
+      },
+      "category": "north_america"
     },
     {
       "name": "Deutsche Welle English",
