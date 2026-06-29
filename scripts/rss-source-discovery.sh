@@ -173,7 +173,13 @@ After Step 5, your work is complete. Do NOT run save, commit, push, or report â€
 
 # 30-minute timeout + 30s grace
 CLAUDE_BIN="${CLAUDE_BIN:-/home/ubuntu/.npm-global/bin/claude}"
-timeout --kill-after=30 1800 "$CLAUDE_BIN" -p --model sonnet "$PROMPT" 2>&1
+# --dangerously-skip-permissions: headless cron in this (untrusted) workspace.
+# Since Claude Code ~2.1.x enforces the workspace-trust dialog, an untrusted dir
+# makes -p silently ignore .claude/settings.json allow entries â†’ tool calls
+# (Bash/Write to fetch & save the scored artifact) are denied, so discovery
+# either exits 0 with no artifact or hangs to the 30-min timeout. This flag
+# bypasses the trust dialog for this owned, automated repo. (Regression 2026-06-29.)
+timeout --kill-after=30 1800 "$CLAUDE_BIN" -p --dangerously-skip-permissions --model sonnet "$PROMPT" 2>&1
 EXIT_CODE=$?
 
 if [ $EXIT_CODE -eq 124 ]; then
