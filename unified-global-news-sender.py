@@ -1193,9 +1193,6 @@ class UnifiedNewsSender:
     <table cellpadding="0" cellspacing="0" border="0" style="font-size:11px;">
       {''.join(rows)}
     </table>
-    <div style="color:{color_muted};font-size:10px;margin-top:6px;">
-      详细架构 → <a href="https://docs.sinostor.com.cn/autoresearch.html#app-news" style="color:{color_muted};">docs.sinostor.com.cn 第 9 节</a>
-    </div>
   </div>
 </td></tr>"""
 
@@ -1463,32 +1460,6 @@ class UnifiedNewsSender:
 
     def _total_article_count(self):
         return sum(len(v) for v in self.news_data.values())
-
-    def _save_fixture(self):
-        """Save current fetch results as a fixture for autoresearch evaluation.
-        Saves one per send (3x/day) using YYYY-MM-DD-HH filename for time-of-day variety."""
-        fixture_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "fixtures")
-        os.makedirs(fixture_dir, exist_ok=True)
-        date_hour_str = datetime.now(timezone.utc).strftime("%Y-%m-%d-%H")
-        fixture_path = os.path.join(fixture_dir, f"{date_hour_str}.json")
-        if os.path.exists(fixture_path):
-            return  # already saved for this hour
-        snapshot = {"date": datetime.now(timezone.utc).isoformat(), "sources": {}}
-        for source_name, articles in self.news_data.items():
-            snapshot["sources"][source_name] = [
-                {
-                    "title": item[0],
-                    "url": item[1],
-                    "pub_dt": item[2].isoformat() if len(item) > 2 and item[2] else None,
-                    **({"orig_title": item[3]} if len(item) > 3 and item[3] else {}),
-                }
-                for item in articles
-            ]
-        try:
-            with open(fixture_path, "w") as f:
-                json.dump(snapshot, f, ensure_ascii=False)
-        except Exception as e:
-            logging.warning("Failed to save fixture snapshot to %s: %s", fixture_path, e)
 
     def _count_trial_selected(self, source_name: str) -> int:
         """Count articles of source_name that will actually appear in the sent output.
@@ -2003,7 +1974,6 @@ class UnifiedNewsSender:
         self.fetch_all_news()
         self.translate_titles()
         self.classify_articles()
-        self._save_fixture()
         self._log_trial_source_stats()
         self._log_production_source_stats()
 

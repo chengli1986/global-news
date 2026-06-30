@@ -1154,8 +1154,6 @@ class TestRoutingHealthMetrics:
         assert "quota 6-10" in html and "quota 3-8" in html
         # Total classifications shown
         assert "234" in html
-        # Doc link present
-        assert "docs.sinostor.com.cn" in html
 
     def test_render_health_html_uses_status_colors(self):
         """fail status renders red, warn=amber, ok=green via icon color."""
