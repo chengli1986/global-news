@@ -405,15 +405,15 @@
         "max_age_hours": 168
       },
       {
-        "name": "Premium Times Nigeria",
-        "url": "https://www.premiumtimesng.com/feed/",
+        "name": "Atlantic Council",
+        "url": "https://www.atlanticcouncil.org/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
       },
       {
-        "name": "Atlantic Council",
-        "url": "https://www.atlanticcouncil.org/feed/",
+        "name": "The Hill",
+        "url": "https://thehill.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true

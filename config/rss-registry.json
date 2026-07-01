@@ -6015,10 +6015,10 @@
         "uniqueness": 0.9,
         "final": 0.855
       },
-      "status": "trialing",
+      "status": "rejected",
       "trial": {
         "start_date": "2026-06-25",
-        "end_date": null,
+        "end_date": "2026-07-02",
         "report_sent": false,
         "daily_stats": [
           {
@@ -6053,12 +6053,17 @@
           },
           {
             "date": "2026-07-01",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-02",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.855
       }
     },
@@ -7532,7 +7537,16 @@
         "uniqueness": 0.72,
         "final": 0.854
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-07-02",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.854
+      }
     },
     {
       "name": "Atlantic Council",
@@ -7588,6 +7602,11 @@
           },
           {
             "date": "2026-07-01",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-02",
             "fetched": 0,
             "selected": 0
           }
