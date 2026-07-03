@@ -405,15 +405,15 @@
         "max_age_hours": 168
       },
       {
-        "name": "Atlantic Council",
-        "url": "https://www.atlanticcouncil.org/feed/",
+        "name": "The Hill",
+        "url": "https://thehill.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true
       },
       {
-        "name": "The Hill",
-        "url": "https://thehill.com/feed/",
+        "name": "Endpoints News",
+        "url": "http://endpts.com/feed",
         "keywords": [],
         "limit": 3,
         "trial": true
