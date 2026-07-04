@@ -7555,6 +7555,11 @@
           },
           {
             "date": "2026-07-04",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-05",
             "fetched": 0,
             "selected": 0
           }
@@ -8207,7 +8212,18 @@
         "start_date": "2026-07-04",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-07-04",
+            "fetched": 3,
+            "selected": 2
+          },
+          {
+            "date": "2026-07-05",
+            "fetched": 0,
+            "selected": 0
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.854
