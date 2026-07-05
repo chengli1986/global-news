@@ -6935,11 +6935,11 @@
     {
       "name": "南方周末",
       "url": "https://plink.anyfeeder.com/infzm/news",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard",
       "trial": null,
       "production": {
         "keywords": [],
@@ -6965,11 +6965,11 @@
     {
       "name": "IT之家",
       "url": "https://www.ithome.com/rss/",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard",
       "trial": null,
       "production": {
         "keywords": [],
@@ -7084,11 +7084,11 @@
     {
       "name": "HKFP",
       "url": "https://hongkongfp.com/feed/",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard",
       "trial": null,
       "production": {
         "keywords": [],
