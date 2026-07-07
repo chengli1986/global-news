@@ -7570,6 +7570,11 @@
           },
           {
             "date": "2026-07-07",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-08",
             "fetched": 0,
             "selected": 0
           }
@@ -8240,6 +8245,11 @@
           },
           {
             "date": "2026-07-07",
+            "fetched": 3,
+            "selected": 2
+          },
+          {
+            "date": "2026-07-08",
             "fetched": 0,
             "selected": 0
           }
