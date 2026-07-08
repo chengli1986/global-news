@@ -7537,10 +7537,10 @@
         "uniqueness": 0.72,
         "final": 0.854
       },
-      "status": "trialing",
+      "status": "rejected",
       "trial": {
         "start_date": "2026-07-02",
-        "end_date": null,
+        "end_date": "2026-07-09",
         "report_sent": false,
         "daily_stats": [
           {
@@ -7575,12 +7575,17 @@
           },
           {
             "date": "2026-07-08",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-09",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.854
       }
     },
@@ -7688,7 +7693,16 @@
         "uniqueness": 0.72,
         "final": 0.851
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-07-09",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.851
+      }
     },
     {
       "name": "MarketWatch Top Stories",
@@ -8250,6 +8264,11 @@
           },
           {
             "date": "2026-07-08",
+            "fetched": 3,
+            "selected": 3
+          },
+          {
+            "date": "2026-07-09",
             "fetched": 0,
             "selected": 0
           }

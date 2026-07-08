@@ -387,15 +387,15 @@
         "max_age_hours": 168
       },
       {
-        "name": "The Hill",
-        "url": "https://thehill.com/feed/",
+        "name": "Endpoints News",
+        "url": "http://endpts.com/feed",
         "keywords": [],
         "limit": 3,
         "trial": true
       },
       {
-        "name": "Endpoints News",
-        "url": "http://endpts.com/feed",
+        "name": "Axios",
+        "url": "https://www.axios.com/feeds/feed.rss",
         "keywords": [],
         "limit": 3,
         "trial": true
