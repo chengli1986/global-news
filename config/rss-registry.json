@@ -7698,7 +7698,18 @@
         "start_date": "2026-07-09",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-07-09",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-10",
+            "fetched": 0,
+            "selected": 0
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.851
@@ -8269,6 +8280,11 @@
           },
           {
             "date": "2026-07-09",
+            "fetched": 3,
+            "selected": 1
+          },
+          {
+            "date": "2026-07-10",
             "fetched": 0,
             "selected": 0
           }
