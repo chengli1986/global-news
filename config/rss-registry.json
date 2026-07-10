@@ -8713,6 +8713,34 @@
         "final": 0.769
       },
       "status": "discovered"
+    },
+    {
+      "name": "RFA Mandarin",
+      "url": "https://www.rfa.org/arc/outboundfeeds/mandarin/rss/",
+      "language": "cn",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 3.78,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 90,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.3,
+        "authority": 0.7,
+        "uniqueness": 0.8,
+        "final": 0.87
+      },
+      "status": "discovered"
     }
   ]
 }
