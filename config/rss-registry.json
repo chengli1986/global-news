@@ -7706,6 +7706,11 @@
           },
           {
             "date": "2026-07-10",
+            "fetched": 3,
+            "selected": 1
+          },
+          {
+            "date": "2026-07-11",
             "fetched": 0,
             "selected": 0
           }
@@ -8247,10 +8252,10 @@
         "uniqueness": 0.75,
         "final": 0.854
       },
-      "status": "trialing",
+      "status": "production",
       "trial": {
         "start_date": "2026-07-04",
-        "end_date": null,
+        "end_date": "2026-07-11",
         "report_sent": false,
         "daily_stats": [
           {
@@ -8285,12 +8290,17 @@
           },
           {
             "date": "2026-07-10",
+            "fetched": 3,
+            "selected": 3
+          },
+          {
+            "date": "2026-07-11",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.854
       }
     },
@@ -8740,7 +8750,16 @@
         "uniqueness": 0.8,
         "final": 0.87
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-07-11",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.87
+      }
     }
   ]
 }
