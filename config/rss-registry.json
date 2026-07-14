@@ -7726,6 +7726,11 @@
           },
           {
             "date": "2026-07-14",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-15",
             "fetched": 0,
             "selected": 0
           }
@@ -8788,6 +8793,11 @@
           },
           {
             "date": "2026-07-14",
+            "fetched": 1,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-15",
             "fetched": 0,
             "selected": 0
           }
