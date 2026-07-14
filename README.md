@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 58 sources (55 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 64 sources (61 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 58 sources (55 RSS feeds +
 Cron (1x daily: 12:15 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (58 sources)
+           ├── news-sources-config.json (64 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (55 sources, includes active trials)
+           └── RSS/Atom feeds (61 sources, includes active trials)
 
 Cron (1x daily: 12:05 BJT)
  └── rss-health-check.py
