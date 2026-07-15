@@ -393,15 +393,15 @@
         "limit": 3
       },
       {
-        "name": "Axios",
-        "url": "https://www.axios.com/feeds/feed.rss",
+        "name": "RFA Mandarin",
+        "url": "https://www.rfa.org/arc/outboundfeeds/mandarin/rss/",
         "keywords": [],
         "limit": 3,
         "trial": true
       },
       {
-        "name": "RFA Mandarin",
-        "url": "https://www.rfa.org/arc/outboundfeeds/mandarin/rss/",
+        "name": "Buenos Aires Times",
+        "url": "https://batimes.com.ar/feed",
         "keywords": [],
         "limit": 3,
         "trial": true
