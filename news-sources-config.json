@@ -393,15 +393,15 @@
         "limit": 3
       },
       {
-        "name": "RFA Mandarin",
-        "url": "https://www.rfa.org/arc/outboundfeeds/mandarin/rss/",
+        "name": "Buenos Aires Times",
+        "url": "https://batimes.com.ar/feed",
         "keywords": [],
         "limit": 3,
         "trial": true
       },
       {
-        "name": "Buenos Aires Times",
-        "url": "https://batimes.com.ar/feed",
+        "name": "Free Malaysia Today",
+        "url": "https://www.freemalaysiatoday.com/feed/",
         "keywords": [],
         "limit": 3,
         "trial": true

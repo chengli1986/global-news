@@ -3889,7 +3889,7 @@
       "url": "https://www.freemalaysiatoday.com/feed/",
       "language": "en",
       "category": "hk_sea",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3912,7 +3912,15 @@
         "final": 0.85
       },
       "reject_reason": null,
-      "trial": null,
+      "trial": {
+        "start_date": "2026-07-18",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.85
+      },
       "production": null
     },
     {
@@ -8777,10 +8785,10 @@
         "uniqueness": 0.8,
         "final": 0.87
       },
-      "status": "trialing",
+      "status": "rejected",
       "trial": {
         "start_date": "2026-07-11",
-        "end_date": null,
+        "end_date": "2026-07-18",
         "report_sent": false,
         "daily_stats": [
           {
@@ -8815,12 +8823,17 @@
           },
           {
             "date": "2026-07-17",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-18",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.87
       }
     },
@@ -9005,6 +9018,11 @@
           },
           {
             "date": "2026-07-17",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-18",
             "fetched": 0,
             "selected": 0
           }
