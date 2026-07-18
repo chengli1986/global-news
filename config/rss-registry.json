@@ -9005,10 +9005,11 @@
         "uniqueness": 0.9,
         "final": 0.854
       },
-      "status": "trialing",
+      "status": "rejected",
+      "reject_reason": "auto-removed",
       "trial": {
         "start_date": "2026-07-16",
-        "end_date": null,
+        "end_date": "2026-07-18",
         "report_sent": false,
         "daily_stats": [
           {
@@ -9027,8 +9028,8 @@
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.854
       }
     },
