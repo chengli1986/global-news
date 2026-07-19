@@ -8129,7 +8129,8 @@
         "uniqueness": 0.76,
         "final": 0.648
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "CBC News",
@@ -9125,6 +9126,62 @@
         "authority": 0.6,
         "uniqueness": 0.65,
         "final": 0.733
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "The Jakarta Post",
+      "url": "https://rss.thejakartapost.com/home",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 5.99,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 177,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.68,
+        "uniqueness": 0.8,
+        "final": 0.787
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "OpenAI News",
+      "url": "https://openai.com/news/rss.xml",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 1039,
+        "newest_age_hours": 58.28,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 174,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.75,
+        "uniqueness": 0.75,
+        "final": 0.677
       },
       "status": "discovered"
     }
