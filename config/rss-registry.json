@@ -9188,6 +9188,35 @@
         "uniqueness": 0.75,
         "final": 0.677
       },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Middle East Eye",
+      "url": "http://www.middleeasteye.net/rss",
+      "language": "en",
+      "category": "global_south",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.12,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 1983,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 1.0,
+        "authority": 0.65,
+        "uniqueness": 0.75,
+        "final": 0.797
+      },
       "status": "discovered"
     }
   ]
