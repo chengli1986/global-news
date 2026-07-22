@@ -3939,6 +3939,11 @@
           },
           {
             "date": "2026-07-22",
+            "fetched": 3,
+            "selected": 1
+          },
+          {
+            "date": "2026-07-23",
             "fetched": 0,
             "selected": 0
           }
