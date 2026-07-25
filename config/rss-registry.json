@@ -8467,7 +8467,18 @@
         "start_date": "2026-07-25",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-07-25",
+            "fetched": 12,
+            "selected": 12
+          },
+          {
+            "date": "2026-07-26",
+            "fetched": 0,
+            "selected": 0
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.85
