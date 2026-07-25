@@ -135,6 +135,30 @@ class TestParseDateFlexible:
         assert _parse_date_flexible("") is None
         assert _parse_date_flexible("   ") is None
 
+    def test_parse_date_flexible_colon_offset(self):
+        """Korea Herald emits RFC 2822 dates with a colon in the offset
+        ("+09:00" instead of "+0900"). parsedate_to_datetime doesn't reject
+        this — it silently drops the offset and returns a naive datetime,
+        which later crashes digest_pipeline.deduplicate's sort against
+        tz-aware datetimes (2026-07-25 production incident)."""
+        result = _parse_date_flexible("Sat, 25 Jul 2026 14:12:38 +09:00")
+        assert result is not None
+        assert result.tzinfo is not None
+        assert result.utcoffset().total_seconds() == 9 * 3600
+
+    def test_parse_date_flexible_always_tz_aware(self):
+        """Every non-None result must be tz-aware — callers compare/sort
+        pub_dt values without re-checking, so a naive datetime anywhere in
+        the return path is a latent TypeError."""
+        for s in [
+            "Sun, 05 Apr 2026 12:00:00 +0000",
+            "2026-04-05T14:30:00+08:00",
+            "2026-04-05 15:00:00  +0800",
+            "Sat, 25 Jul 2026 14:12:38 +09:00",
+        ]:
+            result = _parse_date_flexible(s)
+            assert result is not None and result.tzinfo is not None, s
+
 
 # ===== Sina / HN Fetching =====
 

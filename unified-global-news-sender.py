@@ -161,28 +161,39 @@ def _is_english_source(name: str) -> bool:
     return not any('\u4e00' <= c <= '\u9fff' for c in name)
 
 def _parse_date_flexible(date_str):
-    """Parse date string supporting RFC 2822, ISO 8601, and common non-standard formats."""
+    """Parse date string supporting RFC 2822, ISO 8601, and common non-standard formats.
+    Always returns a tz-aware datetime (naive results are assumed UTC) so callers
+    can freely compare/sort pub_dt values without a naive-vs-aware TypeError."""
     s = date_str.strip()
     if not s:
         return None
-    # Try RFC 2822 first (standard RSS pubDate)
+    dt = None
+    # Try RFC 2822 first (standard RSS pubDate). Some feeds (e.g. Korea Herald)
+    # emit a colon in the offset ("+09:00" instead of RFC 2822's "+0900"), which
+    # parsedate_to_datetime doesn't reject — it silently drops the offset and
+    # returns a naive datetime instead of raising. Strip the colon first so the
+    # real offset is preserved.
     try:
-        return parsedate_to_datetime(s)
+        dt = parsedate_to_datetime(re.sub(r'([+-]\d{2}):(\d{2})$', r'\1\2', s))
     except Exception:
-        pass
+        dt = None
     # Try ISO 8601 (Atom feeds like The Verge)
-    try:
-        return datetime.fromisoformat(s)
-    except Exception:
-        pass
-    # Try non-standard: "2026-02-22 15:00:00  +0800" (36氪 style — extra spaces before tz)
-    cleaned = re.sub(r'\s*([+-]\d{4})$', r' \1', s)
-    if cleaned != s:
+    if dt is None:
         try:
-            return datetime.fromisoformat(cleaned)
+            dt = datetime.fromisoformat(s)
         except Exception:
-            pass
-    return None
+            dt = None
+    # Try non-standard: "2026-02-22 15:00:00  +0800" (36氪 style — extra spaces before tz)
+    if dt is None:
+        cleaned = re.sub(r'\s*([+-]\d{4})$', r' \1', s)
+        if cleaned != s:
+            try:
+                dt = datetime.fromisoformat(cleaned)
+            except Exception:
+                dt = None
+    if dt is not None and dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt
 
 class UnifiedNewsSender:
     """统一新闻抓取与推送系统"""
