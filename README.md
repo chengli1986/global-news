@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 64 sources (61 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 62 sources (59 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 64 sources (61 RSS feeds +
 Cron (1x daily: 12:15 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (64 sources)
+           ├── news-sources-config.json (62 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (61 sources, includes active trials)
+           └── RSS/Atom feeds (59 sources, includes active trials)
 
 Cron (1x daily: 12:05 BJT)
  └── rss-health-check.py
@@ -69,22 +69,23 @@ python3 rss-health-check.py
 python3 rss-health-check.py --email
 ```
 
-## News Sources (58)
+## News Sources (62)
 
-> Authoritative list lives in `news-sources-config.json`. Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Counts below reflect the snapshot at last edit.
+> Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-07-26.
 
-**Chinese (12)**: 中国科技/AI, 中国财经要闻 (Sina Finance APIs), 36氪, IT之家, RTHK中文, Solidot, 南方周末, 少数派, 纽约时报中文, 虎嗅, 钛媒体, BBC中文
+**RSS/Atom (59)**, grouped by registry category:
 
-**English (31)**:
+- **tech_ai** (13): 36氪, Ars Technica, BBC Technology, IEEE Spectrum, MIT Technology Review, NYT Technology, Solidot, TechCrunch, The Verge, Wired, 虎嗅, 量子位, 钛媒体
+- **global_finance** (10): BBC Business, Bloomberg, Bloomberg Econ, Bloomberg Politics, CNBC, Economist Business, Economist Finance, Economist Leaders, FT, NYT Business
+- **hk_sea** (8): CNA, Dawn Pakistan, Korea Herald *(trial)*, Philippine Daily Inquirer, Rappler, SCMP, SCMP Hong Kong, Straits Times
+- **europe** (7): Al Jazeera English, BBC World, ECFR Analysis, France24 English, Politico Europe, RFI English, The Guardian World
+- **vertical** (7): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica, Quanta Magazine
+- **china_depth** (5): BBC中文, RFI中文, 澎湃新闻, 端傳媒 Initium Media, 纽约时报中文
+- **healthcare** (5): Endpoints News, KFF Health News, Science News, STAT News, The Guardian Science
+- **north_america** (3): Globe & Mail, Politico US Politics, The New Yorker
+- **global_south** (1): Daily Maverick
 
-- **Aggregators**: Hacker News (Firebase API)
-- **BBC**: World, Business, Technology
-- **NYT**: Business, Technology
-- **Bloomberg**: Bloomberg, Econ, Politics
-- **Economist**: Leaders, Finance, Business, Science
-- **Tech**: TechCrunch, Ars Technica, The Verge, MIT Technology Review
-- **Asia**: SCMP, SCMP Hong Kong, CNA, Straits Times, HKFP
-- **Other**: CNBC, FT, CBC Business, Globe & Mail, The Guardian World, The New Yorker, STAT News, Politico Europe, El País English
+**API sources (3)**: 中国科技/AI, 中国财经要闻 (Sina Finance JSON APIs), Hacker News (Firebase API)
 
 ## English Title Translation
 
