@@ -343,12 +343,6 @@
         "limit": 3
       },
       {
-        "name": "端传媒",
-        "url": "https://theinitium.com/feed/",
-        "keywords": [],
-        "limit": 3
-      },
-      {
         "name": "Carbon Brief",
         "url": "https://www.carbonbrief.org/feed/",
         "keywords": [],

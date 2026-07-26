@@ -225,7 +225,7 @@
       "url": "https://theinitium.com/feed/",
       "language": "cn",
       "category": "china_depth",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -247,7 +247,7 @@
         "uniqueness": 0.95,
         "final": 0.865
       },
-      "reject_reason": null,
+      "reject_reason": "duplicate-feed: theinitium.com/feed/ == /rss/ (端傳媒 Initium Media), verified identical items 2026-07-26",
       "trial": {
         "start_date": "2026-06-04",
         "end_date": "2026-06-07",
