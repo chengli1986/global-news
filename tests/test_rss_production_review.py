@@ -297,11 +297,11 @@ def _prod_cat(name, category, trial=None):
 
 
 def test_rotation_flags_group_laggard():
-    """组内 selected 最低、且 < 组内中位数一半、组>3 → 建议轮换。"""
+    """组内入选率最低、且 < 组内中位一半、组>3 → 建议轮换。"""
     now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
     reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Lag")])
-    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]  # 各 20 selected, active_days=10
-    recs += [_rec(d, "Lag", 3, 1) for d in range(1, 8)]  # active_days=7, selected=7 (>1 且 < 中位数20/2=10)
+    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]  # 67%, active_days=10
+    recs += [_rec(d, "Lag", 6, 1) for d in range(1, 8)]  # active_days=7, 17% < 中位 67% 的一半
     out = _mod.find_rotation_candidates(reg, recs, now)
     assert [x["name"] for x in out] == ["Lag"]
 
@@ -349,6 +349,7 @@ def test_rotation_low_freq_protected():
 def test_build_report_includes_rotation_section():
     now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
     rotation = [{"name": "Lag News", "category": "europe", "selected": 7,
+                 "fetched": 42, "rate": 0.1667, "group_rate_median": 0.67,
                  "group_median": 20, "group_size": 4, "tenure_days": 90}]
     html = _mod.build_report_html([], [], [], now, "", rotation)
     assert "建议轮换" in html
@@ -360,3 +361,41 @@ def test_build_report_no_rotation_section_when_empty():
     now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
     html = _mod.build_report_html([], [], [], now, "", [])
     assert "建议轮换" not in html
+
+
+def test_rotation_uses_selection_rate_not_absolute_count():
+    """入选率口径：limit 小的源不应因绝对入选数低被误判垫底。
+
+    A/B/C limit=6（每天 fetched 6 / selected 3 = 50%），Cand limit=3
+    （每天 fetched 3 / selected 1 = 33%）。绝对数 Cand=10 < 组中位 30 的一半，
+    旧口径会误标；按入选率 33% > 组中位 50% 的一半，不该标。
+    """
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "tech_ai") for n in ("A", "B", "C", "Cand")])
+    recs = [_rec(d, n, 6, 3) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Cand", 3, 1) for d in range(1, 11)]
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def test_rotation_flags_laggard_by_selection_rate():
+    """同 limit 下入选率不足组内中位一半 → 仍标记，并带上率字段。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Lag")])
+    recs = [_rec(d, n, 6, 3) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Lag", 6, 1) for d in range(1, 11)]  # 17% vs 中位 50%
+    out = _mod.find_rotation_candidates(reg, recs, now)
+    assert [x["name"] for x in out] == ["Lag"]
+    assert round(out[0]["rate"], 2) == 0.17
+    assert out[0]["group_rate_median"] == 0.5
+    assert out[0]["fetched"] == 60
+
+
+def test_build_report_rotation_shows_selection_rate():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    rotation = [{"name": "Lag News", "category": "europe", "selected": 10,
+                 "fetched": 60, "rate": 0.1667, "group_rate_median": 0.5,
+                 "group_median": 30, "group_size": 4, "tenure_days": 90}]
+    html = _mod.build_report_html([], [], [], now, "", rotation)
+    assert "入选率" in html
+    assert "17%" in html
+    assert "50%" in html

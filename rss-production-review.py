@@ -189,7 +189,12 @@ def find_degraded(registry, records, now, *, recent_days=7, baseline_days=60,
 def find_rotation_candidates(registry, records, now, *, window_days=30,
                              min_group=3, min_active_days=7, grace_days=30,
                              zombie_max=1) -> list:
-    """组内实测优胜劣汰：每个 category 内 selected 垫底且明显低于同类的源 → 建议轮换。
+    """组内实测优胜劣汰：每个 category 内**入选率**垫底且明显低于同类的源 → 建议轮换。
+
+    口径为入选率(selected/fetched)而非绝对入选数：`fetched` 由 news-sources-config
+    的 per-source `limit` 配额决定（limit=3 → 30d 抓 ~99 篇，limit=6 → ~198），
+    绝对入选数的天花板被配额锁死，按绝对数比中位会系统性误判小配额源垫底
+    （2026-07-26 IEEE Spectrum 误报：44% 入选率却因 limit=3 被点名）。
 
     保多元：legacy(无 category)豁免；组内有数据源 <= min_group 整组豁免；每组最多标 1 个。
     去重：selected <= zombie_max 的归 A 僵尸，不在此重复。低频保护沿用 active_days/在岗宽限。
@@ -201,15 +206,19 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
         if s.get("category"):                      # legacy(无 category)豁免
             by_cat[s["category"]].append(s)
 
+    def _rate(a: dict) -> float:
+        return a["selected"] / a["fetched"] if a["fetched"] > 0 else 0.0
+
     out = []
     for cat in sorted(by_cat):
         live = [(s, agg[s["name"]]) for s in by_cat[cat]
                 if agg.get(s["name"], {}).get("fetched", 0) > 0]
         if len(live) <= min_group:                 # 领域保底：组太小豁免
             continue
+        rate_median = statistics.median(sorted(_rate(a) for _, a in live))
         median = statistics.median(sorted(a["selected"] for _, a in live))
-        s, a = min(live, key=lambda x: x[1]["selected"])   # 组内最低
-        sel, ad = a["selected"], a["active_days"]
+        s, a = min(live, key=lambda x: _rate(x[1]))        # 组内入选率最低
+        sel, ad, rate = a["selected"], a["active_days"], _rate(a)
         if sel <= zombie_max:                      # 归 A 僵尸，不重复
             continue
         if ad < min_active_days:                   # 低频样本保护
@@ -217,8 +226,10 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
         t = tenure_days(s, now)
         if t is not None and t < grace_days:       # 在岗宽限
             continue
-        if sel < median / 2:                       # 明显低于同类
+        if rate < rate_median / 2:                 # 明显低于同类
             out.append({"name": s["name"], "category": cat, "selected": sel,
+                        "fetched": a["fetched"], "rate": rate,
+                        "group_rate_median": rate_median,
                         "group_median": median, "group_size": len(live),
                         "tenure_days": t})
     return out
@@ -265,16 +276,19 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
     if rotation:
         r_rows = "".join(
             f"<tr><td>{_esc(r['name'])}</td><td>{_esc(r['category'])}</td>"
-            f"<td style='text-align:center'>{r['selected']}</td>"
-            f"<td style='text-align:center'>{r['group_median']:.0f}</td>"
+            f"<td style='text-align:center'>{r['rate']:.0%}</td>"
+            f"<td style='text-align:center'>{r['group_rate_median']:.0%}</td>"
+            f"<td style='text-align:center'>{r['selected']}/{r['fetched']}</td>"
             f"<td style='text-align:center'>{r['group_size']}</td>"
             f"<td><code>python3 ~/global-news/rss-demote-source.py --name \"{_esc(r['name'])}\" "
             f"--reason \"rotation-group-laggard\"</code></td></tr>"
             for r in rotation)
-        rot_section = (f"<h3>♻️ 建议轮换（{len(rotation)}）组内垫底，确认后 demote 换新源</h3>"
+        rot_section = (f"<h3>♻️ 建议轮换（{len(rotation)}）组内入选率垫底，确认后 demote 换新源</h3>"
+                       "<p style='color:#666;font-size:13px;margin:4px 0'>口径=入选率（selected/fetched）；"
+                       "抓取量由 config 的 per-source <code>limit</code> 配额决定，绝对入选数不可跨配额比较。</p>"
                        "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
-                       "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 入选</th>"
-                       "<th>组内中位</th><th>组大小</th><th>确认后执行</th></tr>"
+                       "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 入选率</th>"
+                       "<th>组内入选率中位</th><th>30d 入选/抓取</th><th>组大小</th><th>确认后执行</th></tr>"
                        f"{r_rows}</table>")
     else:
         rot_section = ""

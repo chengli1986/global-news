@@ -224,6 +224,7 @@ Per-send telemetry that captures whether each production source is still pulling
 - **Phase 0.5** (2026-05-26): RSS sources additionally write 4 per-article quality signals — `avg_title_len`, `avg_desc_len`, `pct_with_desc`, `pct_with_author`
 - **Coverage** (2026-05-27): registry production = 51 sources (18 AI-discovered + 33 legacy backfilled). Earlier coverage was 18/52 RSS — Bloomberg / FT / CNBC / BBC / Economist / SCMP and other pre-2026-04-21 sources had no registry entry until `scripts/backfill_legacy_to_registry.py` reconciled the two configs
 - **Lifecycle tools**: `rss-promote-candidate.py` (discovered → production), `rss-demote-source.py` (production → rejected, syncs both `news-sources-config.json` and `rss-registry.json` to prevent drift), `scripts/backfill_legacy_to_registry.py` (one-time legacy reconciliation, idempotent)
+- **Candidate dedup — 4 passes** (`dedup_candidates`): ①URL normalize ②existing/prior URL ③publisher name within the batch ④**same-feed content check** (added 2026-07-26): when a candidate shares a domain with an existing source, both feeds' article links are compared and ≥50% overlap means it's the same feed under a different path. Passes ①-③ compare surface strings only, which is how 端傳媒 `/rss/` and 端传媒 `/feed/` — different URL, different name, identical articles — both graduated into production. Existing feed is fetched once per domain and cached; unreachable → fail open. Verified against all 19 same-domain pairs in the live pool (Economist ×4, BBC ×3, Bloomberg ×3, SCMP, Guardian, NYT, RFI, anyfeeder ×3): max overlap 25% (SCMP), so real section feeds keep a 2× margin under the threshold.
 - **Phase 0 scope**: data collection only; no automated action.
 - **Phase 1** (2026-06-13, `rss-production-review.py`): a weekly evaluator now consumes this telemetry — see below. Demote stays human-confirmed.
 
@@ -233,7 +234,8 @@ Weekly in-production quality review (test-period cadence) that reads `logs/produ
 
 - **A — zombie sources** (auto-flagged, suggests demote): production sources still publishing (`fetched>0`) but ~never selected (`selected≤1` over a 30-day window), gated by a 30-day on-tenure grace period and an `active_days≥7` sample floor so low-frequency sources aren't misjudged. `fetched==0` (source not publishing) is left to `rss-health-check`. Each candidate carries a ready-to-paste `rss-demote-source.py` command.
 - **B — content degradation** (warning only): `pct_with_desc` / `avg_desc_len` / `pct_with_author` drifting down vs the source's OWN baseline (60-day cap, recent-7d vs prior) — never absolute thresholds, so natively-short-summary sources (Foreign Policy etc.) aren't penalised.
-- **♻️ Rotation — 组内实测优胜劣汰** (2026-06-15, suggests demote): within each `category`, the lowest-selection source that's *also clearly below the group median* is flagged for rotation — 沉淀精品同时保多元. legacy(无 category)豁免；每类保底 3 个；沿用 A 的低频/在岗宽限保护；与 A 绝对僵尸不重复. Spec: `docs/superpowers/specs/2026-06-15-source-fitness-rebalance-design.md`
+- **♻️ Rotation — 组内实测优胜劣汰** (2026-06-15, suggests demote): within each `category`, the lowest-**selection-rate** source that's *also below half the group's median rate* is flagged for rotation — 沉淀精品同时保多元. legacy(无 category)豁免；每类保底 3 个；沿用 A 的低频/在岗宽限保护；与 A 绝对僵尸不重复. Spec: `docs/superpowers/specs/2026-06-15-source-fitness-rebalance-design.md`
+  - **口径 = 入选率 `selected/fetched`, not the absolute count** (fixed 2026-07-26): `fetched` is set by each source's `limit` quota in `news-sources-config.json` (limit=3 → ~99 articles per 30d, limit=6 → ~198), so absolute selection counts are not comparable across quotas and small-quota sources were being flagged systematically. IEEE Spectrum was flagged at 43 selected vs a group median of 96 while actually converting 44% — level with limit=6 peers at 45%.
 - **Action model**: report only — demote is human-confirmed via `rss-demote-source.py`. Test period emails every week (incl. a full-pool contribution snapshot); cadence and thresholds to be tuned after observation.
 - **Spec**: `docs/superpowers/specs/2026-06-13-rss-production-quality-review-design.md`
 
@@ -244,7 +246,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 309 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + contract defenses)
+python3 -m pytest tests/ -q   # 320 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + contract defenses)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```

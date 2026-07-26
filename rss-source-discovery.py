@@ -87,6 +87,53 @@ def _normalize_url(url: str) -> str:
     return f"{scheme}{domain}{path}"
 
 
+MAX_ITEM_LINKS = 20
+
+
+def _extract_item_links(items: list, is_atom: bool) -> list:
+    """Normalized article links of the first MAX_ITEM_LINKS items.
+
+    Used to tell "same feed under a different URL" apart from "different section
+    of the same publisher" — surface strings (URL path, publisher name) can't:
+    端传媒 `/feed/` vs 端傳媒 Initium Media `/rss/` differ in both yet serve the
+    identical article list (discovered 2026-07-26, after the duplicate had
+    already graduated from trial into production).
+    """
+    links = []
+    for item in items[:MAX_ITEM_LINKS]:
+        href = None
+        if is_atom:
+            el = item.find(f"{{{ATOM_NS}}}link")
+            if el is None:
+                el = item.find("link")
+            if el is not None:
+                href = el.get("href") or (el.text or "").strip()
+        else:
+            el = item.find("link")
+            if el is not None and el.text:
+                href = el.text.strip()
+        if href:
+            links.append(_normalize_url(href))
+    return links
+
+
+def _domain(url: str) -> str:
+    """Registrable-ish host for grouping: lowercase netloc without leading www."""
+    return urlparse(url.strip()).netloc.lower().removeprefix("www.")
+
+
+def _same_feed(links_a: list, links_b: list, min_overlap: float = 0.5) -> bool:
+    """True when two link lists overlap enough to be the same underlying feed.
+
+    Compared against the *smaller* list so a short feed matched against a long
+    one still registers. Empty on either side → False (never guess).
+    """
+    a, b = set(links_a or []), set(links_b or [])
+    if not a or not b:
+        return False
+    return len(a & b) / min(len(a), len(b)) >= min_overlap
+
+
 def load_env(path: str) -> dict:
     """Load KEY=VALUE from env file."""
     env = {}
@@ -123,6 +170,7 @@ def validate_feed(name: str, url: str, raw_bytes: bytes | None = None) -> dict:
         "has_authors": False,
         "has_categories": False,
         "avg_description_length": 0,
+        "item_links": [],
         "error": None,
     }
 
@@ -250,6 +298,8 @@ def validate_feed(name: str, url: str, raw_bytes: bytes | None = None) -> dict:
                     dt = dt.replace(tzinfo=timezone.utc)
                 if newest_dt is None or dt > newest_dt:
                     newest_dt = dt
+
+    result["item_links"] = _extract_item_links(items, is_atom)
 
     total = len(items)
     result["has_descriptions"] = (desc_count / total) > 0.5
@@ -446,17 +496,35 @@ def _publisher_key(entry: dict) -> str:
     return re.sub(r"\s+", " ", name)
 
 
+def _fetch_item_links(url: str):
+    """Fetch a feed and return its normalized item links, or None if unreachable."""
+    v = validate_feed("", url)
+    if not v.get("parse_ok"):
+        return None
+    return v.get("item_links") or None
+
+
 def dedup_candidates(candidates: list, existing_sources: list,
-                     prior_candidates: list) -> list:
+                     prior_candidates: list, link_fetcher=None) -> list:
     """Remove duplicates against existing sources and prior promoted/rejected candidates.
 
-    Three dedup passes:
+    Four dedup passes:
       1. URL normalize (trailing slash, case) — exact-feed duplicates
       2. Existing/prior URL — never re-suggest already-handled URLs
       3. Publisher name within *this batch* — when LLM surfaces two endpoints
          of the same publisher (e.g. MIT Technology Review topnews.rss + feed/),
          keep the higher-scoring one so the trial queue doesn't waste a slot.
+      4. Same-feed content check — candidate shares a domain with an existing
+         source and serves the same articles under a different path/name
+         (端传媒 `/feed/` vs 端傳媒 Initium Media `/rss/`, 2026-07-26). Passes 1-3
+         compare surface strings only and let this through. Fetches the existing
+         feed once per domain; unreachable → fail open (never block on a network
+         hiccup). Different sections of one publisher (Guardian world vs science)
+         have disjoint articles and survive.
+
+    *link_fetcher* is injected in tests; defaults to a live fetch.
     """
+    fetch_links = link_fetcher or _fetch_item_links
     # Build set of normalized existing URLs
     existing_urls = set()
     existing_names = set()
@@ -502,7 +570,33 @@ def dedup_candidates(candidates: list, existing_sources: list,
 
     # Preserve original order of by_url, keeping only winners
     winners_urls = {c["url"] for c in best_by_publisher.values() if "url" in c}
-    return [c for c in by_url if c.get("url") in winners_urls]
+    survivors = [c for c in by_url if c.get("url") in winners_urls]
+
+    # Pass 4: same-feed content check against existing sources on the same domain
+    existing_by_domain: dict[str, list] = {}
+    for src in existing_sources:
+        url = src.get("url", "")
+        if url:
+            existing_by_domain.setdefault(_domain(url), []).append(url)
+
+    link_cache: dict[str, list] = {}
+    out = []
+    for c in survivors:
+        cand_links = (c.get("validation") or {}).get("item_links") or []
+        peers = existing_by_domain.get(_domain(c.get("url", ""))) if cand_links else None
+        if not peers:
+            out.append(c)
+            continue
+        duplicate = False
+        for peer_url in peers:
+            if peer_url not in link_cache:
+                link_cache[peer_url] = fetch_links(peer_url) or []
+            if _same_feed(cand_links, link_cache[peer_url]):
+                duplicate = True
+                break
+        if not duplicate:
+            out.append(c)
+    return out
 
 
 def load_candidates() -> dict:
@@ -742,12 +836,27 @@ def enforce_pool_cap(registry: dict, max_pool: int = MAX_POOL_SIZE) -> int:
     return pruned
 
 
+def _strip_transient(entry: dict) -> dict:
+    """Drop within-run-only fields before an entry is persisted to the registry.
+
+    `validation.item_links` exists to catch same-feed-different-URL duplicates
+    during this run; it goes stale as soon as the feed publishes again and 20
+    URLs per candidate would bloat a registry already holding ~270 entries.
+    """
+    v = entry.get("validation")
+    if isinstance(v, dict) and "item_links" in v:
+        entry = dict(entry)
+        entry["validation"] = {k: val for k, val in v.items() if k != "item_links"}
+    return entry
+
+
 def cmd_save():
     """Read JSON array from stdin, merge into rss-registry.json."""
     new_entries = json.load(sys.stdin)
     registry = _reg.load_registry()
     added = 0
     for entry in new_entries:
+        entry = _strip_transient(entry)
         if _reg.upsert_source(registry, entry):
             added += 1
     pruned = enforce_pool_cap(registry)

@@ -256,3 +256,125 @@ class TestEnforcePoolCap(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# ---------------------------------------------------------------------------
+# Same-feed-different-URL guard (2026-07-26: 端传媒 /feed/ vs /rss/ slipped in
+# because both the URL pass and the publisher-name pass compare surface strings)
+# ---------------------------------------------------------------------------
+INITIUM_RSS = b"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Initium</title>
+    <item><title>A</title><link>https://theinitium.com/20260726-a/</link></item>
+    <item><title>B</title><link>https://theinitium.com/20260726-b/</link></item>
+    <item><title>C</title><link>https://theinitium.com/20260726-c/</link></item>
+  </channel>
+</rss>
+"""
+
+GUARDIAN_SCIENCE_RSS = b"""\
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Guardian Science</title>
+    <item><title>S1</title><link>https://theguardian.com/science/s1</link></item>
+    <item><title>S2</title><link>https://theguardian.com/science/s2</link></item>
+  </channel>
+</rss>
+"""
+
+
+class TestItemLinkExtraction(unittest.TestCase):
+    def test_validate_feed_returns_item_links(self):
+        result = validate_feed("Initium", "https://theinitium.com/rss/",
+                               raw_bytes=INITIUM_RSS)
+        self.assertEqual(
+            result["item_links"],
+            ["https://theinitium.com/20260726-a",
+             "https://theinitium.com/20260726-b",
+             "https://theinitium.com/20260726-c"],
+        )
+
+
+class TestSameFeedGuard(unittest.TestCase):
+    def test_rejects_same_feed_under_different_url(self):
+        """端传媒 case: same publisher, different URL path, identical items."""
+        links = ["https://theinitium.com/20260726-a",
+                 "https://theinitium.com/20260726-b",
+                 "https://theinitium.com/20260726-c"]
+        candidates = [{"name": "端传媒", "url": "https://theinitium.com/feed/",
+                       "validation": {"item_links": links}}]
+        existing = [{"name": "端傳媒 Initium Media", "url": "https://theinitium.com/rss/"}]
+        result = dedup_candidates(candidates, existing, [],
+                                  link_fetcher=lambda url: links)
+        self.assertEqual(result, [])
+
+    def test_keeps_different_sections_of_same_domain(self):
+        """Guardian science vs world: same domain, disjoint items → both stay."""
+        cand_links = ["https://theguardian.com/science/s1",
+                      "https://theguardian.com/science/s2"]
+        candidates = [{"name": "The Guardian Science",
+                       "url": "https://www.theguardian.com/science/rss",
+                       "validation": {"item_links": cand_links}}]
+        existing = [{"name": "The Guardian World",
+                     "url": "https://www.theguardian.com/world/rss"}]
+        result = dedup_candidates(
+            candidates, existing, [],
+            link_fetcher=lambda url: ["https://theguardian.com/world/w1",
+                                      "https://theguardian.com/world/w2"])
+        self.assertEqual(len(result), 1)
+
+    def test_fail_open_when_existing_feed_unfetchable(self):
+        """Can't fetch the existing feed → don't block the candidate."""
+        candidates = [{"name": "端传媒", "url": "https://theinitium.com/feed/",
+                       "validation": {"item_links": ["https://theinitium.com/x"]}}]
+        existing = [{"name": "端傳媒 Initium Media", "url": "https://theinitium.com/rss/"}]
+        result = dedup_candidates(candidates, existing, [],
+                                  link_fetcher=lambda url: None)
+        self.assertEqual(len(result), 1)
+
+    def test_skips_link_fetch_for_unrelated_domains(self):
+        """Guard only fires within a domain — no network for unrelated candidates."""
+        calls = []
+
+        def _fetcher(url):
+            calls.append(url)
+            return []
+
+        candidates = [{"name": "Nikkei", "url": "https://asia.nikkei.com/rss",
+                       "validation": {"item_links": ["https://asia.nikkei.com/a"]}}]
+        existing = [{"name": "Initium", "url": "https://theinitium.com/rss/"}]
+        result = dedup_candidates(candidates, existing, [], link_fetcher=_fetcher)
+        self.assertEqual(len(result), 1)
+        self.assertEqual(calls, [])
+
+
+class TestSaveStripsTransientFields(unittest.TestCase):
+    def test_item_links_not_persisted_to_registry(self):
+        """item_links are a within-run dedup signal, not registry state.
+
+        They go stale the moment the feed publishes again, and 20 URLs per
+        candidate would bloat a registry that already holds ~270 entries.
+        """
+        import io
+        import json as _json
+        from unittest import mock
+
+        entry = {"name": "X", "url": "https://x.com/feed", "status": "discovered",
+                 "validation": {"parse_ok": True, "article_count": 3,
+                                "item_links": ["https://x.com/1", "https://x.com/2"]}}
+        saved = {}
+
+        def _fake_save(data, path=None):
+            saved.update(data)
+
+        with mock.patch.object(_mod.sys, "stdin", io.StringIO(_json.dumps([entry]))), \
+             mock.patch.object(_mod._reg, "load_registry", lambda *a, **k: {"version": 1, "sources": []}), \
+             mock.patch.object(_mod._reg, "save_registry", _fake_save):
+            _mod.cmd_save()
+
+        stored = saved["sources"][0]
+        self.assertNotIn("item_links", stored["validation"])
+        self.assertEqual(stored["validation"]["article_count"], 3)
