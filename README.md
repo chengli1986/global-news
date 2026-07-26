@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 62 sources (59 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 60 sources (57 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 62 sources (59 RSS feeds +
 Cron (1x daily: 12:15 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (62 sources)
+           ├── news-sources-config.json (60 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (59 sources, includes active trials)
+           └── RSS/Atom feeds (57 sources, includes active trials)
 
 Cron (1x daily: 12:05 BJT)
  └── rss-health-check.py
@@ -69,16 +69,16 @@ python3 rss-health-check.py
 python3 rss-health-check.py --email
 ```
 
-## News Sources (62)
+## News Sources (60)
 
 > Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-07-26.
 
-**RSS/Atom (59)**, grouped by registry category:
+**RSS/Atom (57)**, grouped by registry category:
 
 - **tech_ai** (13): 36氪, Ars Technica, BBC Technology, IEEE Spectrum, MIT Technology Review, NYT Technology, Solidot, TechCrunch, The Verge, Wired, 虎嗅, 量子位, 钛媒体
 - **global_finance** (10): BBC Business, Bloomberg, Bloomberg Econ, Bloomberg Politics, CNBC, Economist Business, Economist Finance, Economist Leaders, FT, NYT Business
-- **hk_sea** (8): CNA, Dawn Pakistan, Korea Herald *(trial)*, Philippine Daily Inquirer, Rappler, SCMP, SCMP Hong Kong, Straits Times
-- **europe** (7): Al Jazeera English, BBC World, ECFR Analysis, France24 English, Politico Europe, RFI English, The Guardian World
+- **hk_sea** (7): CNA, Dawn Pakistan, Korea Herald *(trial)*, Philippine Daily Inquirer, Rappler, SCMP, SCMP Hong Kong
+- **europe** (6): Al Jazeera English, BBC World, France24 English, Politico Europe, RFI English, The Guardian World
 - **vertical** (7): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica, Quanta Magazine
 - **china_depth** (5): BBC中文, RFI中文, 澎湃新闻, 端傳媒 Initium Media, 纽约时报中文
 - **healthcare** (5): Endpoints News, KFF Health News, Science News, STAT News, The Guardian Science

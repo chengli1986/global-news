@@ -4995,7 +4995,7 @@
       "url": "https://ecfr.eu/feed/",
       "language": "en",
       "category": "europe",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -5017,7 +5017,7 @@
         "uniqueness": 0.85,
         "final": 0.874
       },
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard: 20% selection rate vs europe median 49%; group well covered by AJ/BBC/Guardian/France24/RFI/Politico",
       "trial": {
         "start_date": "2026-05-28",
         "end_date": "2026-05-31",
@@ -7148,11 +7148,11 @@
     {
       "name": "Straits Times",
       "url": "https://www.straitstimes.com/news/singapore/rss.xml",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard: 12% selection rate vs hk_sea median 34%; overlaps CNA (same SG market, limit=6)",
       "trial": null,
       "production": {
         "keywords": [],
