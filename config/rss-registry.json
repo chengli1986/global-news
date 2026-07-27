@@ -8480,6 +8480,11 @@
           },
           {
             "date": "2026-07-27",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-07-28",
             "fetched": 0,
             "selected": 0
           }
