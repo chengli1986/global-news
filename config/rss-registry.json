@@ -8485,6 +8485,11 @@
           },
           {
             "date": "2026-07-28",
+            "fetched": 3,
+            "selected": 1
+          },
+          {
+            "date": "2026-07-29",
             "fetched": 0,
             "selected": 0
           }
