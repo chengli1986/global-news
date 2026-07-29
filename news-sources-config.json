@@ -379,6 +379,13 @@
         "keywords": [],
         "limit": 3,
         "trial": true
+      },
+      {
+        "name": "PBS NewsHour Politics",
+        "url": "https://www.pbs.org/newshour/feeds/rss/politics",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [
