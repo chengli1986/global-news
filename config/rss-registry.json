@@ -8463,10 +8463,10 @@
         "uniqueness": 0.85,
         "final": 0.85
       },
-      "status": "trialing",
+      "status": "production",
       "trial": {
         "start_date": "2026-07-25",
-        "end_date": null,
+        "end_date": "2026-08-01",
         "report_sent": false,
         "daily_stats": [
           {
@@ -8501,13 +8501,22 @@
           },
           {
             "date": "2026-07-31",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-08-01",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.85
+      },
+      "production": {
+        "keywords": [],
+        "limit": 3
       }
     },
     {
@@ -9473,6 +9482,11 @@
           },
           {
             "date": "2026-07-31",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-08-01",
             "fetched": 0,
             "selected": 0
           }
