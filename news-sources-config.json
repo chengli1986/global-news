@@ -52,15 +52,9 @@
       },
       {
         "name": "BBC中文",
-        "url": "https://www.bbc.com/zhongwen/simp/index.xml",
+        "url": "https://rsshub.rssforever.com/bbc/chinese",
         "keywords": [],
         "limit": 6
-      },
-      {
-        "name": "SCMP Hong Kong",
-        "url": "https://www.scmp.com/rss/2/feed",
-        "keywords": [],
-        "limit": 3
       },
       {
         "name": "BBC World",

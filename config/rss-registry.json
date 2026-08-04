@@ -2603,7 +2603,7 @@
       "name": "The Guardian Science",
       "url": "https://www.theguardian.com/science/rss",
       "language": "en",
-      "category": "healthcare",
+      "category": "vertical",
       "status": "production",
       "discovered_via": "ai_search",
       "validation": {
@@ -7118,11 +7118,11 @@
     {
       "name": "SCMP Hong Kong",
       "url": "https://www.scmp.com/rss/2/feed",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard",
       "trial": null,
       "production": {
         "keywords": [],
