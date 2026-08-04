@@ -71,18 +71,18 @@ python3 rss-health-check.py --email
 
 ## News Sources (60)
 
-> Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-07-26.
+> Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-08-04.
 
 **RSS/Atom (57)**, grouped by registry category:
 
 - **tech_ai** (13): 36氪, Ars Technica, BBC Technology, IEEE Spectrum, MIT Technology Review, NYT Technology, Solidot, TechCrunch, The Verge, Wired, 虎嗅, 量子位, 钛媒体
 - **global_finance** (10): BBC Business, Bloomberg, Bloomberg Econ, Bloomberg Politics, CNBC, Economist Business, Economist Finance, Economist Leaders, FT, NYT Business
-- **hk_sea** (7): CNA, Dawn Pakistan, Korea Herald *(trial)*, Philippine Daily Inquirer, Rappler, SCMP, SCMP Hong Kong
+- **vertical** (8): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica, Quanta Magazine, The Guardian Science
+- **hk_sea** (6): CNA, Dawn Pakistan, Korea Herald, Philippine Daily Inquirer, Rappler, SCMP
 - **europe** (6): Al Jazeera English, BBC World, France24 English, Politico Europe, RFI English, The Guardian World
-- **vertical** (7): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica, Quanta Magazine
 - **china_depth** (5): BBC中文, RFI中文, 澎湃新闻, 端傳媒 Initium Media, 纽约时报中文
-- **healthcare** (5): Endpoints News, KFF Health News, Science News, STAT News, The Guardian Science
-- **north_america** (3): Globe & Mail, Politico US Politics, The New Yorker
+- **north_america** (4): Globe & Mail, PBS NewsHour Politics *(trial)*, Politico US Politics, The New Yorker
+- **healthcare** (4): Endpoints News, KFF Health News, Science News, STAT News
 - **global_south** (1): Daily Maverick
 
 **API sources (3)**: 中国科技/AI, 中国财经要闻 (Sina Finance JSON APIs), Hacker News (Firebase API)
