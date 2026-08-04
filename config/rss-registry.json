@@ -9503,6 +9503,11 @@
           },
           {
             "date": "2026-08-04",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-08-05",
             "fetched": 0,
             "selected": 0
           }
