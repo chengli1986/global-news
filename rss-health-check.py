@@ -24,7 +24,10 @@ from datetime import datetime, timezone, timedelta
 from email.utils import parsedate_to_datetime
 
 BJT = timezone(timedelta(hours=8))
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+# realpath, NOT abspath: production cron invokes this via the workspace symlink
+# ~/.openclaw/workspace/rss-health-check.py. abspath() would leave SCRIPT_DIR at
+# the workspace, splitting the state file from the repo copy (fixed 2026-08-05).
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 CONFIG_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 LOGS_DIR = os.path.join(SCRIPT_DIR, "logs")
 STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")

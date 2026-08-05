@@ -244,12 +244,11 @@ class TestClearHealthStateForRemovedTrial(unittest.TestCase):
                 self.assertTrue(tm.remove_trial_from_config("Trial Foo"))
 
     def test_clears_from_all_health_state_locations(self):
-        """The production health-check (rss-health-check.py) runs via its workspace
-        symlink and writes the WORKSPACE copy of rss-health.json, while this manager
-        runs from the repo and would otherwise only touch the repo copy — two
-        DIFFERENT files. A removal must scrub the source from every distinct
-        health-state location, else stale consecutive_fails survives in the live
-        (workspace) copy and keeps tripping the health-check cron (exit 1)."""
+        """A removal must scrub the source from EVERY distinct health-state location,
+        else stale consecutive_fails survives in a copy that is still read and keeps
+        tripping the health-check cron (exit 1). Historically the health-check wrote a
+        separate workspace copy (symlink not resolved — fixed 2026-08-05); the
+        multi-location scrub still guards leftover/relocated state files."""
         with tempfile.TemporaryDirectory() as tmp_dir:
             sources_path = os.path.join(tmp_dir, "news-sources-config.json")
             with open(sources_path, "w") as f:

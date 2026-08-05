@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
-"""Tests for rss-health-check.py config write path — symlink preservation.
+"""Tests for rss-health-check.py symlink handling — config writes and SCRIPT_DIR.
 
-Root cause (found 2026-06-02): the production workspace config
+Root cause #1 (found 2026-06-02): the production workspace config
 (~/.openclaw/workspace/news-sources-config.json) is meant to be a symlink to
 the git-managed repo config (same pattern as digest-tuning.json). But
 swap_url_in_config()'s atomic write (tempfile + os.replace) replaced the
 symlink itself with a regular file on the first auto-swap, silently splitting
 production config from the repo. Result: trial-promoted sources never reached
 production, and sources removed from the repo kept being fetched.
+
+Root cause #2 (found 2026-08-05): cron invokes this script through the same
+workspace symlink, and SCRIPT_DIR was built with os.path.abspath(__file__),
+which does NOT resolve symlinks. So the live state file landed in
+~/.openclaw/workspace/logs/rss-health.json while any manual run from the repo
+wrote ~/global-news/logs/rss-health.json — two separate ledgers, so
+consecutive_fails diverged and reading the repo copy showed stale counters.
+Fixed by using os.path.realpath(__file__) (same pattern already used by
+unified-global-news-sender.py and evaluate_digest.py).
 """
 import os
 import json
@@ -21,6 +30,41 @@ _spec = importlib.util.spec_from_file_location(
 )
 _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
+
+
+def _load_via(path):
+    """Import rss-health-check.py from an arbitrary path (used to simulate the
+    production workspace symlink invocation)."""
+    spec = importlib.util.spec_from_file_location("rss_health_check_alt", str(path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_script_dir_resolves_symlink(tmp_path):
+    """Invoked through a symlink, SCRIPT_DIR must point at the REAL repo dir.
+
+    Production cron runs `python3 ~/.openclaw/workspace/rss-health-check.py`,
+    which is a symlink into the repo. With abspath() the state file, logs dir
+    and config all resolved next to the symlink instead of in the repo.
+    """
+    link = tmp_path / "rss-health-check.py"
+    link.symlink_to(os.path.join(_repo, "rss-health-check.py"))
+
+    mod = _load_via(link)
+
+    assert mod.SCRIPT_DIR == _repo, (
+        "SCRIPT_DIR followed the symlink's own directory — state and config "
+        "would split from the repo copy")
+    assert mod.STATE_FILE == os.path.join(_repo, "logs", "rss-health.json")
+    assert mod.LOGS_DIR == os.path.join(_repo, "logs")
+    assert mod.CONFIG_FILE == os.path.join(_repo, "news-sources-config.json")
+
+
+def test_script_dir_unchanged_for_direct_invocation():
+    """Regression guard: running the real file directly still resolves to the repo."""
+    assert _mod.SCRIPT_DIR == _repo
+    assert _mod.STATE_FILE == os.path.join(_repo, "logs", "rss-health.json")
 
 
 def _write_config(path, url="https://old.example.com/feed"):

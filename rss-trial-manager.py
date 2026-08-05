@@ -31,14 +31,15 @@ SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 
 import rss_registry as _reg
 TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
-HEALTH_STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")  # repo-local copy
+HEALTH_STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")  # the live copy
 
-# The production health-check (rss-health-check.py) is invoked through its
-# *workspace* symlink. os.path.abspath(__file__) does NOT resolve that symlink, so
-# the health-check's SCRIPT_DIR is the workspace and it reads/writes the workspace
-# copy below — a DIFFERENT file from the repo copy above (this manager is not
-# symlinked into the workspace, so it lands on the repo copy). A trial removal must
-# scrub the stale consecutive_fails from whichever copy is live, so clear BOTH.
+# Historical (fixed 2026-08-05): rss-health-check.py is invoked through its
+# *workspace* symlink and used to build SCRIPT_DIR with os.path.abspath(__file__),
+# which does not resolve symlinks — so it read/wrote a SECOND state file under the
+# workspace while this manager (not symlinked) wrote the repo copy. It now uses
+# realpath, so both land on HEALTH_STATE_FILE. The workspace path is kept below
+# only to scrub any leftover pre-migration file; entries are deduped by realpath,
+# so listing both costs nothing once the leftover is gone.
 HEALTH_STATE_FILES = [
     HEALTH_STATE_FILE,
     os.path.expanduser("~/.openclaw/workspace/logs/rss-health.json"),
@@ -118,10 +119,11 @@ def _clear_health_state_for(source_name: str) -> None:
     would persist, and a future re-trial of the same name (or a monitoring
     dashboard query) would still see failures that belonged to a prior run.
 
-    The repo-local copy and the production workspace copy are DIFFERENT files
-    (see HEALTH_STATE_FILES), so scrub each distinct one that exists — clearing
-    only the repo copy leaves the live (workspace) consecutive_fails in place,
-    which keeps tripping the health-check cron (exit 1).
+    Scrub every distinct location in HEALTH_STATE_FILES (deduped by realpath).
+    Since 2026-08-05 the health-check resolves its symlink, so repo and workspace
+    paths point at the same file; the extra entry only catches a leftover
+    pre-migration copy, where stale consecutive_fails would keep tripping the
+    health-check cron (exit 1).
     """
     seen = set()
     for path in HEALTH_STATE_FILES:
