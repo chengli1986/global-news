@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 60 sources (57 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 58 sources (55 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 60 sources (57 RSS feeds +
 Cron (1x daily: 12:15 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (60 sources)
+           ├── news-sources-config.json (58 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (57 sources, includes active trials)
+           └── RSS/Atom feeds (55 sources, includes active trials)
 
 Cron (1x daily: 12:05 BJT)
  └── rss-health-check.py
@@ -50,7 +50,6 @@ Sources with fallbacks (RSSHub mirrors):
 |--------|----------|
 | 虎嗅 | rsshub.rssforever.com/huxiu/article |
 | IT之家 | rsshub.rssforever.com/ithome |
-| 36氪 | rsshub.rssforever.com/36kr/news |
 | 少数派 | rsshub.rssforever.com/sspai/matrix |
 | 钛媒体 | rsshub.rssforever.com/tmtpost/recommend |
 | 界面新闻 | rsshub.rssforever.com/jiemian/list/4 |
@@ -58,6 +57,10 @@ Sources with fallbacks (RSSHub mirrors):
 | 南方周末 | rsshub.rssforever.com/infzm/2 |
 
 Sources without fallbacks (BBC, NYT, Economist, Bloomberg, etc.) trigger alert-only — no auto-swap.
+
+36氪 was removed from this table on 2026-08-06: upstream `36kr.com/feed` now serves a
+火山引擎 WAF challenge page, and every 36kr route on the mirror answers 503. A fallback
+pointing at a verified-dead URL is worse than no fallback, so the source was demoted instead.
 
 ### Usage
 
@@ -69,19 +72,19 @@ python3 rss-health-check.py
 python3 rss-health-check.py --email
 ```
 
-## News Sources (60)
+## News Sources (58)
 
-> Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-08-04.
+> Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-08-06 (rebuilt by script from config + registry, not hand-counted; both agree at 55 with zero drift).
 
-**RSS/Atom (57)**, grouped by registry category:
+**RSS/Atom (55)**, grouped by registry category:
 
-- **tech_ai** (13): 36氪, Ars Technica, BBC Technology, IEEE Spectrum, MIT Technology Review, NYT Technology, Solidot, TechCrunch, The Verge, Wired, 虎嗅, 量子位, 钛媒体
+- **tech_ai** (12): Ars Technica, BBC Technology, IEEE Spectrum, MIT Technology Review, NYT Technology, Solidot, TechCrunch, The Verge, Wired, 虎嗅, 量子位, 钛媒体
 - **global_finance** (10): BBC Business, Bloomberg, Bloomberg Econ, Bloomberg Politics, CNBC, Economist Business, Economist Finance, Economist Leaders, FT, NYT Business
 - **vertical** (8): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica, Quanta Magazine, The Guardian Science
 - **hk_sea** (6): CNA, Dawn Pakistan, Korea Herald, Philippine Daily Inquirer, Rappler, SCMP
 - **europe** (6): Al Jazeera English, BBC World, France24 English, Politico Europe, RFI English, The Guardian World
 - **china_depth** (5): BBC中文, RFI中文, 澎湃新闻, 端傳媒 Initium Media, 纽约时报中文
-- **north_america** (4): Globe & Mail, PBS NewsHour Politics *(trial)*, Politico US Politics, The New Yorker
+- **north_america** (3): Globe & Mail, Politico US Politics, The New Yorker
 - **healthcare** (4): Endpoints News, KFF Health News, Science News, STAT News
 - **global_south** (1): Daily Maverick
 
