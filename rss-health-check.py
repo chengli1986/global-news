@@ -44,7 +44,10 @@ HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/
 FALLBACK_URLS = {
     "虎嗅":     "https://rsshub.rssforever.com/huxiu/article",
     "IT之家":   "https://rsshub.rssforever.com/ithome",
-    "36氪":     "https://rsshub.rssforever.com/36kr/news",
+    # 36氪 removed 2026-08-06: upstream 36kr.com/feed now returns a 火山引擎 WAF
+    # challenge page (HTTP 200, text/html), and every 36kr route on the mirror
+    # (news / newsflash / hot-list / motif/...976) answers 503. Swapping to a
+    # verified-dead URL is worse than not swapping. Source demoted to rejected.
     "少数派":   "https://rsshub.rssforever.com/sspai/matrix",
     "钛媒体":   "https://rsshub.rssforever.com/tmtpost/recommend",
     "界面新闻": "https://rsshub.rssforever.com/jiemian/list/4",

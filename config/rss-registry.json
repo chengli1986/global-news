@@ -7073,11 +7073,11 @@
     {
       "name": "36氪",
       "url": "https://36kr.com/feed",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "legacy",
       "validation": null,
       "scores": null,
-      "reject_reason": null,
+      "reject_reason": "waf-block-upstream-and-fallback-route-503",
       "trial": null,
       "production": {
         "keywords": [],

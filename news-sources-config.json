@@ -38,12 +38,6 @@
         "limit": 6
       },
       {
-        "name": "36氪",
-        "url": "https://36kr.com/feed",
-        "keywords": [],
-        "limit": 8
-      },
-      {
         "name": "纽约时报中文",
         "url": "https://cn.nytimes.com/rss.html",
         "keywords": [],
