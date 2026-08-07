@@ -7,3 +7,5 @@ logs/
 todo.db
 fixtures/*.json
 fixtures/*.json.old
+.superpowers/
+.claude/worktrees/
