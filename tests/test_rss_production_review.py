@@ -18,6 +18,16 @@ _spec.loader.exec_module(_mod)
 BJT = timezone(timedelta(hours=8))
 
 
+class _RealNetworkCalled(BaseException):
+    """故意继承 BaseException 而不是 Exception：probe_revivals()/_resolve_final_url()
+    生产代码里的 fail-closed 用的是 `except Exception`（这是对的、周报不能被
+    附加功能搞挂，不要改）。如果这里抛 AssertionError（Exception 的子类），
+    "忘记注入 resolver 时真打网络"这个信号会被那两处 fail-closed 原地吃掉，
+    测试照常绿——防线形同虚设。继承 BaseException 能穿透 `except Exception`，
+    让忘记注入变成货真价实的红。
+    """
+
+
 @pytest.fixture(autouse=True)
 def _no_real_network(monkeypatch):
     """回归防线：probe_revivals()/_resolve_final_url() 走默认 prober/resolver 会
@@ -29,7 +39,7 @@ def _no_real_network(monkeypatch):
     可控替身即可，不要关掉这个 fixture。
     """
     def _forbidden(*a, **kw):
-        raise AssertionError(
+        raise _RealNetworkCalled(
             "测试调用了真实网络路径（_default_prober / _default_url_resolver）——"
             "请注入假 prober/resolver")
     monkeypatch.setattr(_mod, "_default_prober", _forbidden)
@@ -554,6 +564,25 @@ def _prober_from(table):
         return table.get(url, {"ok": False, "error": "unreachable: TimeoutError",
                                "article_count": 0, "newest_age_hours": None})
     return _p
+
+
+def test_forgetting_resolver_injection_is_caught_by_network_guard():
+    """把 `_no_real_network` 防线本身锁进测试里，而不是只靠"全绿"信任它。
+
+    2026-08-08 复盘：防线第一版让 `_forbidden` 抛 `AssertionError`——那是
+    `Exception` 的子类，会被 `probe_revivals`/`_resolve_final_url` 里的
+    `except Exception: continue`（fail-closed，这两处本身是对的、不要动）
+    原地吃掉，测试照样绿，防线形同虚设。改成继承 `BaseException` 的
+    `_RealNetworkCalled` 才能穿透那两处 fail-closed。这条测试故意不传
+    resolver、走 article_count>=1 的"探测成功"分支（唯一会调用
+    `_default_url_resolver` 的路径），断言必须炸出 `_RealNetworkCalled`——
+    如果以后有人把 `_forbidden` 改回抛 `Exception` 子类，这条测试会先红。
+    """
+    reg = _registry([_rejected("36氪", "waf-block", url="https://36kr.com/feed")])
+    prober = _prober_from({"https://36kr.com/feed": {
+        "ok": True, "error": None, "article_count": 20, "newest_age_hours": 3.5}})
+    with pytest.raises(_RealNetworkCalled):
+        _mod.probe_revivals(reg, prober)   # 故意不传 resolver
 
 
 def test_probe_revival_waf_page_is_not_revived():
