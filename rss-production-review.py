@@ -9,6 +9,7 @@ import json
 import os
 import sys
 import base64
+import functools
 import subprocess
 import tempfile
 import statistics
@@ -263,11 +264,15 @@ def find_revival_candidates(registry) -> list:
     return out
 
 
+@functools.lru_cache(maxsize=1)
 def _load_health_module():
     """加载 rss-health-check.py（文件名带连字符，不能直接 import）。
 
     同 scripts/benchmark_classifier_providers.py 的做法。该模块顶层只有常量与
     函数定义（外加 __main__ 守卫），加载无副作用。
+
+    缓存一次即可——probe_revivals 每探一个 URL 都会走这条路径（默认 prober），
+    N 个源不缓存就是最坏 2N+1 次重新 parse+exec 同一份源文件。
     """
     import importlib.util
     spec = importlib.util.spec_from_file_location("rss_health_check", HEALTH_CHECK_FILE)
@@ -303,7 +308,11 @@ def probe_revivals(registry, prober=None, *, fallbacks=None) -> list:
             fallbacks = {}
 
     revived = []
-    for src in find_revival_candidates(registry):
+    try:
+        candidates = find_revival_candidates(registry)
+    except Exception:
+        return []                 # fail closed：畸形 registry 也不能让异常逃出
+    for src in candidates:
         name = src.get("name", "")
         urls = [src.get("url", "")]
         fb = fallbacks.get(name)
@@ -314,17 +323,19 @@ def probe_revivals(registry, prober=None, *, fallbacks=None) -> list:
                 continue
             try:
                 status = prober(name, url)
+                if not isinstance(status, dict):
+                    continue      # prober 违反契约（非 dict）也算未恢复，不让 .get() 抛出
+                if status.get("article_count", 0) >= 1:
+                    revived.append({
+                        "name": name,
+                        "reason": src.get("reject_reason") or "",
+                        "url": url,
+                        "article_count": status.get("article_count", 0),
+                        "newest_age_hours": status.get("newest_age_hours"),
+                    })
+                    break          # 原址活了就不探镜像
             except Exception:
-                continue          # fail closed
-            if (status or {}).get("article_count", 0) >= 1:
-                revived.append({
-                    "name": name,
-                    "reason": src.get("reject_reason") or "",
-                    "url": url,
-                    "article_count": status.get("article_count", 0),
-                    "newest_age_hours": status.get("newest_age_hours"),
-                })
-                break             # 原址活了就不探镜像
+                continue           # fail closed
     return revived
 
 

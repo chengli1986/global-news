@@ -567,3 +567,52 @@ def test_probe_revival_prefers_primary_url_when_both_alive():
     out = _mod.probe_revivals(reg, _p, fallbacks=fallbacks)
     assert out[0]["url"] == "https://huxiu.com/feed"
     assert called == ["https://huxiu.com/feed"]
+
+
+def test_probe_revival_non_dict_prober_return_is_fail_closed():
+    """★ 回归（review Important #1）：prober 违反契约返回非 dict（str/int/list）
+    也不能让异常逃出 probe_revivals —— 之前 `(status or {}).get(...)` 只在
+    prober() 调用本身包了 try，取值那行在 try 外，非 dict 真值会在这里炸
+    AttributeError，正好撞上「周报不能被这个附加功能搞挂」的硬约束。
+    """
+    reg = _registry([
+        _rejected("StrReturn", "timeout", url="https://a.example.com/feed"),
+        _rejected("IntReturn", "timeout", url="https://b.example.com/feed"),
+        _rejected("ListReturn", "timeout", url="https://c.example.com/feed"),
+    ])
+
+    def _bad_prober(name, url):
+        return {"https://a.example.com/feed": "not a dict",
+                "https://b.example.com/feed": 200,
+                "https://c.example.com/feed": ["article_count", 5]}[url]
+
+    assert _mod.probe_revivals(reg, _bad_prober) == []
+
+
+def test_probe_revival_malformed_registry_is_fail_closed():
+    """Minor（review）：外层 find_revival_candidates(registry) 若因畸形 registry
+    抛异常，也不能让 probe_revivals 向上传播——同一条 fail-closed 口径。
+    get_sources() 内部是 `registry.get("sources", [])`，传个没有 .get 的对象
+    就会在那里炸 AttributeError。
+    """
+    def _p(name, url):
+        return {"ok": True, "error": None, "article_count": 1, "newest_age_hours": 1.0}
+
+    assert _mod.probe_revivals(object(), _p) == []
+
+
+def test_probe_revival_caches_health_module_load():
+    """review Important #2：默认 prober 每探一个 URL 都要 _load_health_module()，
+    不缓存就是 N 个源最坏 2N+1 次重新 parse+exec rss-health-check.py。加了
+    functools.lru_cache 后，多次调用应该只真正加载一次。
+    """
+    from unittest import mock
+
+    _mod._load_health_module.cache_clear()
+    with mock.patch.object(importlib.util, "spec_from_file_location",
+                            wraps=importlib.util.spec_from_file_location) as spy:
+        _mod._load_health_module()
+        _mod._load_health_module()
+        _mod._load_health_module()
+        assert spy.call_count == 1
+    _mod._load_health_module.cache_clear()
