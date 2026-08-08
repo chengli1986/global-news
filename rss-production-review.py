@@ -13,6 +13,7 @@ import functools
 import subprocess
 import tempfile
 import statistics
+import time
 from datetime import datetime, timezone, timedelta
 
 import rss_registry as _reg
@@ -34,6 +35,13 @@ REVIVAL_QUALITY_MARKERS = ("pool-cap", "rotation-group-laggard", "zombie",
                            "duplicate", "auto-removed")
 HEALTH_CHECK_FILE = os.path.join(SCRIPT_DIR, "rss-health-check.py")
 REVIVAL_MAX_AGE_HOURS = 24 * 365  # 绕过 staleness 判定：复活探测只关心"解析得出文章"
+
+# cron 是 `--timeout 300`（SIGKILL --kill-after 30），历史 duration 只有 4s。
+# 每候选最多探 2 个 URL、每次 urlopen(timeout=15) —— 但那是单次 socket 超时，不是
+# 总时长上限，getaddrinfo 也不受它约束。registry 里已有 13 条带 production 的
+# rejected 源，一旦技术性下线累积到 9 条以上，最坏 2×9×15=270s 逼近超时，进程会在
+# send_report_email 之前被杀 → 整周没有周报。60s 留足给 resolver + 邮件发送。
+REVIVAL_PROBE_BUDGET_SECONDS = 60
 
 
 def parse_ts(ts: str) -> datetime:
@@ -289,7 +297,7 @@ def _default_prober(name: str, url: str) -> dict:
 
 
 def _default_url_resolver(url: str) -> str:
-    """跟随重定向，返回最终 URL。只做 HEAD 级别的解析，不读 body。"""
+    """跟随重定向，返回最终 URL。发的是 GET，但不 read() body——靠 with 关闭连接。"""
     import urllib.request
     health = _load_health_module()
     req = urllib.request.Request(url, headers=health.HEADERS)
@@ -313,7 +321,8 @@ def _resolve_final_url(url: str, resolver=None) -> str:
     return final or url
 
 
-def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None) -> list:
+def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None,
+                   budget_seconds=REVIVAL_PROBE_BUDGET_SECONDS, clock=time.monotonic) -> list:
     """探测技术性下线的源是否恢复。只返回已恢复的。
 
     判据是 article_count >= 1 而非 status["ok"] —— ok 还含 staleness 判定，
@@ -323,6 +332,11 @@ def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None) -> l
     （若有）。原址活了就不探镜像。
 
     fail closed：prober 抛任何异常都记为未恢复，不向上抛。
+
+    总时长受 budget_seconds 限制（用 time.monotonic 而非 time.time，避免系统时钟
+    调整干扰）——超预算就跳过剩余候选，不抛异常，只 print 一行说明（cron 日志能
+    收到，不占周报版面）。这是硬约束：这个附加功能绝不能把周报的 cron 超时预算
+    吃光，导致 send_report_email 之前进程被杀、整周没有周报。
     """
     if prober is None:
         prober = _default_prober
@@ -337,7 +351,13 @@ def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None) -> l
         candidates = find_revival_candidates(registry)
     except Exception:
         return []                 # fail closed：畸形 registry 也不能让异常逃出
-    for src in candidates:
+    deadline = clock() + budget_seconds
+    for i, src in enumerate(candidates):
+        if clock() >= deadline:
+            remaining = len(candidates) - i
+            print(f"[prod-review] revival probe budget ({budget_seconds}s) exceeded, "
+                  f"skipping remaining {remaining} candidate(s)")
+            break
         name = src.get("name", "")
         urls = [src.get("url", "")]
         fb = fallbacks.get(name)
@@ -497,17 +517,20 @@ def revival_html(revived: list) -> str:
         url = r.get("url", "")
         final = r.get("final_url") or url
         if final != url:
-            url_cell = (f"<a href='{_esc(final)}'>{_esc(final)}</a>"
+            # href 用双引号：final 来自 urllib 跟随重定向后的落地地址，完全由外部
+            # 服务端 Location 头决定，_esc() 不转义单引号——单引号属性会被
+            # Location: https://x/f'%20onmouseover='y 这类值撬开变成属性注入。
+            url_cell = (f'<a href="{_esc(final)}">{_esc(final)}</a>'
                         f"<br><span style='color:#b26500;font-size:11px'>⤴ 跳转自 "
                         f"{_esc(url)}——恢复入池请用上面的新地址</span>")
         else:
-            url_cell = f"<a href='{_esc(url)}'>{_esc(url)}</a>"
+            url_cell = f'<a href="{_esc(url)}">{_esc(url)}</a>'
         age = r.get("newest_age_hours")
         cells.append(
-            f"<tr><td>{_esc(r['name'])}</td>"
-            f"<td style='font-size:11px;color:#666'>{_esc(r['reason'])}</td>"
+            f"<tr><td>{_esc(r.get('name', ''))}</td>"
+            f"<td style='font-size:11px;color:#666'>{_esc(r.get('reason', ''))}</td>"
             f"<td>{url_cell}</td>"
-            f"<td style='text-align:center'>{r['article_count']}</td>"
+            f"<td style='text-align:center'>{r.get('article_count', 0)}</td>"
             f"<td style='text-align:center'>"
             f"{('%.0fh' % age) if age is not None else '—'}</td></tr>")
     rows = "".join(cells)
@@ -589,8 +612,14 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     snapshot = snapshot_rows(registry, records, now)
     rotation = find_rotation_candidates(registry, records, now)
     plan_c_html = plan_c_reminder_html(registry, records, now)
-    revived = probe_revivals(registry)
-    revival_block = revival_html(revived)
+    try:
+        revived = probe_revivals(registry)
+        revival_block = revival_html(revived)
+    except Exception:
+        # 复活探测/渲染是附加功能，绝不能拖垮周报这封每周唯一的例行邮件。
+        revived = []
+        revival_block = ""
+        print("[prod-review] revival probe/render failed, skipping revival section")
     html = build_report_html(zombies, degraded, snapshot, now, plan_c_html, rotation,
                              revival_block)
     subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸 / {len(rotation)} 建议轮换 / "

@@ -224,6 +224,66 @@ def test_cmd_run_builds_and_sends(tmp_path, monkeypatch):
     assert "1 僵尸" in captured["subject"]
 
 
+def test_cmd_run_wires_probe_revivals_into_report(tmp_path, monkeypatch):
+    """Minor(#4)：build_report_html 的 revival_html_block 参数有默认值 ""——
+    将来重构时漏传第 7 个实参，功能会静默失效而所有测试仍然全绿。这条测试专门
+    盯 cmd_run 有没有把 probe_revivals 的结果接到最终 HTML 里。
+    """
+    from unittest import mock
+
+    now = datetime(2026, 8, 9, 9, 30, tzinfo=BJT)
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(_registry([]), f)
+    log_path = _write_log(tmp_path, [])
+
+    fake_revived = [{"name": "复活源", "reason": "timeout",
+                     "url": "https://x.example.com/feed",
+                     "final_url": "https://x.example.com/feed",
+                     "article_count": 7, "newest_age_hours": 2.0}]
+    captured = {}
+    real_build = _mod.build_report_html
+
+    def spy_build(*args, **kwargs):
+        html = real_build(*args, **kwargs)
+        captured["html"] = html
+        return html
+
+    monkeypatch.setattr(_mod, "build_report_html", spy_build)
+    with mock.patch.object(_mod, "probe_revivals", return_value=fake_revived):
+        rc = _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=False)
+
+    assert rc == 0
+    assert "复活源" in captured["html"]
+    assert "已下线源复活检测" in captured["html"]
+
+
+def test_cmd_run_survives_revival_probe_crash(tmp_path, monkeypatch):
+    """Minor(#3)：cmd_run 里 probe_revivals/revival_html 两行没包在 try 里——
+    今天不可达（唯一生产者输出六个键必然齐全），但边界就停在那里。这条测试确认
+    即使复活探测整段爆炸，周报仍然照常生成、cmd_run 仍然返回 0。
+    """
+    now = datetime(2026, 8, 9, 9, 30, tzinfo=BJT)
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(_registry([]), f)
+    log_path = _write_log(tmp_path, [])
+
+    def _boom(registry, *a, **kw):
+        raise RuntimeError("revival probe exploded")
+
+    monkeypatch.setattr(_mod, "probe_revivals", _boom)
+    captured = {}
+    def fake_send(html, subject, env_path=_mod.ENV_FILE):
+        captured["html"] = html
+        return True
+    monkeypatch.setattr(_mod, "send_report_email", fake_send)
+
+    rc = _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True)
+    assert rc == 0
+    assert "html" in captured   # 邮件照常发出
+
+
 def test_send_report_email_builds_mime(monkeypatch):
     """send_report_email 拼出含 MIME-Version 的信封并调 curl 一次。"""
     calls = {}
@@ -609,13 +669,65 @@ def test_probe_revival_caches_health_module_load():
     from unittest import mock
 
     _mod._load_health_module.cache_clear()
-    with mock.patch.object(importlib.util, "spec_from_file_location",
-                            wraps=importlib.util.spec_from_file_location) as spy:
-        _mod._load_health_module()
-        _mod._load_health_module()
-        _mod._load_health_module()
-        assert spy.call_count == 1
-    _mod._load_health_module.cache_clear()
+    try:
+        with mock.patch.object(importlib.util, "spec_from_file_location",
+                                wraps=importlib.util.spec_from_file_location) as spy:
+            _mod._load_health_module()
+            _mod._load_health_module()
+            _mod._load_health_module()
+            assert spy.call_count == 1
+    finally:
+        # try/finally: 断言失败时也要清缓存，否则真实 health module 会滞留在
+        # lru_cache 里污染后续测试。
+        _mod._load_health_module.cache_clear()
+
+
+def test_probe_revival_stops_probing_after_budget_exceeded(capsys):
+    """Important(#1)：总时长受 budget_seconds 限制——registry 里带 production 的
+    rejected 源一旦累积够多，最坏 2×N×15s 会逼近/超过 cron 的 300s 超时，导致
+    进程在 send_report_email 之前被杀、整周没有周报。超预算要跳过剩余候选而不是
+    抛异常，且不许真 sleep：用可注入的 clock 模拟"探测很耗时"。
+    """
+    reg = _registry([
+        _rejected("A", "timeout", url="https://a.example.com/feed"),
+        _rejected("B", "timeout", url="https://b.example.com/feed"),
+        _rejected("C", "timeout", url="https://c.example.com/feed"),
+    ])
+    probed = []
+    clock_state = {"t": 0.0}
+
+    def fake_clock():
+        return clock_state["t"]
+
+    def _p(name, url):
+        probed.append(url)
+        clock_state["t"] += 100.0   # 模拟这一次探测耗时巨大，直接吃穿预算
+        return {"ok": True, "error": None, "article_count": 1, "newest_age_hours": 1.0}
+
+    out = _mod.probe_revivals(reg, _p, budget_seconds=10, clock=fake_clock)
+
+    assert probed == ["https://a.example.com/feed"]   # 只探了第一个，B/C 被跳过
+    assert [r["name"] for r in out] == ["A"]
+    err = capsys.readouterr().out
+    assert "budget" in err and "2" in err               # 说明跳过了 2 条
+
+
+def test_probe_revival_within_budget_probes_all_candidates(capsys):
+    """预算充足时不受影响——回归：确认新增的 deadline 检查不会误伤正常路径。"""
+    reg = _registry([
+        _rejected("A", "timeout", url="https://a.example.com/feed"),
+        _rejected("B", "timeout", url="https://b.example.com/feed"),
+    ])
+    probed = []
+
+    def _p(name, url):
+        probed.append(url)
+        return {"ok": False, "error": "unreachable", "article_count": 0, "newest_age_hours": None}
+
+    out = _mod.probe_revivals(reg, _p, budget_seconds=60, clock=lambda: 0.0)
+    assert probed == ["https://a.example.com/feed", "https://b.example.com/feed"]
+    assert out == []
+    assert "budget" not in capsys.readouterr().out
 
 
 # ── 落地 URL 解析 ────────────────────────────────────────────────
@@ -687,13 +799,15 @@ def test_revival_html_empty_when_nothing_revived():
 
 
 def test_revival_html_lists_revived_source():
+    """article_count 用 777 而非 20——20 太容易跟未来的 CSS 值（如 padding:20px）
+    撞车变成空断言，断言要带着单元格边界一起看。"""
     html = _mod.revival_html([{
         "name": "36氪", "reason": "waf-block-upstream-and-fallback-route-503",
         "url": "https://36kr.com/feed", "final_url": "https://36kr.com/feed",
-        "article_count": 20, "newest_age_hours": 3.5}])
+        "article_count": 777, "newest_age_hours": 3.5}])
     assert "36氪" in html
     assert "https://36kr.com/feed" in html
-    assert "20" in html
+    assert ">777</td>" in html         # article_count 落在自己的单元格里
     assert "rejected" in html          # 操作提示：需手工改 registry status
 
 
@@ -734,6 +848,31 @@ def test_revival_html_escapes_source_name():
         "article_count": 1, "newest_age_hours": None}])
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
+
+
+def test_revival_html_final_url_single_quote_stays_inside_href_value():
+    """Minor(#2)：final_url 由 urllib 跟随重定向后的落地地址决定，完全由外部服务端
+    Location 头控制，_esc() 不转义单引号。href 属性必须用双引号——payload 里的
+    单引号才不会撬开属性边界。用整段 href="{payload}" 断言而不是简单查子串：
+    如果 href 还用着单引号（旧代码），渲染出来会是
+    `href='https://.../f' onmouseover='y'`，下面这个整串就不会出现。
+    """
+    payload = "https://x.example.com/f' onmouseover='y"
+    html = _mod.revival_html([{
+        "name": "X", "reason": "timeout", "url": "https://x.example.com/feed",
+        "final_url": payload, "article_count": 1, "newest_age_hours": None}])
+    assert f'href="{payload}"' in html
+    assert "onmouseover='y'>" not in html   # 旧代码会把这段撬到 href 属性外面
+
+
+def test_revival_html_tolerates_minimal_dict():
+    """Minor(#3)：revival_html 里 name/reason/article_count 曾用下标取值，而
+    url/final_url/newest_age_hours 用 .get()——防御不一致。今天 probe_revivals
+    是唯一生产者，六个键必然齐全，但这个边界不该只靠"生产者不会犯错"撑着；
+    将来改动生产者或手工构造输入，KeyError 逃出去代价是整封周报。
+    """
+    html = _mod.revival_html([{"name": "OnlyName"}])
+    assert "OnlyName" in html
 
 
 def test_build_report_html_includes_revival_block():
