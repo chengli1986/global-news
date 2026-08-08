@@ -467,3 +467,103 @@ def test_revival_candidate_marker_match_is_case_insensitive():
     """质量类关键词匹配不分大小写。"""
     reg = _registry([_rejected("X", "POOL-CAP"), _rejected("Y", "Zombie-30d")])
     assert _mod.find_revival_candidates(reg) == []
+
+
+def _prober_from(table):
+    """假 prober：按 url 查表返回 status_dict；表里没有的当作抓不到。"""
+    def _p(name, url):
+        return table.get(url, {"ok": False, "error": "unreachable: TimeoutError",
+                               "article_count": 0, "newest_age_hours": None})
+    return _p
+
+
+def test_probe_revival_waf_page_is_not_revived():
+    """★ 36氪 回归：HTTP 200 但解析不出文章（WAF 挑战页）不算恢复。"""
+    reg = _registry([_rejected("36氪", "waf-block", url="https://36kr.com/feed")])
+    prober = _prober_from({"https://36kr.com/feed": {
+        "ok": False, "error": "XML parse error",
+        "article_count": 0, "newest_age_hours": None}})
+    assert _mod.probe_revivals(reg, prober) == []
+
+
+def test_probe_revival_real_feed_is_revived():
+    """解析出 >=1 篇文章就算恢复。"""
+    reg = _registry([_rejected("36氪", "waf-block", url="https://36kr.com/feed")])
+    prober = _prober_from({"https://36kr.com/feed": {
+        "ok": True, "error": None, "article_count": 20, "newest_age_hours": 3.5}})
+    out = _mod.probe_revivals(reg, prober)
+    assert len(out) == 1
+    assert out[0]["name"] == "36氪"
+    assert out[0]["url"] == "https://36kr.com/feed"
+    assert out[0]["article_count"] == 20
+    assert out[0]["newest_age_hours"] == 3.5
+
+
+def test_probe_revival_http_503_is_not_revived():
+    """镜像路由 503 不算恢复（36氪 的 rsshub 路由就是这个形态）。"""
+    reg = _registry([_rejected("36氪", "waf-block", url="https://rsshub.example.com/36kr/news")])
+    prober = _prober_from({"https://rsshub.example.com/36kr/news": {
+        "ok": False, "error": "unreachable: HTTPError",
+        "article_count": 0, "newest_age_hours": None}})
+    assert _mod.probe_revivals(reg, prober) == []
+
+
+def test_probe_revival_stale_but_parsable_is_revived():
+    """★ 判据是 article_count 不是 ok —— 刚恢复的源文章可能很旧，那不算没恢复。"""
+    reg = _registry([_rejected("X", "timeout", url="https://x.com/feed")])
+    prober = _prober_from({"https://x.com/feed": {
+        "ok": False, "error": "stale feed (newest 900h, max 72h)",
+        "article_count": 12, "newest_age_hours": 900.0}})
+    out = _mod.probe_revivals(reg, prober)
+    assert len(out) == 1
+    assert out[0]["article_count"] == 12
+
+
+def test_probe_revival_prober_exception_is_fail_closed():
+    """★ 探测抛异常记为未恢复，绝不向上抛——周报不能被附加功能搞挂。"""
+    reg = _registry([_rejected("X", "timeout", url="https://x.com/feed")])
+
+    def _boom(name, url):
+        raise RuntimeError("network exploded")
+
+    assert _mod.probe_revivals(reg, _boom) == []
+
+
+def test_probe_revival_skips_quality_rejections():
+    """质量类下线的源根本不会被探测（prober 不会被调用）。"""
+    reg = _registry([_rejected("少数派", "zombie-30d-no-selected",
+                               url="https://sspai.com/feed")])
+    called = []
+
+    def _p(name, url):
+        called.append(url)
+        return {"ok": True, "error": None, "article_count": 50, "newest_age_hours": 1.0}
+
+    assert _mod.probe_revivals(reg, _p) == []
+    assert called == []
+
+
+def test_probe_revival_tries_fallback_url_too():
+    """原址不通但镜像通，也算恢复，且报告的是活的那个 URL。"""
+    reg = _registry([_rejected("虎嗅", "waf-block", url="https://huxiu.com/feed")])
+    fallbacks = {"虎嗅": "https://rsshub.example.com/huxiu/article"}
+    prober = _prober_from({"https://rsshub.example.com/huxiu/article": {
+        "ok": True, "error": None, "article_count": 30, "newest_age_hours": 2.0}})
+    out = _mod.probe_revivals(reg, prober, fallbacks=fallbacks)
+    assert len(out) == 1
+    assert out[0]["url"] == "https://rsshub.example.com/huxiu/article"
+
+
+def test_probe_revival_prefers_primary_url_when_both_alive():
+    """原址和镜像都活时报原址，且不再探镜像。"""
+    reg = _registry([_rejected("虎嗅", "waf-block", url="https://huxiu.com/feed")])
+    fallbacks = {"虎嗅": "https://rsshub.example.com/huxiu/article"}
+    called = []
+
+    def _p(name, url):
+        called.append(url)
+        return {"ok": True, "error": None, "article_count": 9, "newest_age_hours": 1.0}
+
+    out = _mod.probe_revivals(reg, _p, fallbacks=fallbacks)
+    assert out[0]["url"] == "https://huxiu.com/feed"
+    assert called == ["https://huxiu.com/feed"]

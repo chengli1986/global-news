@@ -31,6 +31,8 @@ ROTATION_GRACE_DAYS = 30
 # 用排除法而非白名单——将来出现新的技术性下线原因（如 dns-fail）会自动纳入探测。
 REVIVAL_QUALITY_MARKERS = ("pool-cap", "rotation-group-laggard", "zombie",
                            "duplicate", "auto-removed")
+HEALTH_CHECK_FILE = os.path.join(SCRIPT_DIR, "rss-health-check.py")
+REVIVAL_MAX_AGE_HOURS = 24 * 365  # 绕过 staleness 判定：复活探测只关心"解析得出文章"
 
 
 def parse_ts(ts: str) -> datetime:
@@ -259,6 +261,71 @@ def find_revival_candidates(registry) -> list:
             continue
         out.append(s)
     return out
+
+
+def _load_health_module():
+    """加载 rss-health-check.py（文件名带连字符，不能直接 import）。
+
+    同 scripts/benchmark_classifier_providers.py 的做法。该模块顶层只有常量与
+    函数定义（外加 __main__ 守卫），加载无副作用。
+    """
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("rss_health_check", HEALTH_CHECK_FILE)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def _default_prober(name: str, url: str) -> dict:
+    """真实探测：复用 health-check 的 check_source，只取解析结果。"""
+    health = _load_health_module()
+    _, status = health.check_source(name, url, "rss", REVIVAL_MAX_AGE_HOURS)
+    return status
+
+
+def probe_revivals(registry, prober=None, *, fallbacks=None) -> list:
+    """探测技术性下线的源是否恢复。只返回已恢复的。
+
+    判据是 article_count >= 1 而非 status["ok"] —— ok 还含 staleness 判定，
+    而刚恢复的源文章可能很旧，那不该算"没恢复"。
+
+    每个源至多探两个 URL：registry 记的原址，以及它在 FALLBACK_URLS 里的镜像
+    （若有）。原址活了就不探镜像。
+
+    fail closed：prober 抛任何异常都记为未恢复，不向上抛。
+    """
+    if prober is None:
+        prober = _default_prober
+    if fallbacks is None:
+        try:
+            fallbacks = _load_health_module().FALLBACK_URLS
+        except Exception:
+            fallbacks = {}
+
+    revived = []
+    for src in find_revival_candidates(registry):
+        name = src.get("name", "")
+        urls = [src.get("url", "")]
+        fb = fallbacks.get(name)
+        if fb and fb not in urls:
+            urls.append(fb)
+        for url in urls:
+            if not url:
+                continue
+            try:
+                status = prober(name, url)
+            except Exception:
+                continue          # fail closed
+            if (status or {}).get("article_count", 0) >= 1:
+                revived.append({
+                    "name": name,
+                    "reason": src.get("reject_reason") or "",
+                    "url": url,
+                    "article_count": status.get("article_count", 0),
+                    "newest_age_hours": status.get("newest_age_hours"),
+                })
+                break             # 原址活了就不探镜像
+    return revived
 
 
 def snapshot_rows(registry, records, now, *, window_days=30) -> list:
