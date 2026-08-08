@@ -6,6 +6,7 @@ import importlib.util
 from datetime import datetime, timezone, timedelta
 
 import sys
+import pytest
 _repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, _repo)
 import rss_registry as _reg
@@ -15,6 +16,24 @@ _mod = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(_mod)
 
 BJT = timezone(timedelta(hours=8))
+
+
+@pytest.fixture(autouse=True)
+def _no_real_network(monkeypatch):
+    """回归防线：probe_revivals()/_resolve_final_url() 走默认 prober/resolver 会
+    真发 HTTP 请求（打 36kr.com / x.com / huxiu.com 等测试域名）。2026-08-08 实测
+    抓到 6 处测试因为没注入 resolver 而在"探测成功"分支里偷偷打了真网络
+    （耗时从 ~5s 涨到 21s+，且随网络抖动）。这里把两个默认路径都换成"一旦被调用
+    就直接让测试失败"的替身，把"忘记注入 mock"变成显式红而不是静默打网络。
+    需要验证默认路径本身存在的测试，在测试内部用 monkeypatch.setattr 局部覆盖回
+    可控替身即可，不要关掉这个 fixture。
+    """
+    def _forbidden(*a, **kw):
+        raise AssertionError(
+            "测试调用了真实网络路径（_default_prober / _default_url_resolver）——"
+            "请注入假 prober/resolver")
+    monkeypatch.setattr(_mod, "_default_prober", _forbidden)
+    monkeypatch.setattr(_mod, "_default_url_resolver", _forbidden)
 
 
 def _write_log(tmp_path, lines: list) -> str:
@@ -551,7 +570,7 @@ def test_probe_revival_real_feed_is_revived():
     reg = _registry([_rejected("36氪", "waf-block", url="https://36kr.com/feed")])
     prober = _prober_from({"https://36kr.com/feed": {
         "ok": True, "error": None, "article_count": 20, "newest_age_hours": 3.5}})
-    out = _mod.probe_revivals(reg, prober)
+    out = _mod.probe_revivals(reg, prober, resolver=lambda u: u)
     assert len(out) == 1
     assert out[0]["name"] == "36氪"
     assert out[0]["url"] == "https://36kr.com/feed"
@@ -574,7 +593,7 @@ def test_probe_revival_stale_but_parsable_is_revived():
     prober = _prober_from({"https://x.com/feed": {
         "ok": False, "error": "stale feed (newest 900h, max 72h)",
         "article_count": 12, "newest_age_hours": 900.0}})
-    out = _mod.probe_revivals(reg, prober)
+    out = _mod.probe_revivals(reg, prober, resolver=lambda u: u)
     assert len(out) == 1
     assert out[0]["article_count"] == 12
 
@@ -609,7 +628,7 @@ def test_probe_revival_tries_fallback_url_too():
     fallbacks = {"虎嗅": "https://rsshub.example.com/huxiu/article"}
     prober = _prober_from({"https://rsshub.example.com/huxiu/article": {
         "ok": True, "error": None, "article_count": 30, "newest_age_hours": 2.0}})
-    out = _mod.probe_revivals(reg, prober, fallbacks=fallbacks)
+    out = _mod.probe_revivals(reg, prober, fallbacks=fallbacks, resolver=lambda u: u)
     assert len(out) == 1
     assert out[0]["url"] == "https://rsshub.example.com/huxiu/article"
 
@@ -624,7 +643,7 @@ def test_probe_revival_prefers_primary_url_when_both_alive():
         called.append(url)
         return {"ok": True, "error": None, "article_count": 9, "newest_age_hours": 1.0}
 
-    out = _mod.probe_revivals(reg, _p, fallbacks=fallbacks)
+    out = _mod.probe_revivals(reg, _p, fallbacks=fallbacks, resolver=lambda u: u)
     assert out[0]["url"] == "https://huxiu.com/feed"
     assert called == ["https://huxiu.com/feed"]
 
@@ -704,7 +723,7 @@ def test_probe_revival_stops_probing_after_budget_exceeded(capsys):
         clock_state["t"] += 100.0   # 模拟这一次探测耗时巨大，直接吃穿预算
         return {"ok": True, "error": None, "article_count": 1, "newest_age_hours": 1.0}
 
-    out = _mod.probe_revivals(reg, _p, budget_seconds=10, clock=fake_clock)
+    out = _mod.probe_revivals(reg, _p, budget_seconds=10, clock=fake_clock, resolver=lambda u: u)
 
     assert probed == ["https://a.example.com/feed"]   # 只探了第一个，B/C 被跳过
     assert [r["name"] for r in out] == ["A"]
@@ -724,7 +743,7 @@ def test_probe_revival_within_budget_probes_all_candidates(capsys):
         probed.append(url)
         return {"ok": False, "error": "unreachable", "article_count": 0, "newest_age_hours": None}
 
-    out = _mod.probe_revivals(reg, _p, budget_seconds=60, clock=lambda: 0.0)
+    out = _mod.probe_revivals(reg, _p, budget_seconds=60, clock=lambda: 0.0, resolver=lambda u: u)
     assert probed == ["https://a.example.com/feed", "https://b.example.com/feed"]
     assert out == []
     assert "budget" not in capsys.readouterr().out
