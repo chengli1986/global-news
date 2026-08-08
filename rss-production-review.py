@@ -27,6 +27,11 @@ ROTATION_WINDOW_DAYS = 30
 ROTATION_MIN_ACTIVE_DAYS = 7
 ROTATION_GRACE_DAYS = 30
 
+# 复活探测：这些 reject_reason 关键词代表"质量不行被汰"，恢复了也不该回来。
+# 用排除法而非白名单——将来出现新的技术性下线原因（如 dns-fail）会自动纳入探测。
+REVIVAL_QUALITY_MARKERS = ("pool-cap", "rotation-group-laggard", "zombie",
+                           "duplicate", "auto-removed")
+
 
 def parse_ts(ts: str) -> datetime:
     """Parse a telemetry ISO timestamp (carries +08:00 offset)."""
@@ -232,6 +237,27 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
                         "group_rate_median": rate_median,
                         "group_median": median, "group_size": len(live),
                         "tenure_days": t})
+    return out
+
+
+def find_revival_candidates(registry) -> list:
+    """挑出值得探测是否复活的源：曾进过生产、且因技术原因（非质量原因）下线。
+
+    两个条件都要满足：
+      1. status=rejected 且带 production 字段（曾真正进过生产）——这排除了
+         pool-cap 淘汰的 discovered 候选，它们从未进过生产。
+      2. reject_reason 不含质量类关键词，且非空。
+    """
+    out = []
+    for s in _reg.get_sources(registry):
+        if s.get("status") != "rejected" or not s.get("production"):
+            continue
+        reason = (s.get("reject_reason") or "").strip().lower()
+        if not reason:
+            continue
+        if any(m in reason for m in REVIVAL_QUALITY_MARKERS):
+            continue
+        out.append(s)
     return out
 
 

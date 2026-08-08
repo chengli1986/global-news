@@ -399,3 +399,71 @@ def test_build_report_rotation_shows_selection_rate():
     assert "入选率" in html
     assert "17%" in html
     assert "50%" in html
+
+
+# ── 已下线源复活探测 ──────────────────────────────────────────────
+
+def _rejected(name, reason, *, production=True, url="https://example.com/feed"):
+    """构造一条 rejected registry 条目。production=True 表示它曾进过生产。"""
+    return {
+        "name": name,
+        "url": url,
+        "status": "rejected",
+        "reject_reason": reason,
+        "production": {"keywords": [], "limit": 8} if production else None,
+    }
+
+
+def test_revival_candidate_includes_technical_rejection():
+    """WAF/403/timeout 这类技术性下线的曾生产源要被探测。"""
+    reg = _registry([
+        _rejected("36氪", "waf-block-upstream-and-fallback-route-503"),
+        _rejected("Endpoints News", "persistent-403-removed-from-sources-2026-05-25"),
+        _rejected("Nikkei Asia via rsshub", "persistent-timeout-removed-from-sources-2026-05-21"),
+    ])
+    names = [s["name"] for s in _mod.find_revival_candidates(reg)]
+    assert names == ["36氪", "Endpoints News", "Nikkei Asia via rsshub"]
+
+
+def test_revival_candidate_excludes_quality_rejections():
+    """质量类下线的源不探测——它们恢复了也不该回来。"""
+    reg = _registry([
+        _rejected("HKFP", "rotation-group-laggard: 8% selection rate"),
+        _rejected("少数派", "zombie-30d-no-selected"),
+        _rejected("端传媒", "duplicate-feed: theinitium.com/feed/ == /rss/"),
+        _rejected("SomeCandidate", "pool-cap"),
+        _rejected("Other", "auto-removed"),
+    ])
+    assert _mod.find_revival_candidates(reg) == []
+
+
+def test_revival_candidate_excludes_never_production():
+    """没有 production 字段 = 从未进过生产（如 pool-cap 淘汰的候选），不探测。"""
+    reg = _registry([_rejected("NeverLive", "unreachable", production=False)])
+    assert _mod.find_revival_candidates(reg) == []
+
+
+def test_revival_candidate_excludes_empty_reason():
+    """reject_reason 为空无从判断下线原因，宁可不探。"""
+    reg = _registry([
+        _rejected("NoReason", ""),
+        _rejected("NullReason", None),
+    ])
+    assert _mod.find_revival_candidates(reg) == []
+
+
+def test_revival_candidate_excludes_non_rejected():
+    """production/trialing/discovered 状态的源不在探测范围。"""
+    reg = _registry([
+        {"name": "Live", "url": "u", "status": "production", "reject_reason": None,
+         "production": {"limit": 8}},
+        {"name": "Cand", "url": "u", "status": "discovered", "reject_reason": None,
+         "production": None},
+    ])
+    assert _mod.find_revival_candidates(reg) == []
+
+
+def test_revival_candidate_marker_match_is_case_insensitive():
+    """质量类关键词匹配不分大小写。"""
+    reg = _registry([_rejected("X", "POOL-CAP"), _rejected("Y", "Zombie-30d")])
+    assert _mod.find_revival_candidates(reg) == []
