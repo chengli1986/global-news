@@ -616,3 +616,134 @@ def test_probe_revival_caches_health_module_load():
         _mod._load_health_module()
         assert spy.call_count == 1
     _mod._load_health_module.cache_clear()
+
+
+# ── 落地 URL 解析 ────────────────────────────────────────────────
+
+def test_resolve_final_url_follows_redirect():
+    """301 换域名时返回落地 URL（Endpoints News 的真实情况）。"""
+    def _r(url):
+        return "https://endpoints.news/feed/"
+    assert _mod._resolve_final_url("https://endpts.com/feed/", _r) == \
+        "https://endpoints.news/feed/"
+
+
+def test_resolve_final_url_no_redirect_returns_original():
+    def _r(url):
+        return url
+    assert _mod._resolve_final_url("https://x.com/feed", _r) == "https://x.com/feed"
+
+
+def test_resolve_final_url_failure_returns_original():
+    """★ 解析失败不能返回 None/空串——调用方不该被迫判空。"""
+    def _boom(url):
+        raise RuntimeError("dns died")
+    assert _mod._resolve_final_url("https://x.com/feed", _boom) == "https://x.com/feed"
+
+
+def test_resolve_final_url_empty_result_returns_original():
+    """resolver 返回空值也要退回原 url。"""
+    def _empty(url):
+        return ""
+    assert _mod._resolve_final_url("https://x.com/feed", _empty) == "https://x.com/feed"
+
+
+def test_probe_revival_reports_final_url():
+    """探通后要带上落地 URL，供人判断该用哪个地址恢复入池。"""
+    reg = _registry([_rejected("Endpoints News", "persistent-403",
+                               url="https://endpts.com/feed/")])
+    prober = _prober_from({"https://endpts.com/feed/": {
+        "ok": True, "error": None, "article_count": 24, "newest_age_hours": 13.2}})
+    out = _mod.probe_revivals(reg, prober,
+                              resolver=lambda u: "https://endpoints.news/feed/")
+    assert len(out) == 1
+    assert out[0]["url"] == "https://endpts.com/feed/"
+    assert out[0]["final_url"] == "https://endpoints.news/feed/"
+
+
+def test_probe_revival_final_url_defaults_to_probed_url():
+    """没有重定向时 final_url == url，不是 None。"""
+    reg = _registry([_rejected("X", "timeout", url="https://x.com/feed")])
+    prober = _prober_from({"https://x.com/feed": {
+        "ok": True, "error": None, "article_count": 5, "newest_age_hours": 1.0}})
+    out = _mod.probe_revivals(reg, prober, resolver=lambda u: u)
+    assert out[0]["final_url"] == "https://x.com/feed"
+
+
+def test_probe_revival_resolver_never_called_when_nothing_revived():
+    """★ 只对已恢复的源解析落地 URL——未恢复的不该多打一次请求。"""
+    reg = _registry([_rejected("X", "timeout", url="https://x.com/feed")])
+    prober = _prober_from({})          # 什么都探不通
+    called = []
+    _mod.probe_revivals(reg, prober, resolver=lambda u: called.append(u) or u)
+    assert called == []
+
+
+# ── 周报渲染 ──────────────────────────────────────────────────────
+
+def test_revival_html_empty_when_nothing_revived():
+    """没有源恢复时不占版面——每周一节「无事发生」会淡化信噪比。"""
+    assert _mod.revival_html([]) == ""
+
+
+def test_revival_html_lists_revived_source():
+    html = _mod.revival_html([{
+        "name": "36氪", "reason": "waf-block-upstream-and-fallback-route-503",
+        "url": "https://36kr.com/feed", "final_url": "https://36kr.com/feed",
+        "article_count": 20, "newest_age_hours": 3.5}])
+    assert "36氪" in html
+    assert "https://36kr.com/feed" in html
+    assert "20" in html
+    assert "rejected" in html          # 操作提示：需手工改 registry status
+
+
+def test_revival_html_flags_redirect_when_final_url_differs():
+    """★ 换域名时必须同时显示两个 URL 并标出跳转，否则人会把死域名写回 registry。"""
+    html = _mod.revival_html([{
+        "name": "Endpoints News", "reason": "persistent-403",
+        "url": "https://endpts.com/feed/",
+        "final_url": "https://endpoints.news/feed/",
+        "article_count": 24, "newest_age_hours": 13.2}])
+    assert "https://endpts.com/feed/" in html
+    assert "https://endpoints.news/feed/" in html
+    assert "跳转" in html
+
+
+def test_revival_html_no_redirect_note_when_urls_match():
+    html = _mod.revival_html([{
+        "name": "X", "reason": "timeout", "url": "https://x.com/feed",
+        "final_url": "https://x.com/feed", "article_count": 5,
+        "newest_age_hours": 1.0}])
+    assert "跳转" not in html
+
+
+def test_revival_html_tolerates_missing_final_url():
+    """final_url 缺失时不崩（防御：旧数据或手工构造的输入）。"""
+    html = _mod.revival_html([{
+        "name": "X", "reason": "timeout", "url": "https://x.com/feed",
+        "article_count": 5, "newest_age_hours": 1.0}])
+    assert "https://x.com/feed" in html
+    assert "跳转" not in html
+
+
+def test_revival_html_escapes_source_name():
+    """源名进 HTML 前必须转义。"""
+    html = _mod.revival_html([{
+        "name": "<script>x</script>", "reason": "waf", "url": "https://e.com/f",
+        "final_url": "https://e.com/f",
+        "article_count": 1, "newest_age_hours": None}])
+    assert "<script>" not in html
+    assert "&lt;script&gt;" in html
+
+
+def test_build_report_html_includes_revival_block():
+    now = datetime(2026, 8, 9, 9, 30, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now, "", [], "<div>REVIVAL_MARKER</div>")
+    assert "REVIVAL_MARKER" in html
+
+
+def test_build_report_html_without_revival_block_still_works():
+    """既有调用方不传新参数也要能跑（默认值）。"""
+    now = datetime(2026, 8, 9, 9, 30, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now)
+    assert isinstance(html, str) and html

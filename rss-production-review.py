@@ -288,7 +288,32 @@ def _default_prober(name: str, url: str) -> dict:
     return status
 
 
-def probe_revivals(registry, prober=None, *, fallbacks=None) -> list:
+def _default_url_resolver(url: str) -> str:
+    """跟随重定向，返回最终 URL。只做 HEAD 级别的解析，不读 body。"""
+    import urllib.request
+    health = _load_health_module()
+    req = urllib.request.Request(url, headers=health.HEADERS)
+    with urllib.request.urlopen(req, timeout=health.FETCH_TIMEOUT) as r:
+        return r.url or url
+
+
+def _resolve_final_url(url: str, resolver=None) -> str:
+    """解析 url 的落地地址。任何失败都退回原 url——绝不返回 None/空串。
+
+    存在的理由：2026-08-08 首次实网探测发现 endpts.com/feed/ 是 301 永久重定向
+    到 endpoints.news/feed/。周报只报 registry 里的旧 URL，人照着恢复入池就把
+    死域名写回了 registry。
+    """
+    if resolver is None:
+        resolver = _default_url_resolver
+    try:
+        final = resolver(url)
+    except Exception:
+        return url
+    return final or url
+
+
+def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None) -> list:
     """探测技术性下线的源是否恢复。只返回已恢复的。
 
     判据是 article_count >= 1 而非 status["ok"] —— ok 还含 staleness 判定，
@@ -330,6 +355,7 @@ def probe_revivals(registry, prober=None, *, fallbacks=None) -> list:
                         "name": name,
                         "reason": src.get("reject_reason") or "",
                         "url": url,
+                        "final_url": _resolve_final_url(url, resolver),
                         "article_count": status.get("article_count", 0),
                         "newest_age_hours": status.get("newest_age_hours"),
                     })
@@ -356,7 +382,8 @@ def _esc(s) -> str:
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
-def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None) -> str:
+def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None,
+                      revival_html_block="") -> str:
     """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
     ts = now.strftime("%Y-%m-%d %H:%M BJT")
 
@@ -418,7 +445,8 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
                     f"{snap_rows}</table>")
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
-            f"{plan_c_html}{a_section}{rot_section}{b_section}{snap_section}")
+            f"{revival_html_block}{plan_c_html}{a_section}{rot_section}"
+            f"{b_section}{snap_section}")
 
 
 def _plan_c_done(sender_path: str = SENDER_FILE) -> bool:
@@ -456,6 +484,47 @@ def plan_c_reminder_html(registry, records, now, *, window_days=30,
         "若想给它们建「科学/健康」「深度/专题」专属板块，扩 LLM topic 即可（见 spec §6）。"
         f"<br>相关源：{items}。"
         "<br><span style='color:#999;font-size:11px;'>做了方案 C（sender 出现 REGION_SCI_HEALTH）后此提醒自动消失。</span>"
+        "</div>"
+    )
+
+
+def revival_html(revived: list) -> str:
+    """周报里的"已下线源复活"提醒条；无源恢复则返回空串（不占版面）。"""
+    if not revived:
+        return ""
+    cells = []
+    for r in revived:
+        url = r.get("url", "")
+        final = r.get("final_url") or url
+        if final != url:
+            url_cell = (f"<a href='{_esc(final)}'>{_esc(final)}</a>"
+                        f"<br><span style='color:#b26500;font-size:11px'>⤴ 跳转自 "
+                        f"{_esc(url)}——恢复入池请用上面的新地址</span>")
+        else:
+            url_cell = f"<a href='{_esc(url)}'>{_esc(url)}</a>"
+        age = r.get("newest_age_hours")
+        cells.append(
+            f"<tr><td>{_esc(r['name'])}</td>"
+            f"<td style='font-size:11px;color:#666'>{_esc(r['reason'])}</td>"
+            f"<td>{url_cell}</td>"
+            f"<td style='text-align:center'>{r['article_count']}</td>"
+            f"<td style='text-align:center'>"
+            f"{('%.0fh' % age) if age is not None else '—'}</td></tr>")
+    rows = "".join(cells)
+    return (
+        "<div style='margin-top:16px;padding:12px 16px;background:#e8f5e9;"
+        "border-left:4px solid #43a047;font-size:13px;line-height:1.6;'>"
+        f"<strong>♻️ 已下线源复活检测（{len(revived)}）</strong>："
+        "以下曾因技术原因下线的源现在又能抓到文章了。"
+        "<table border='1' cellpadding='6' cellspacing='0' "
+        "style='border-collapse:collapse;margin-top:8px;background:#fff'>"
+        "<tr style='background:#f3f4f6'><th>源</th><th>当初下线原因</th>"
+        "<th>活着的 URL</th><th>抓到</th><th>最新</th></tr>"
+        f"{rows}</table>"
+        "<br><span style='color:#666;font-size:11px;'>恢复入池需手工把 registry 里该源的 "
+        "<code>status</code> 从 <code>rejected</code> 改回，"
+        "<code>rss-promote-candidate.py</code> 只接受 <code>discovered</code> 状态。"
+        "恢复前请重新确认当初下线的口径判断是否仍成立。</span>"
         "</div>"
     )
 
@@ -520,11 +589,14 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     snapshot = snapshot_rows(registry, records, now)
     rotation = find_rotation_candidates(registry, records, now)
     plan_c_html = plan_c_reminder_html(registry, records, now)
-    html = build_report_html(zombies, degraded, snapshot, now, plan_c_html, rotation)
+    revived = probe_revivals(registry)
+    revival_block = revival_html(revived)
+    html = build_report_html(zombies, degraded, snapshot, now, plan_c_html, rotation,
+                             revival_block)
     subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸 / {len(rotation)} 建议轮换 / "
                f"{len(degraded)} 变质 — {now.strftime('%m月%d日')}")
     print(f"[prod-review] {len(zombies)} zombies, {len(degraded)} degraded, "
-          f"{len(snapshot)} sources reviewed.")
+          f"{len(snapshot)} sources reviewed, {len(revived)} revived.")
     if send:
         if not send_report_email(html, subject):
             return 1
