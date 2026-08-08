@@ -5,6 +5,7 @@
 ## Architecture
 - `unified-global-news-sender.py`: main script — stdlib only (no pip deps), uses `urllib.request`, `xml.etree.ElementTree`, `concurrent.futures`
 - `rss-health-check.py`: monitors all sources 1x daily (12:05 BJT), auto-swaps failed feeds after 3 consecutive failures
+- `rss-production-review.py`: weekly production quality review (test-period cadence) that flags zombie sources, content degradation, rotation candidates + weekly revival probe of technically-demoted sources
 - `news-sources-config.json`: single source of truth for all feed URLs and backup URLs
 - Cron wrapper: `global-news-cron-wrapper.sh` with `SCRIPT_DIR` via `BASH_SOURCE[0]`
 

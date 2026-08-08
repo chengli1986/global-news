@@ -241,6 +241,7 @@ Weekly in-production quality review (test-period cadence) that reads `logs/produ
   - **口径 = 入选率 `selected/fetched`, not the absolute count** (fixed 2026-07-26): `fetched` is set by each source's `limit` quota in `news-sources-config.json` (limit=3 → ~99 articles per 30d, limit=6 → ~198), so absolute selection counts are not comparable across quotas and small-quota sources were being flagged systematically. IEEE Spectrum was flagged at 43 selected vs a group median of 96 while actually converting 44% — level with limit=6 peers at 45%.
 - **Action model**: report only — demote is human-confirmed via `rss-demote-source.py`. Test period emails every week (incl. a full-pool contribution snapshot); cadence and thresholds to be tuned after observation.
 - **Spec**: `docs/superpowers/specs/2026-06-13-rss-production-quality-review-design.md`
+- **Revival probe** — sources demoted for *technical* reasons (WAF block, persistent 403/timeout, dead mirror route) are re-probed each week. A source counts as revived only when it parses to ≥1 article — an HTTP 200 is not enough, since WAF challenge pages return 200 with `text/html`. Quality-based demotions (zombie, rotation laggard, duplicate, pool-cap) are never probed: they were removed for what they published, not for being unreachable. The weekly report gains a section only when something actually revived. Restoring a source to the pool stays manual — registry `status` must be edited back from `rejected` by hand.
 
 ## Scoring v2
 
@@ -249,7 +250,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 320 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + contract defenses)
+python3 -m pytest tests/ -q   # 322 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + contract defenses)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```
