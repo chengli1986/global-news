@@ -407,15 +407,26 @@ git commit -m "feat(revival): 探测下线源是否恢复，判据取 article_co
 
 ---
 
-### Task 3: 接进周报
+### Task 3: 落地 URL + 接进周报
 
 **Files:**
-- Modify: `rss-production-review.py`（加 `revival_html`；改 `build_report_html` 与 `cmd_run`）
+- Modify: `rss-production-review.py`（加 `_resolve_final_url`、`revival_html`；改 `probe_revivals`、`build_report_html`、`cmd_run`）
 - Test: `tests/test_rss_production_review.py`（追加）
+
+**为什么要落地 URL**：2026-08-08 首次实网探测发现 `https://endpts.com/feed/` 是 **301 永久重定向**
+到 `https://endpoints.news/feed/`（Endpoints News 换了域名）。周报若只报 registry 里的旧 URL，
+照它恢复入池就把死域名写回了 registry——BBC 中文 301 那次已经踩过同类坑。
+
+**为什么不改 `check_source()`**：那是每天 12:05 生产健康检查的核心函数，且**零测试覆盖**
+（`grep -rln check_source tests/` 无结果）。改它风险不对称。改为只对**已判定恢复**的源
+单独解析一次落地 URL：正常情况 0 个、罕见 1-2 个，开销可忽略，且完全不碰生产路径。
 
 **Interfaces:**
 - Consumes: `probe_revivals(registry, prober, fallbacks=...)`（Task 2）
 - Produces:
+  - `_resolve_final_url(url, resolver=None) -> str` — 返回跟随重定向后的最终 URL；
+    失败或无重定向时返回**原 url**（绝不返回 None/空串，调用方无需判空）
+  - `probe_revivals` 返回的每个 dict 新增键 `final_url`
   - `revival_html(revived: list) -> str` — 无恢复时返回 `""`
   - `build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None, revival_html_block="")`
     — 末尾新增一个有默认值的参数，现有调用方不受影响
@@ -425,6 +436,69 @@ git commit -m "feat(revival): 探测下线源是否恢复，判据取 article_co
 追加到 `tests/test_rss_production_review.py` 末尾：
 
 ```python
+# ── 落地 URL 解析 ────────────────────────────────────────────────
+
+def test_resolve_final_url_follows_redirect():
+    """301 换域名时返回落地 URL（Endpoints News 的真实情况）。"""
+    def _r(url):
+        return "https://endpoints.news/feed/"
+    assert _mod._resolve_final_url("https://endpts.com/feed/", _r) == \
+        "https://endpoints.news/feed/"
+
+
+def test_resolve_final_url_no_redirect_returns_original():
+    def _r(url):
+        return url
+    assert _mod._resolve_final_url("https://x.com/feed", _r) == "https://x.com/feed"
+
+
+def test_resolve_final_url_failure_returns_original():
+    """★ 解析失败不能返回 None/空串——调用方不该被迫判空。"""
+    def _boom(url):
+        raise RuntimeError("dns died")
+    assert _mod._resolve_final_url("https://x.com/feed", _boom) == "https://x.com/feed"
+
+
+def test_resolve_final_url_empty_result_returns_original():
+    """resolver 返回空值也要退回原 url。"""
+    def _empty(url):
+        return ""
+    assert _mod._resolve_final_url("https://x.com/feed", _empty) == "https://x.com/feed"
+
+
+def test_probe_revival_reports_final_url():
+    """探通后要带上落地 URL，供人判断该用哪个地址恢复入池。"""
+    reg = _registry([_rejected("Endpoints News", "persistent-403",
+                               url="https://endpts.com/feed/")])
+    prober = _prober_from({"https://endpts.com/feed/": {
+        "ok": True, "error": None, "article_count": 24, "newest_age_hours": 13.2}})
+    out = _mod.probe_revivals(reg, prober,
+                              resolver=lambda u: "https://endpoints.news/feed/")
+    assert len(out) == 1
+    assert out[0]["url"] == "https://endpts.com/feed/"
+    assert out[0]["final_url"] == "https://endpoints.news/feed/"
+
+
+def test_probe_revival_final_url_defaults_to_probed_url():
+    """没有重定向时 final_url == url，不是 None。"""
+    reg = _registry([_rejected("X", "timeout", url="https://x.com/feed")])
+    prober = _prober_from({"https://x.com/feed": {
+        "ok": True, "error": None, "article_count": 5, "newest_age_hours": 1.0}})
+    out = _mod.probe_revivals(reg, prober, resolver=lambda u: u)
+    assert out[0]["final_url"] == "https://x.com/feed"
+
+
+def test_probe_revival_resolver_never_called_when_nothing_revived():
+    """★ 只对已恢复的源解析落地 URL——未恢复的不该多打一次请求。"""
+    reg = _registry([_rejected("X", "timeout", url="https://x.com/feed")])
+    prober = _prober_from({})          # 什么都探不通
+    called = []
+    _mod.probe_revivals(reg, prober, resolver=lambda u: called.append(u) or u)
+    assert called == []
+
+
+# ── 周报渲染 ──────────────────────────────────────────────────────
+
 def test_revival_html_empty_when_nothing_revived():
     """没有源恢复时不占版面——每周一节「无事发生」会淡化信噪比。"""
     assert _mod.revival_html([]) == ""
@@ -433,17 +507,48 @@ def test_revival_html_empty_when_nothing_revived():
 def test_revival_html_lists_revived_source():
     html = _mod.revival_html([{
         "name": "36氪", "reason": "waf-block-upstream-and-fallback-route-503",
-        "url": "https://36kr.com/feed", "article_count": 20, "newest_age_hours": 3.5}])
+        "url": "https://36kr.com/feed", "final_url": "https://36kr.com/feed",
+        "article_count": 20, "newest_age_hours": 3.5}])
     assert "36氪" in html
     assert "https://36kr.com/feed" in html
     assert "20" in html
     assert "rejected" in html          # 操作提示：需手工改 registry status
 
 
+def test_revival_html_flags_redirect_when_final_url_differs():
+    """★ 换域名时必须同时显示两个 URL 并标出跳转，否则人会把死域名写回 registry。"""
+    html = _mod.revival_html([{
+        "name": "Endpoints News", "reason": "persistent-403",
+        "url": "https://endpts.com/feed/",
+        "final_url": "https://endpoints.news/feed/",
+        "article_count": 24, "newest_age_hours": 13.2}])
+    assert "https://endpts.com/feed/" in html
+    assert "https://endpoints.news/feed/" in html
+    assert "跳转" in html
+
+
+def test_revival_html_no_redirect_note_when_urls_match():
+    html = _mod.revival_html([{
+        "name": "X", "reason": "timeout", "url": "https://x.com/feed",
+        "final_url": "https://x.com/feed", "article_count": 5,
+        "newest_age_hours": 1.0}])
+    assert "跳转" not in html
+
+
+def test_revival_html_tolerates_missing_final_url():
+    """final_url 缺失时不崩（防御：旧数据或手工构造的输入）。"""
+    html = _mod.revival_html([{
+        "name": "X", "reason": "timeout", "url": "https://x.com/feed",
+        "article_count": 5, "newest_age_hours": 1.0}])
+    assert "https://x.com/feed" in html
+    assert "跳转" not in html
+
+
 def test_revival_html_escapes_source_name():
     """源名进 HTML 前必须转义。"""
     html = _mod.revival_html([{
         "name": "<script>x</script>", "reason": "waf", "url": "https://e.com/f",
+        "final_url": "https://e.com/f",
         "article_count": 1, "newest_age_hours": None}])
     assert "<script>" not in html
     assert "&lt;script&gt;" in html
@@ -464,27 +569,88 @@ def test_build_report_html_without_revival_block_still_works():
 
 - [ ] **Step 2: 跑测试确认失败**
 
-Run: `cd ~/global-news && python3 -m pytest tests/test_rss_production_review.py -k "revival_html or build_report_html" -v`
-Expected: FAIL — `has no attribute 'revival_html'`
+Run: `cd ~/global-news && python3 -m pytest tests/test_rss_production_review.py -k "revival_html or build_report_html or resolve_final_url or final_url" -v`
+Expected: FAIL — `has no attribute '_resolve_final_url'` / `has no attribute 'revival_html'`
 
 - [ ] **Step 3: 写实现**
 
-在 `plan_c_reminder_html` 之后加：
+**3a. 落地 URL 解析。** 在 `_default_prober` 之后加：
+
+```python
+def _default_url_resolver(url: str) -> str:
+    """跟随重定向，返回最终 URL。只做 HEAD 级别的解析，不读 body。"""
+    import urllib.request
+    health = _load_health_module()
+    req = urllib.request.Request(url, headers=health.HEADERS)
+    with urllib.request.urlopen(req, timeout=health.FETCH_TIMEOUT) as r:
+        return r.url or url
+
+
+def _resolve_final_url(url: str, resolver=None) -> str:
+    """解析 url 的落地地址。任何失败都退回原 url——绝不返回 None/空串。
+
+    存在的理由：2026-08-08 首次实网探测发现 endpts.com/feed/ 是 301 永久重定向
+    到 endpoints.news/feed/。周报只报 registry 里的旧 URL，人照着恢复入池就把
+    死域名写回了 registry。
+    """
+    if resolver is None:
+        resolver = _default_url_resolver
+    try:
+        final = resolver(url)
+    except Exception:
+        return url
+    return final or url
+```
+
+**3b. `probe_revivals` 带上 `final_url`。** 给签名加 `resolver` 关键字参数：
+
+```python
+def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None) -> list:
+```
+
+在构造 revived 条目的地方（`article_count >= 1` 判定通过后），把落地 URL 一起写进去。
+`_resolve_final_url` 只在**已确认恢复**时调用——未恢复的源不该多打一次请求：
+
+```python
+                    revived.append({
+                        "name": name,
+                        "reason": src.get("reject_reason") or "",
+                        "url": url,
+                        "final_url": _resolve_final_url(url, resolver),
+                        "article_count": status.get("article_count", 0),
+                        "newest_age_hours": status.get("newest_age_hours"),
+                    })
+```
+
+注意：这行在 Task 2 的 fix 之后位于 try 块内，`_resolve_final_url` 自身已 fail closed，
+两层都不会让异常逃出。保持它在 try 内即可，不要为它单开一层。
+
+**3c. 周报渲染。** 在 `plan_c_reminder_html` 之后加：
 
 ```python
 def revival_html(revived: list) -> str:
     """周报里的"已下线源复活"提醒条；无源恢复则返回空串（不占版面）。"""
     if not revived:
         return ""
-    rows = "".join(
-        f"<tr><td>{_esc(r['name'])}</td>"
-        f"<td style='font-size:11px;color:#666'>{_esc(r['reason'])}</td>"
-        f"<td><a href='{_esc(r['url'])}'>{_esc(r['url'])}</a></td>"
-        f"<td style='text-align:center'>{r['article_count']}</td>"
-        f"<td style='text-align:center'>"
-        f"{('%.0fh' % r['newest_age_hours']) if r.get('newest_age_hours') is not None else '—'}"
-        f"</td></tr>"
-        for r in revived)
+    cells = []
+    for r in revived:
+        url = r.get("url", "")
+        final = r.get("final_url") or url
+        if final != url:
+            url_cell = (f"<a href='{_esc(final)}'>{_esc(final)}</a>"
+                        f"<br><span style='color:#b26500;font-size:11px'>⤴ 跳转自 "
+                        f"{_esc(url)}——恢复入池请用上面的新地址</span>")
+        else:
+            url_cell = f"<a href='{_esc(url)}'>{_esc(url)}</a>"
+        age = r.get("newest_age_hours")
+        cells.append(
+            f"<tr><td>{_esc(r['name'])}</td>"
+            f"<td style='font-size:11px;color:#666'>{_esc(r['reason'])}</td>"
+            f"<td>{url_cell}</td>"
+            f"<td style='text-align:center'>{r['article_count']}</td>"
+            f"<td style='text-align:center'>"
+            f"{('%.0fh' % age) if age is not None else '—'}</td></tr>")
+    rows = "".join(cells)
     return (
         "<div style='margin-top:16px;padding:12px 16px;background:#e8f5e9;"
         "border-left:4px solid #43a047;font-size:13px;line-height:1.6;'>"
@@ -549,13 +715,13 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
 
 - [ ] **Step 4: 跑测试确认通过**
 
-Run: `cd ~/global-news && python3 -m pytest tests/test_rss_production_review.py -k "revival_html or build_report_html" -v`
-Expected: 5 passed
+Run: `cd ~/global-news && python3 -m pytest tests/test_rss_production_review.py -k "revival_html or build_report_html or resolve_final_url or final_url" -v`
+Expected: 15 passed
 
 - [ ] **Step 5: 跑全量测试**
 
 Run: `cd ~/global-news && python3 -m pytest tests/ -q`
-Expected: 341 passed（322 原有 + 6 Task1 + 8 Task2 + 5 Task3）。若数字不符，先查是不是碰坏了既有测试，别直接改数字。
+Expected: **354 passed**（339 当前基线 + 15 本 task）。若数字不符，先查是不是碰坏了既有测试，别直接改数字。
 
 - [ ] **Step 6: 端到端 dry-run（不发信）**
 
@@ -568,8 +734,16 @@ m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
 print('exit =', m.cmd_run(send=False))
 "
 ```
-Expected: 打印 `[prod-review] ... , 0 revived.` 且 `exit = 0`。
-这条同时验证了真实 registry + 真实网络路径不会把周报搞挂。
+Expected: `exit = 0`，且打印 `[prod-review] ... , 2 revived.`
+
+⚠ **注意预期已更新**：计划最初写的是「0 revived」，但 2026-08-08 实网探测证实
+**Endpoints News（24 篇）和 Nikkei Asia via rsshub（30 篇）确实已复活**，controller 已
+用 curl 独立核实。所以这里应当看到 **2 revived**，那是正确结果，不是 bug。
+
+另外 Endpoints News 会触发落地 URL 跳转分支（`endpts.com` 301→`endpoints.news`），
+正好顺带验证了 3a/3c 的重定向路径在真实数据上跑通。把打印出的两条内容抄进报告。
+
+如果看到 0 revived，那才是问题——说明筛选或探测被改坏了，停下来报告。
 
 - [ ] **Step 7: Commit**
 
