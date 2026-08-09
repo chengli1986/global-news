@@ -16,6 +16,7 @@ sys.path.insert(0, _REPO_DIR)
 from unittest.mock import patch
 
 # Module loaded by tests/conftest.py under the dashed-name-to-underscore alias
+import unified_global_news_sender as _sender_mod
 from unified_global_news_sender import (
     TOPIC_LABELS,
     GEO_LABELS,
@@ -86,19 +87,23 @@ def _make_sender_with_news(news_data: dict) -> UnifiedNewsSender:
 
 
 class TestStage1HardLock:
-    """Spec §4.1 Stage 1: 6 hard-lock sources skip LLM and stay in source-default region.
+    """Spec §4.1 Stage 1: hard-lock sources skip LLM and stay in source-default region.
     Each gets a _classifications entry with reason_code='source_lock:hard:<src>'.
+
+    Fixtures name only sources that are still in news-sources-config.json —
+    CBC Business was dropped from the pool and its entries were removed on
+    2026-08-09 (see test_region_rules_liveness).
     """
 
-    def test_cbc_business_creates_hard_lock_entry(self):
+    def test_hard_lock_entry_full_shape(self):
         sender = _make_sender_with_news({
-            "CBC Business": [("Air Canada suspends 6 routes", "u1", None, None)],
+            "Economist Business": [("Corporate America rethinks its supply chains", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("CBC Business", 0))
+        entry = sender._classifications.get(("Economist Business", 0))
         assert entry is not None
-        assert entry["reason_code"] == "source_lock:hard:CBC Business"
-        assert entry["region"] is None  # None = stay in REGION_GROUPS default (CANADA)
+        assert entry["reason_code"] == "source_lock:hard:Economist Business"
+        assert entry["region"] is None  # None = stay in REGION_GROUPS default (ECONOMIST)
         assert entry["topic"] is None
         assert entry["geo"] is None
 
@@ -131,24 +136,25 @@ class TestStage1HardLock:
     def test_reclassify_article_returns_none_for_hard_lock(self):
         """_reclassify_article on a hard-lock entry returns None (keep in source default)."""
         sender = _make_sender_with_news({
-            "CBC Business": [("Some Canadian biz title", "u1", None, None)],
+            "Globe & Mail": [("Some Canadian biz title", "u1", None, None)],
         })
         sender.classify_articles()
-        result = sender._reclassify_article("Some Canadian biz title", "CBC Business", 0)
+        result = sender._reclassify_article("Some Canadian biz title", "Globe & Mail", 0)
         assert result is None  # None means "keep in REGION_GROUPS default region (CANADA)"
 
-    def test_all_six_locked_sources_get_entries(self):
-        """All 6 entries in _LOCKED_SOURCES should populate when present in news_data."""
+    def test_all_locked_sources_get_entries(self):
+        """Every entry in _LOCKED_SOURCES populates when present in news_data.
+
+        Reads the set from the sender rather than restating it, so adding or
+        dropping a hard lock can never leave this test asserting a stale list.
+        """
+        locked = sorted(UnifiedNewsSender._LOCKED_SOURCES)
+        assert locked, "_LOCKED_SOURCES is empty — hard-lock stage disabled?"
         sender = _make_sender_with_news({
-            src: [(f"Sample title for {src}", "u1", None, None)]
-            for src in ["CBC Business", "Globe & Mail",
-                        "Economist Leaders", "Economist Finance",
-                        "Economist Business", "Economist Science"]
+            src: [(f"Sample title for {src}", "u1", None, None)] for src in locked
         })
         sender.classify_articles()
-        for src in ["CBC Business", "Globe & Mail",
-                    "Economist Leaders", "Economist Finance",
-                    "Economist Business", "Economist Science"]:
+        for src in locked:
             entry = sender._classifications.get((src, 0))
             assert entry is not None, f"{src} missing _classifications entry"
             assert entry["reason_code"].startswith("source_lock:hard"), f"{src} wrong prefix"
@@ -158,65 +164,78 @@ class TestStage1HardLock:
 
 
 class TestStage2SoftLock:
-    """Spec §4.1 Stage 2: 14 soft-lock sources (9 CHINA-bias + 5 ASIA-bias) default
-    to their geographic region; escape to LLM when external geo dominates title.
+    """Spec §4.1 Stage 2: soft-locked sources default to their geographic region;
+    they escape to the LLM when external geo dominates the title.
+
+    CHINA fixtures use sources still in news-sources-config.json. The ASIA-PAC
+    cases inject a soft lock via patch.dict because no Asia-Pacific source is
+    soft-locked any more — the five that were (SCMP Hong Kong / RTHK中文 / HKFP /
+    Straits Times / 日经中文) all left the pool and their dead entries were removed
+    on 2026-08-09. The escape mechanism itself is region-generic, so injecting a
+    live pool source keeps the ASIA-PAC branch of _OWN_GEO_PER_REGION covered.
     """
 
-    def test_jiemian_china_topic_stays(self):
-        """界面 article about Chinese company stays in CHINA (no escape)."""
+    def test_chinese_source_china_topic_stays(self):
+        """钛媒体 article about a Chinese company stays in CHINA (no escape)."""
         sender = _make_sender_with_news({
-            "界面新闻": [("宁德时代为什么赚这么多钱", "u1", None, None)],
+            "钛媒体": [("宁德时代为什么赚这么多钱", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("界面新闻", 0))
+        entry = sender._classifications.get(("钛媒体", 0))
         assert entry is not None
-        assert entry["reason_code"] == "source_lock:soft:界面新闻"
+        assert entry["reason_code"] == "source_lock:soft:钛媒体"
         assert entry["region"] == "🇨🇳 中国要闻 CHINA"
 
-    def test_jiemian_us_topic_escapes(self):
-        """界面 article about Trump/US (no Chinese keyword) escapes to LLM."""
+    def test_chinese_source_us_topic_escapes(self):
+        """钛媒体 article dominated by US politics escapes to the LLM.
+
+        Title carries an external-geo signal (拜登) and no own-geo anchor — the
+        own-geo regex matches 台湾, not the bare 台 in 对台法案 — so it escapes.
+        """
         sender = _make_sender_with_news({
-            "界面新闻": [("拜登签署对台法案引发关注", "u1", None, None)],
+            "钛媒体": [("拜登签署对台法案引发关注", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("界面新闻", 0))
-        # Wait — "对台法案" mentions 台 but our own_geo regex matches 台湾 not 台
-        # Actually the title has 拜登 (escape) but no own-geo keyword → should escape
+        entry = sender._classifications.get(("钛媒体", 0))
         assert entry is not None
-        assert entry["reason_code"] == "soft_escape:界面新闻"
+        assert entry["reason_code"] == "soft_escape:钛媒体"
         assert entry["region"] is None  # LLM will set region in Task 5
 
-    def test_jiemian_mixed_keeps(self):
-        """界面 article mentioning both Trump and 中国 keeps soft-lock (own-geo wins)."""
+    def test_chinese_source_mixed_keeps(self):
+        """Title mentioning both 特朗普 and 中国 keeps the soft lock (own-geo wins)."""
         sender = _make_sender_with_news({
-            "界面新闻": [("中国回应特朗普对华关税升级", "u1", None, None)],
+            "钛媒体": [("中国回应特朗普对华关税升级", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("界面新闻", 0))
+        entry = sender._classifications.get(("钛媒体", 0))
         assert entry is not None
-        assert entry["reason_code"] == "source_lock:soft:界面新闻"
+        assert entry["reason_code"] == "source_lock:soft:钛媒体"
         assert entry["region"] == "🇨🇳 中国要闻 CHINA"
 
-    def test_scmp_hk_asian_topic_stays(self):
-        """SCMP HK article about Singapore stays in ASIA-PAC."""
-        sender = _make_sender_with_news({
-            "SCMP Hong Kong": [("Singapore housing prices surge 8%", "u1", None, None)],
-        })
-        sender.classify_articles()
-        entry = sender._classifications.get(("SCMP Hong Kong", 0))
+    def test_asia_pac_soft_lock_asian_topic_stays(self):
+        """An ASIA-PAC soft-locked source keeps an Asia-region article."""
+        with patch.dict(_sender_mod._SOFT_LOCKS,
+                        {"CNA": _sender_mod.REGION_ASIA_PAC}):
+            sender = _make_sender_with_news({
+                "CNA": [("Singapore housing prices surge 8%", "u1", None, None)],
+            })
+            sender.classify_articles()
+        entry = sender._classifications.get(("CNA", 0))
         assert entry is not None
-        assert entry["reason_code"] == "source_lock:soft:SCMP Hong Kong"
+        assert entry["reason_code"] == "source_lock:soft:CNA"
         assert entry["region"] == "🌏 亚太要闻 ASIA-PACIFIC"
 
-    def test_scmp_hk_us_topic_escapes(self):
-        """SCMP HK article about Putin meeting Trump (no Asia keyword) escapes."""
-        sender = _make_sender_with_news({
-            "SCMP Hong Kong": [("Putin meets Trump in Washington", "u1", None, None)],
-        })
-        sender.classify_articles()
-        entry = sender._classifications.get(("SCMP Hong Kong", 0))
+    def test_asia_pac_soft_lock_us_topic_escapes(self):
+        """An ASIA-PAC soft-locked source escapes on a US-dominated title."""
+        with patch.dict(_sender_mod._SOFT_LOCKS,
+                        {"CNA": _sender_mod.REGION_ASIA_PAC}):
+            sender = _make_sender_with_news({
+                "CNA": [("Putin meets Trump in Washington", "u1", None, None)],
+            })
+            sender.classify_articles()
+        entry = sender._classifications.get(("CNA", 0))
         assert entry is not None
-        assert entry["reason_code"] == "soft_escape:SCMP Hong Kong"
+        assert entry["reason_code"] == "soft_escape:CNA"
         assert entry["region"] is None
 
     def test_huxiu_pure_tech_stays(self):
@@ -239,16 +258,16 @@ class TestStage2SoftLock:
         # Without LLM, no Stage 2 entry should exist for Bloomberg
         assert ("Bloomberg", 0) not in sender._classifications
 
-    def test_36kr_chinese_company_no_external_keyword_stays(self):
-        """36氪 article about ByteDance with no external geo keyword stays in CHINA."""
+    def test_chinese_company_no_external_keyword_stays(self):
+        """A ByteDance story with no external geo keyword stays in CHINA."""
         sender = _make_sender_with_news({
-            "36氪": [("字节跳动发布新一代大模型", "u1", None, None)],
+            "中国科技/AI": [("字节跳动发布新一代大模型", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("36氪", 0))
+        entry = sender._classifications.get(("中国科技/AI", 0))
         assert entry is not None
         # 字节跳动 / 大模型 has no external geo keyword in title → no escape, stays CHINA
-        assert entry["reason_code"] == "source_lock:soft:36氪"
+        assert entry["reason_code"] == "source_lock:soft:中国科技/AI"
         assert entry["region"] == "🇨🇳 中国要闻 CHINA"
 
 
@@ -324,12 +343,12 @@ class TestStage3GeoKeyword:
         assert ("BBC World", 0) not in sender._classifications
 
     def test_stage3_overrides_soft_escape(self):
-        """界面 article that escapes Stage 2 (mentions Trudeau) gets Stage 3 to CANADA."""
+        """A soft-locked source that escapes Stage 2 (mentions Trudeau) lands in CANADA."""
         sender = _make_sender_with_news({
-            "界面新闻": [("Trudeau宣布对华关税新政策", "u1", None, None)],
+            "钛媒体": [("Trudeau宣布对华关税新政策", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("界面新闻", 0))
+        entry = sender._classifications.get(("钛媒体", 0))
         # Trudeau triggers escape (in _ESCAPE_EXTERNAL_GEO list as "Trudeau")
         # AND no own-geo keyword (对华 is not in _OWN_GEO_PER_REGION CHINA list)
         # So Stage 2 escapes → Stage 3 sees Trudeau → routes to CANADA
@@ -338,15 +357,15 @@ class TestStage3GeoKeyword:
         assert entry["region"] == "🇨🇦 加拿大 CANADA"
 
     def test_stage3_does_not_override_hard_lock(self):
-        """CBC article whose title mentions Tokyo stays in CANADA (hard-lock wins)."""
+        """A hard-locked article whose title mentions Tokyo stays put (hard-lock wins)."""
         sender = _make_sender_with_news({
-            "CBC Business": [("Air Canada launches new Tokyo route", "u1", None, None)],
+            "Globe & Mail": [("Air Canada launches new Tokyo route", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("CBC Business", 0))
+        entry = sender._classifications.get(("Globe & Mail", 0))
         assert entry is not None
         # Hard lock wins — Stage 3 does NOT override
-        assert entry["reason_code"] == "source_lock:hard:CBC Business"
+        assert entry["reason_code"] == "source_lock:hard:Globe & Mail"
 
 
 # ===== Task 5: LLM 3-label parser + simplified region mapping =====
@@ -464,14 +483,14 @@ class TestClassifyArticlesValidation:
         """界面 escape entry gets topic/geo set by LLM but keeps soft_escape reason_code."""
         sender = _make_sender_with_news({
             # Title triggers Stage 2 escape (Trump + no own-geo) AND no Stage 3 keyword
-            "界面新闻": [("特朗普签署 H1B 签证新规", "u1", None, None)],
+            "钛媒体": [("特朗普签署 H1B 签证新规", "u1", None, None)],
         })
         self._mock_llm(sender, {"1": {"topic": "politics", "geo": "us"}})
         sender.classify_articles()
-        entry = sender._classifications.get(("界面新闻", 0))
+        entry = sender._classifications.get(("钛媒体", 0))
         assert entry is not None
         # reason_code preserved as soft_escape (set by Stage 2), topic/geo filled by LLM
-        assert entry["reason_code"] == "soft_escape:界面新闻"
+        assert entry["reason_code"] == "soft_escape:钛媒体"
         assert entry["topic"] == "politics"
         assert entry["geo"] == "us"
         assert entry["region"] == "🏛 全球政治 GLOBAL POLITICS"
@@ -680,7 +699,7 @@ class TestRegionGroupsStructure:
     def test_source_default_region_lookup(self):
         """_source_default_region returns the REGION_GROUPS region containing the source."""
         sender = _make_sender_with_news({})
-        assert sender._source_default_region("CBC Business") == "🇨🇦 加拿大 CANADA"
+        assert sender._source_default_region("Globe & Mail") == "🇨🇦 加拿大 CANADA"
         assert sender._source_default_region("Bloomberg Econ") == "📈 市场/宏观 MACRO & MARKETS"
         assert sender._source_default_region("Economist Finance") == "📕 经济学人 THE ECONOMIST"
         # Unknown source falls back to REGION_OTHER (Task 1 routing change)
@@ -786,8 +805,8 @@ class TestRoutingStats:
     def test_stats_printed_after_classification(self, capsys):
         """After classify_articles, '📊 Routing distribution' header appears in stdout."""
         sender = _make_sender_with_news({
-            "CBC Business": [("Some Canadian biz", "u1", None, None)],
-            "界面新闻": [("宁德时代财报", "u2", None, None)],
+            "Globe & Mail": [("Some Canadian biz", "u1", None, None)],
+            "钛媒体": [("宁德时代财报", "u2", None, None)],
         })
         sender.classify_articles()
         out = capsys.readouterr().out
@@ -796,10 +815,10 @@ class TestRoutingStats:
     def test_stats_counts_stages(self, capsys):
         """Stats show counts per stage label (Stage 1 hard lock + Stage 2 soft lock)."""
         sender = _make_sender_with_news({
-            "CBC Business": [("Air Canada news", "u1", None, None)],   # Stage 1 hard
+            "Economist Leaders": [("The world this week", "u1", None, None)],  # Stage 1 hard
             "Globe & Mail": [("Globe biz", "u2", None, None)],          # Stage 1 hard
-            "界面新闻": [("宁德时代财报", "u3", None, None)],            # Stage 2 soft
-            "南方周末": [("中国教育报告", "u4", None, None)],            # Stage 2 soft
+            "钛媒体": [("宁德时代财报", "u3", None, None)],              # Stage 2 soft
+            "虎嗅": [("中国教育报告", "u4", None, None)],                # Stage 2 soft
         })
         sender.classify_articles()
         out = capsys.readouterr().out
@@ -816,7 +835,7 @@ class TestRoutingStats:
     def test_stats_total_equals_classifications_size(self, capsys):
         """The (N classifications) header matches len(_classifications)."""
         sender = _make_sender_with_news({
-            "CBC Business": [
+            "Globe & Mail": [
                 ("title 1", "u1", None, None),
                 ("title 2", "u2", None, None),
                 ("title 3", "u3", None, None),
@@ -877,7 +896,7 @@ class TestRoutingStatsCodexFix:
         """
         sender = _make_sender_with_news({
             # Title triggers Stage 2 escape (Trump, no own-geo) AND no Stage 3 keyword
-            "界面新闻": [("特朗普签署 H1B 签证新规", "u1", None, None)],
+            "钛媒体": [("特朗普签署 H1B 签证新规", "u1", None, None)],
         })
         sender._openai_key = "fake-key"
         api_response = {"choices": [{"message": {"content": __import__("json").dumps({
@@ -904,21 +923,21 @@ class TestRoutingStatsCodexFix:
         Deterministic=4 (1 hard + 2 soft + 1 geo), Hit LLM=3 (1 escape + 2 Stage 4).
         """
         sender = _make_sender_with_news({
-            "CBC Business":    [("Canadian biz news", "u1", None, None)],   # Stage 1
-            "界面新闻":        [("宁德时代财报", "u2", None, None)],          # Stage 2 soft
-            "南方周末":        [("中国教育报告", "u3", None, None)],          # Stage 2 soft
-            "界面新闻 (escape)": [("特朗普签新规", "u4", None, None)],        # Stage 2 escape (different src)
+            "Globe & Mail":    [("Canadian biz news", "u1", None, None)],   # Stage 1
+            "钛媒体":        [("宁德时代财报", "u2", None, None)],          # Stage 2 soft
+            "虎嗅":        [("中国教育报告", "u3", None, None)],          # Stage 2 soft
+            "钛媒体 (escape)": [("特朗普签新规", "u4", None, None)],        # Stage 2 escape (different src)
             "FT":              [("Trudeau announces budget", "u5", None, None)],  # Stage 3
             "Bloomberg":       [("Fed signals hold", "u6", None, None)],     # Stage 4
             "BBC World":       [("UN summit", "u7", None, None)],            # Stage 4
         })
-        # Note: "界面新闻 (escape)" isn't a real soft-lock source, so it falls through
+        # Note: "钛媒体 (escape)" isn't a real soft-lock source, so it falls through
         # to LLM as Stage 4. Adjust: use a different soft-lock source with escape title
         sender.news_data = {
-            "CBC Business":    [("Canadian biz news", "u1", None, None)],   # Stage 1 hard
-            "界面新闻":        [("宁德时代财报", "u2", None, None),           # Stage 2 soft
+            "Globe & Mail":    [("Canadian biz news", "u1", None, None)],   # Stage 1 hard
+            "钛媒体":        [("宁德时代财报", "u2", None, None),           # Stage 2 soft
                                 ("特朗普签新规", "u3", None, None)],          # Stage 2 escape (no own-geo)
-            "南方周末":        [("教育部发布报告", "u4", None, None)],         # Stage 2 soft (no escape kw)
+            "虎嗅":        [("教育部发布报告", "u4", None, None)],         # Stage 2 soft (no escape kw)
             "FT":              [("Trudeau announces budget", "u5", None, None)],  # Stage 3
             "Bloomberg":       [("Fed signals hold", "u6", None, None)],     # Stage 4
             "BBC World":       [("UN summit", "u7", None, None)],            # Stage 4
@@ -939,7 +958,7 @@ class TestRoutingStatsCodexFix:
         out = capsys.readouterr().out
 
         # Expected handled-by counts:
-        #   Deterministic = 1 (CBC) + 2 (界面 idx=0 + 南方周末) + 1 (FT geo_keyword) = 4
+        #   Deterministic = 1 (CBC) + 2 (界面 idx=0 + 虎嗅) + 1 (FT geo_keyword) = 4
         #   Hit LLM = 1 (界面 idx=1 escape) + 2 (Bloomberg + BBC) = 3
         import re
         m_det = re.search(r"Deterministic \(no LLM\)\s+:\s+(\d+)", out)
@@ -966,23 +985,37 @@ class TestEvaluatorSoftLockConsistency:
         return eval_mod
 
     def test_chinese_soft_lock_sources_route_to_china_in_evaluator(self):
-        """All 9 Chinese soft-lock sources must map to 中国要闻 CHINA in evaluator."""
+        """Every CHINA soft-lock source must map to 中国要闻 CHINA in the evaluator.
+
+        Reads the list from the sender instead of restating it, so the two stay
+        in step when sources are added or dropped.
+        """
         eval_mod = self._load_evaluator()
         chinese_soft_lock = [
-            "界面新闻", "南方周末", "中国财经要闻",
-            "中国科技/AI", "36氪", "虎嗅", "钛媒体", "IT之家", "少数派",
+            src for src, region in _sender_mod._SOFT_LOCKS.items()
+            if region == _sender_mod.REGION_CHINA
         ]
+        assert chinese_soft_lock, "no CHINA soft locks left — table emptied?"
         for src in chinese_soft_lock:
             assert eval_mod.SOURCE_TO_REGION.get(src) == "中国要闻 CHINA", (
                 f"{src} → {eval_mod.SOURCE_TO_REGION.get(src)!r} "
                 f"(expected '中国要闻 CHINA' to mirror sender's Stage 2 soft-lock)"
             )
 
-    def test_asia_soft_lock_sources_route_to_asia_in_evaluator(self):
-        """5 Asia-Pac soft-lock sources route to ASIA-PAC in evaluator (matches sender)."""
+    def test_asia_pac_sources_route_to_asia_in_evaluator(self):
+        """The sender's ASIA-PAC source defaults must map to ASIA-PACIFIC in the evaluator.
+
+        No Asia-Pacific source is soft-locked any more (all five left the pool),
+        so this now checks the REGION_GROUPS default list instead — currently CNA.
+        """
         eval_mod = self._load_evaluator()
-        asia_soft_lock = ["SCMP Hong Kong", "RTHK中文", "HKFP", "Straits Times", "日经中文"]
-        for src in asia_soft_lock:
+        asia_defaults = [
+            src for region, srcs in UnifiedNewsSender.REGION_GROUPS
+            if region == _sender_mod.REGION_ASIA_PAC
+            for src in srcs
+        ]
+        assert asia_defaults, "no ASIA-PAC source defaults left — zone is LLM-only?"
+        for src in asia_defaults:
             assert eval_mod.SOURCE_TO_REGION.get(src) == "亚太要闻 ASIA-PACIFIC"
 
     def test_evaluator_matches_sender_soft_lock_table(self):
@@ -1020,13 +1053,13 @@ class TestKillSwitch:
     """
 
     def test_v2_default_runs_full_pipeline(self, monkeypatch):
-        """Without env var (or with v2), Stage 2 soft-lock fires for 界面新闻."""
+        """Without env var (or with v2), Stage 2 soft-lock fires for 钛媒体."""
         monkeypatch.delenv("NEWS_CLASSIFIER_VERSION", raising=False)
         sender = _make_sender_with_news({
-            "界面新闻": [("宁德时代财报", "u1", None, None)],
+            "钛媒体": [("宁德时代财报", "u1", None, None)],
         })
         sender.classify_articles()
-        entry = sender._classifications.get(("界面新闻", 0))
+        entry = sender._classifications.get(("钛媒体", 0))
         assert entry is not None
         # Stage 2 soft lock fired → reason_code starts with source_lock:soft
         assert entry["reason_code"].startswith("source_lock:soft"), (
@@ -1037,11 +1070,11 @@ class TestKillSwitch:
         """With NEWS_CLASSIFIER_VERSION=v1, Stage 2 soft-lock does NOT fire."""
         monkeypatch.setenv("NEWS_CLASSIFIER_VERSION", "v1")
         sender = _make_sender_with_news({
-            "界面新闻": [("宁德时代财报", "u1", None, None)],
+            "钛媒体": [("宁德时代财报", "u1", None, None)],
         })
         sender.classify_articles()
-        # 界面新闻 is NOT a hard-lock source, so v1 mode → no _classifications entry
-        assert ("界面新闻", 0) not in sender._classifications
+        # 钛媒体 is NOT a hard-lock source, so v1 mode → no _classifications entry
+        assert ("钛媒体", 0) not in sender._classifications
         # Warning message emitted
         out = capsys.readouterr().out
         assert "kill switch ACTIVE" in out
@@ -1051,13 +1084,13 @@ class TestKillSwitch:
         """v1 mode keeps Stage 1 hard-lock entries (for monitoring consistency)."""
         monkeypatch.setenv("NEWS_CLASSIFIER_VERSION", "v1")
         sender = _make_sender_with_news({
-            "CBC Business": [("Canadian biz news", "u1", None, None)],
+            "Globe & Mail": [("Canadian biz news", "u1", None, None)],
             "Bloomberg": [("Fed signals hold", "u2", None, None)],  # not locked
         })
         sender.classify_articles()
         # CBC is hard-locked → entry exists with source_lock:hard reason_code
-        assert ("CBC Business", 0) in sender._classifications
-        assert sender._classifications[("CBC Business", 0)]["reason_code"] == "source_lock:hard:CBC Business"
+        assert ("Globe & Mail", 0) in sender._classifications
+        assert sender._classifications[("Globe & Mail", 0)]["reason_code"] == "source_lock:hard:Globe & Mail"
         # Bloomberg is NOT locked → no entry (v1 skips Stages 2-4)
         assert ("Bloomberg", 0) not in sender._classifications
 
@@ -1086,8 +1119,8 @@ class TestRoutingHealthMetrics:
         sender = _make_sender_with_news({})
         # Manually populate _classifications to test threshold logic
         sender._classifications = {
-            ("CBC Business", 0): {"reason_code": "source_lock:hard:CBC Business"},
-            ("界面新闻", 0):     {"reason_code": "source_lock:soft:界面新闻"},
+            ("Globe & Mail", 0): {"reason_code": "source_lock:hard:Globe & Mail"},
+            ("钛媒体", 0):     {"reason_code": "source_lock:soft:钛媒体"},
             ("FT", 0):           {"reason_code": "geo_keyword:canada"},
             ("Bloomberg", 0):    {"reason_code": "llm:topic:business_macro"},
             ("BBC World", 0):    {"reason_code": "llm:topic:politics"},

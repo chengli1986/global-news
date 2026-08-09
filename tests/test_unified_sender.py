@@ -366,7 +366,7 @@ class TestClassifyArticles:
         assert result2 is None
 
         # Locked sources should not be reclassified
-        result3 = sender._reclassify_article("美国经济衰退", "CBC Business", 0)
+        result3 = sender._reclassify_article("美国经济衰退", "Globe & Mail", 0)
         assert result3 is None
 
 
@@ -409,8 +409,8 @@ class TestHtmlHelpers:
         assert _is_english_source("TechCrunch") is True
         assert _is_english_source("虎嗅") is False
         assert _is_english_source("纽约时报中文") is False
-        assert _is_english_source("SCMP Hong Kong") is True
-        assert _is_english_source("36氪") is False
+        assert _is_english_source("Korea Herald") is True
+        assert _is_english_source("钛媒体") is False
 
 
 # ===== LLM API Fallback =====

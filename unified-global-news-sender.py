@@ -91,21 +91,18 @@ REGION_OTHER         = "其他 OTHER"   # catch-all for sources/articles with no
 # may publish about external geos occasionally (escape valve to LLM in that case).
 _SOFT_LOCKS = {
     # Chinese-domestic sources → CHINA region by default
-    "界面新闻":         REGION_CHINA,
-    "南方周末":         REGION_CHINA,
     "中国财经要闻":      REGION_CHINA,
     "中国科技/AI":       REGION_CHINA,
-    "36氪":             REGION_CHINA,
     "虎嗅":             REGION_CHINA,
     "钛媒体":           REGION_CHINA,
-    "IT之家":           REGION_CHINA,
-    "少数派":           REGION_CHINA,
-    # Asia-Pacific sources → ASIA-PAC region by default
-    "SCMP Hong Kong":   REGION_ASIA_PAC,
-    "RTHK中文":         REGION_ASIA_PAC,
-    "HKFP":             REGION_ASIA_PAC,
-    "Straits Times":    REGION_ASIA_PAC,
-    "日经中文":         REGION_ASIA_PAC,
+    # Asia-Pacific: no soft-locked source remains. Every source this table once
+    # named (SCMP Hong Kong / RTHK中文 / HKFP / Straits Times / 日经中文) has
+    # since been dropped from news-sources-config.json, so ASIA-PACIFIC is now
+    # filled entirely by Stage 4 LLM routing plus CNA's REGION_GROUPS default.
+    # The _OWN_GEO_PER_REGION[REGION_ASIA_PAC] regex is kept — it is still
+    # exercised by the escape-rule tests and becomes live again the moment an
+    # Asia-Pacific source is soft-locked here. (Cleaned 2026-08-09; the dead
+    # entries had been unreachable for months — see test_region_rules_liveness.)
 }
 
 # External geo signals (presence in title suggests article is NOT about source's own region).
@@ -692,7 +689,7 @@ class UnifiedNewsSender:
         (REGION_AI_FRONTIER, [
             "中国科技/AI", "TechCrunch", "Hacker News", "Ars Technica",
             "BBC Technology", "NYT Technology", "Solidot", "The Verge",
-            "36氪", "钛媒体", "IT之家", "少数派", "虎嗅",
+            "钛媒体", "虎嗅",
         ]),
         (REGION_MACRO_MARKETS, [
             "Bloomberg Econ", "Bloomberg", "FT", "CNBC",
@@ -702,17 +699,17 @@ class UnifiedNewsSender:
             "The Guardian World", "SCMP",
         ]),
         (REGION_CHINA, [
-            "界面新闻", "南方周末", "中国财经要闻",
+            "中国财经要闻",
         ]),
         (REGION_CORP_INDUSTRY, [
             "NYT Business", "BBC Business",
         ]),
         (REGION_CONSUMER_TECH, []),  # LLM-fed (consumer reviews routed via Stage 4)
         (REGION_ASIA_PAC, [
-            "日经中文", "CNA", "SCMP Hong Kong", "RTHK中文", "HKFP", "Straits Times",
+            "CNA",
         ]),
         (REGION_CANADA, [
-            "CBC Business", "Globe & Mail",  # LOCKED via Stage 1
+            "Globe & Mail",  # LOCKED via Stage 1
         ]),
         (REGION_ECONOMIST, [
             "Economist Leaders", "Economist Finance",
@@ -724,7 +721,7 @@ class UnifiedNewsSender:
 
     # Sources locked to their sections — skip LLM classification
     _LOCKED_SOURCES = {
-        "CBC Business", "Globe & Mail",
+        "Globe & Mail",
         "Economist Leaders", "Economist Finance", "Economist Business", "Economist Science",
     }
 
@@ -1294,8 +1291,10 @@ class UnifiedNewsSender:
         """Find the region that lists `source` in REGION_GROUPS.
 
         Used as a fallback when _route() returns None (unrecognized labels) or
-        when an article reaches rendering with no _classifications entry. Falls
-        back to the first REGION_GROUPS entry if source is not listed anywhere.
+        when an article reaches rendering with no _classifications entry.
+        Returns REGION_OTHER when the source is not listed anywhere — which is
+        the normal case for every source added since the Task 6/7 redesign, as
+        only legacy sources carry manual REGION_GROUPS entries.
         """
         for region, sources in self.REGION_GROUPS:
             if source in sources:

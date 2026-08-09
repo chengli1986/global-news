@@ -32,16 +32,11 @@ from digest_pipeline import deduplicate, jaccard_similarity, rank_and_select
 # CONSUMER_TECH and SOCIETY zones are LLM-fed only — no source defaults exist.
 
 SOURCE_TO_REGION: dict[str, str] = {
-    # 中国要闻 CHINA — 3 source-default + 9 Stage-2 soft-locked Chinese sources
-    "界面新闻":      "中国要闻 CHINA",
-    "南方周末":      "中国要闻 CHINA",
+    # 中国要闻 CHINA — 1 source-default + 3 Stage-2 soft-locked Chinese sources
     "中国财经要闻":   "中国要闻 CHINA",
     "中国科技/AI":   "中国要闻 CHINA",   # soft-locked (REGION_GROUPS default: AI/前沿)
-    "36氪":          "中国要闻 CHINA",   # soft-locked
     "虎嗅":          "中国要闻 CHINA",   # soft-locked
     "钛媒体":        "中国要闻 CHINA",   # soft-locked
-    "IT之家":        "中国要闻 CHINA",   # soft-locked
-    "少数派":        "中国要闻 CHINA",   # soft-locked
     # AI/前沿 AI FRONTIER (7 non-Chinese tech sources — Chinese tech sources moved to CHINA above)
     "TechCrunch": "AI/前沿 AI FRONTIER", "Hacker News": "AI/前沿 AI FRONTIER",
     "Ars Technica": "AI/前沿 AI FRONTIER", "The Verge": "AI/前沿 AI FRONTIER",
@@ -62,15 +57,11 @@ SOURCE_TO_REGION: dict[str, str] = {
     # 公司/产业 CORPORATE & INDUSTRY (2 sources)
     "NYT Business": "公司/产业 CORPORATE & INDUSTRY",
     "BBC Business": "公司/产业 CORPORATE & INDUSTRY",
-    # 亚太要闻 ASIA-PACIFIC (6 sources, soft-locked via Stage 2 — same as REGION_GROUPS default)
-    "日经中文": "亚太要闻 ASIA-PACIFIC",
+    # 亚太要闻 ASIA-PACIFIC (1 source — the five soft-locked Asia sources left the
+    # pool; the zone is now filled by Stage 4 LLM routing, which this evaluator
+    # does not simulate, so its ASIA-PAC score covers CNA only)
     "CNA": "亚太要闻 ASIA-PACIFIC",
-    "RTHK中文": "亚太要闻 ASIA-PACIFIC",
-    "Straits Times": "亚太要闻 ASIA-PACIFIC",
-    "HKFP": "亚太要闻 ASIA-PACIFIC",
-    "SCMP Hong Kong": "亚太要闻 ASIA-PACIFIC",
-    # 加拿大 CANADA (2 sources, hard-locked via Stage 1)
-    "CBC Business": "加拿大 CANADA",
+    # 加拿大 CANADA (1 source, hard-locked via Stage 1 — CBC Business left the pool)
     "Globe & Mail": "加拿大 CANADA",
     # 经济学人 THE ECONOMIST (4 sources, hard-locked via Stage 1)
     "Economist Leaders": "经济学人 THE ECONOMIST",
