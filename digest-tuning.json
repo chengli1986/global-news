@@ -12,9 +12,7 @@
       "Economist Science",
       "Bloomberg",
       "Bloomberg Econ",
-      "Bloomberg Politics",
-      "界面新闻",
-      "36氪"
+      "Bloomberg Politics"
     ],
     "standard": [
       "BBC World",
@@ -30,8 +28,6 @@
       "中国财经要闻",
       "虎嗅",
       "钛媒体",
-      "南方周末",
-      "日经中文",
       "The Guardian World",
       "The New Yorker",
       "ProPublica",
@@ -44,18 +40,14 @@
       "France24 English",
       "RFI中文",
       "Politico Europe",
-      "Nikkei Asia via rsshub",
       "Foreign Policy",
       "澎湃新闻",
       "Quanta Magazine",
-      "第一财经",
       "端傳媒 Initium Media",
-      "ECFR Analysis",
       "Philippine Daily Inquirer",
       "RFI English",
       "Rappler",
       "IPS News",
-      "端传媒",
       "Carbon Brief",
       "Politico US Politics",
       "Al Jazeera English",
@@ -65,26 +57,18 @@
       "Korea Herald"
     ],
     "commodity": [
-      "IT之家",
-      "少数派",
       "Solidot",
       "NYT Business",
       "NYT Technology",
       "CNA",
       "Ars Technica",
       "The Verge",
-      "CBC Business",
       "Globe & Mail",
       "Dawn Pakistan",
       "Daily Maverick",
       "The Guardian Science"
     ],
-    "suppressed": [
-      "RTHK中文",
-      "Straits Times",
-      "HKFP",
-      "SCMP Hong Kong"
-    ]
+    "suppressed": []
   },
   "tier_boost": {
     "premium": 1.5,

@@ -34,6 +34,7 @@ import re
 _REPO = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 _SENDER = os.path.join(_REPO, "unified-global-news-sender.py")
 _CONFIG = os.path.join(_REPO, "news-sources-config.json")
+_TUNING = os.path.join(_REPO, "digest-tuning.json")
 
 
 def _configured_sources() -> set[str]:
@@ -107,3 +108,31 @@ def test_evaluator_source_map_all_exist():
     spec.loader.exec_module(mod)
     dead = sorted(n for n in mod.SOURCE_TO_REGION if n not in live)
     assert not dead, f"SOURCE_TO_REGION names sources no longer in the config: {dead}"
+
+
+def test_source_tiers_all_exist():
+    """digest-tuning.json source_tiers may only name live sources.
+
+    A fifth copy of a per-source table. Dead tier entries cost nothing at
+    runtime, but they made the public site advertise a Suppressed tier whose
+    four sources had all left the pool.
+    """
+    live = _configured_sources()
+    tiers = json.load(open(_TUNING, encoding="utf-8")).get("source_tiers", {})
+    assert tiers, "source_tiers missing — digest tuning shape changed?"
+    dead = sorted({s for names in tiers.values() for s in names if s not in live})
+    assert not dead, f"source_tiers names sources no longer in the config: {dead}"
+
+
+def test_every_live_source_has_a_tier():
+    """The reverse direction, which IS meaningful here.
+
+    Unlike the routing tables (where an unlisted source legitimately falls to
+    the Stage 4 LLM), an untiered source silently takes the default rank boost.
+    All 58 sources currently carry a tier; this keeps it that way.
+    """
+    live = _configured_sources()
+    tiers = json.load(open(_TUNING, encoding="utf-8")).get("source_tiers", {})
+    tiered = {s for names in tiers.values() for s in names}
+    untiered = sorted(live - tiered)
+    assert not untiered, f"sources with no quality tier (they take the default boost): {untiered}"
