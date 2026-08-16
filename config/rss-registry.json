@@ -8632,7 +8632,8 @@
         "uniqueness": 0.88,
         "final": 0.729
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Mexico News Daily",
@@ -9838,6 +9839,34 @@
       },
       "status": "rejected",
       "reject_reason": "pool-cap"
+    },
+    {
+      "name": "FT中文网",
+      "url": "https://www.ftchinese.com/rss/feed",
+      "language": "cn",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 4.29,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 60,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "content_depth": 0.3,
+        "authority": 0.85,
+        "uniqueness": 0.55,
+        "final": 0.74
+      },
+      "status": "discovered"
     }
   ]
 }
