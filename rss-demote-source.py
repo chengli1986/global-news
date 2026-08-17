@@ -43,6 +43,7 @@ def demote_source(
     reason: str,
     registry_file: str = "",
     sources_file: str = DEFAULT_SOURCES,
+    tuning_file: str = "",
 ) -> bool:
     """Demote *name* from production to rejected. Returns True on success.
 
@@ -84,6 +85,8 @@ def demote_source(
 
     _reg.reject_source(registry, name, reason)
     _reg.save_registry(registry, reg_path)
+    # 对称清理：promote 侧 assign_default_tier 会写入 tier，这里不清就留孤儿条目。
+    _reg.remove_tier(name, tuning_path=tuning_file or None)
 
     drift_note = " (registry-only; not in sources-config)" if removed_count == 0 else ""
     print(f"Demoted '{name}' → rejected, reason={reason}{drift_note}")

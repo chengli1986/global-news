@@ -1758,7 +1758,7 @@
         "uniqueness": 0.9,
         "final": 0.896
       },
-      "reject_reason": "persistent-403-removed-from-sources-2026-05-25",
+      "reject_reason": "duplicate-of-live-source-http://endpts.com/feed-2026-08-17 (was: persistent-403-removed-from-sources-2026-05-25)",
       "trial": {
         "start_date": "2026-05-06",
         "end_date": "2026-05-09",
@@ -2760,7 +2760,7 @@
       "url": "https://www.dawn.com/feeds/home",
       "language": "en",
       "category": "hk_sea",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2782,7 +2782,7 @@
         "uniqueness": 0.9,
         "final": 0.896
       },
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard",
       "trial": {
         "start_date": "2026-05-08",
         "end_date": "2026-05-11",
@@ -3289,7 +3289,7 @@
       "url": "https://rsshub.rssforever.com/nikkei/asia",
       "language": "en",
       "category": "hk_sea",
-      "status": "rejected",
+      "status": "discovered",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3311,41 +3311,43 @@
         "uniqueness": 0.72,
         "final": 0.899
       },
-      "reject_reason": "persistent-timeout-removed-from-sources-2026-05-21",
-      "trial": {
-        "start_date": "2026-05-03",
-        "end_date": "2026-05-06",
-        "report_sent": false,
-        "daily_stats": [
-          {
-            "date": "2026-05-03",
-            "fetched": 3,
-            "selected": 3
-          },
-          {
-            "date": "2026-05-04",
-            "fetched": 6,
-            "selected": 6
-          },
-          {
-            "date": "2026-05-05",
-            "fetched": 9,
-            "selected": 9
-          },
-          {
-            "date": "2026-05-06",
-            "fetched": 3,
-            "selected": 3
-          }
-        ],
-        "outcome": "auto-graduated",
-        "auto_decided": true,
-        "candidate_score": 0.899
-      },
+      "trial": null,
       "production": {
         "keywords": [],
         "limit": 3
-      }
+      },
+      "trial_history": [
+        {
+          "start_date": "2026-05-03",
+          "end_date": "2026-05-06",
+          "report_sent": false,
+          "daily_stats": [
+            {
+              "date": "2026-05-03",
+              "fetched": 3,
+              "selected": 3
+            },
+            {
+              "date": "2026-05-04",
+              "fetched": 6,
+              "selected": 6
+            },
+            {
+              "date": "2026-05-05",
+              "fetched": 9,
+              "selected": 9
+            },
+            {
+              "date": "2026-05-06",
+              "fetched": 3,
+              "selected": 3
+            }
+          ],
+          "outcome": "auto-graduated",
+          "auto_decided": true,
+          "candidate_score": 0.899
+        }
+      ]
     },
     {
       "name": "South China Morning Post Tech",
@@ -6008,7 +6010,8 @@
         "uniqueness": 0.62,
         "final": 0.798
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "duplicate-of-live-source-http://endpts.com/feed-2026-08-17"
     },
     {
       "name": "Times of India",
@@ -7904,7 +7907,8 @@
         "uniqueness": 0.75,
         "final": 0.83
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "duplicate-of-live-source-http://endpts.com/feed-2026-08-17"
     },
     {
       "name": "Middle East Eye",

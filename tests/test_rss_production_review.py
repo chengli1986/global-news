@@ -46,6 +46,22 @@ def _no_real_network(monkeypatch):
     monkeypatch.setattr(_mod, "_default_url_resolver", _forbidden)
 
 
+_REAL_LOAD_LIVE_FEEDS = _mod._load_live_feeds
+
+
+@pytest.fixture(autouse=True)
+def _empty_live_pool(monkeypatch):
+    """默认把"现役 config"当空池。
+
+    find_revival_candidates() 不传 live_feeds 时会去读真实的
+    news-sources-config.json，用来排除"其实没离岗"的源。测试里的假源名
+    （虎嗅、Endpoints News…）恰好和现役源重名，不隔离的话这些测试就变成
+    在断言真实 config 的内容，源一进出池就无关地红。要验证默认读取路径本身的
+    测试，局部换回 _REAL_LOAD_LIVE_FEEDS 即可。
+    """
+    monkeypatch.setattr(_mod, "_load_live_feeds", lambda *a, **kw: [])
+
+
 def _write_log(tmp_path, lines: list) -> str:
     p = str(tmp_path / "prod-log.jsonl")
     with open(p, "w", encoding="utf-8") as f:
@@ -479,6 +495,29 @@ def test_rotation_flags_laggard_by_selection_rate():
     assert out[0]["fetched"] == 60
 
 
+def test_rotation_ignores_laggard_within_absolute_margin():
+    """入选率虽低于组中位一半，但只差不到 ROTATION_MIN_MARGIN → 不标。
+
+    比例阈值(median/2)在中位数附近是个悬崖：2026-08-16 周报里 RFI English
+    30.39% 被点名，同组 The Guardian World 31.37% 安全，两者只差半篇文章。
+    这不是"明显低于同类"，是噪声。要求同时跨过一个绝对边距。
+    """
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Near")])
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Near", 100, 29) for d in range(1, 11)]  # 29% vs 阈值 30%，差 1pp
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def test_rotation_flags_laggard_beyond_absolute_margin():
+    """低于组中位一半、且差距超过 ROTATION_MIN_MARGIN → 仍要标。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Far")])
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Far", 100, 26) for d in range(1, 11)]  # 26% vs 阈值 30%，差 4pp
+    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["Far"]
+
+
 def test_build_report_rotation_shows_selection_rate():
     now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
     rotation = [{"name": "Lag News", "category": "europe", "selected": 10,
@@ -524,6 +563,57 @@ def test_revival_candidate_excludes_quality_rejections():
         _rejected("Other", "auto-removed"),
     ])
     assert _mod.find_revival_candidates(reg) == []
+
+
+def test_revival_default_reads_sources_config(tmp_path, monkeypatch):
+    """默认路径：不传 live_feeds 时真的去读 SOURCES_FILE，而不是当空池放行。"""
+    cfg = tmp_path / "sources.json"
+    cfg.write_text(json.dumps({"news_sources": {"rss_feeds": [
+        {"name": "Live One", "url": "https://live.example.com/feed"}]}}), encoding="utf-8")
+    monkeypatch.setattr(_mod, "_load_live_feeds", _REAL_LOAD_LIVE_FEEDS)
+    monkeypatch.setattr(_mod, "SOURCES_FILE", str(cfg))
+    reg = _registry([_rejected("Live One", "persistent-403-removed",
+                               url="https://live.example.com/feed")])
+    assert _mod.find_revival_candidates(reg) == []
+
+
+def test_revival_unreadable_sources_config_is_empty_pool(tmp_path, monkeypatch):
+    """config 读不到就当空池——宁可多报一条复活，也不能让周报炸掉。"""
+    monkeypatch.setattr(_mod, "_load_live_feeds", _REAL_LOAD_LIVE_FEEDS)
+    monkeypatch.setattr(_mod, "SOURCES_FILE", str(tmp_path / "does-not-exist.json"))
+    reg = _registry([_rejected("Ghost", "persistent-403-removed")])
+    assert [s["name"] for s in _mod.find_revival_candidates(reg)] == ["Ghost"]
+
+
+def test_revival_candidate_excludes_source_still_live_by_name():
+    """现役 config 里已有同名源 → 不是"复活"，别报。
+
+    2026-08-16 周报把 Endpoints News 报成复活，实际它从未离岗（现役
+    http://endpts.com/feed，30d 入选率 75%，healthcare 组第一）。registry 里
+    同名 4 条，探测只看 status=rejected 就撞上了那条幽灵孤儿。
+    """
+    reg = _registry([_rejected("Endpoints News", "persistent-403-removed-from-sources",
+                               url="https://endpoints.news/feed/")])
+    live = [{"name": "Endpoints News", "url": "http://endpts.com/feed"}]
+    assert _mod.find_revival_candidates(reg, live_feeds=live) == []
+
+
+def test_revival_candidate_excludes_source_still_live_by_url_variant():
+    """同一 URL 只差协议/尾斜杠，也算现役 → 别报。"""
+    reg = _registry([_rejected("Endpoints News (old entry)",
+                               "persistent-403-removed-from-sources",
+                               url="https://endpts.com/feed/")])
+    live = [{"name": "Endpoints News", "url": "http://endpts.com/feed"}]
+    assert _mod.find_revival_candidates(reg, live_feeds=live) == []
+
+
+def test_revival_candidate_kept_when_not_in_live_config():
+    """真正不在现役 config 里的源，仍要报复活。"""
+    reg = _registry([_rejected("Nikkei Asia via rsshub", "persistent-timeout-removed",
+                               url="https://rsshub.rssforever.com/nikkei/asia")])
+    live = [{"name": "Endpoints News", "url": "http://endpts.com/feed"}]
+    out = _mod.find_revival_candidates(reg, live_feeds=live)
+    assert [s["name"] for s in out] == ["Nikkei Asia via rsshub"]
 
 
 def test_revival_candidate_excludes_never_production():
@@ -649,6 +739,23 @@ def test_probe_revival_skips_quality_rejections():
 
     assert _mod.probe_revivals(reg, _p) == []
     assert called == []
+
+
+def test_probe_revival_skips_source_still_live_in_config():
+    """现役 config 里还有这个源 → 根本不该进探测队列，prober 一次都不该被调用。"""
+    reg = _registry([_rejected("Endpoints News", "persistent-403-removed",
+                               url="https://endpoints.news/feed/")])
+    calls = []
+
+    def _prober(name, url):
+        calls.append(url)
+        return {"ok": True, "error": None, "article_count": 24, "newest_age_hours": 1.0}
+
+    out = _mod.probe_revivals(reg, _prober, resolver=lambda u: u,
+                              live_feeds=[{"name": "Endpoints News",
+                                           "url": "http://endpts.com/feed"}])
+    assert out == []
+    assert calls == []
 
 
 def test_probe_revival_tries_fallback_url_too():

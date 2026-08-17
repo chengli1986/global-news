@@ -24,15 +24,20 @@ LOG_PATH = os.path.join(SCRIPT_DIR, "logs", "production-source-log.jsonl")
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 SENDER_FILE = os.path.join(SCRIPT_DIR, "unified-global-news-sender.py")
 PLAN_C_CATEGORIES = ("healthcare", "vertical", "global_south")  # categories with no dedicated board until 方案 C
+SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
 ROTATION_MIN_GROUP = 3
 ROTATION_WINDOW_DAYS = 30
 ROTATION_MIN_ACTIVE_DAYS = 7
 ROTATION_GRACE_DAYS = 30
+# 比例阈值(组中位/2)在中位数附近是悬崖：2026-08-16 周报点名 RFI English(30.39%)，
+# 同组 The Guardian World(31.37%) 安全——差半篇文章，判定却是"永久下线"vs"没事"。
+# 要求同时跨过这个绝对边距，把噪声挡在外面。
+ROTATION_MIN_MARGIN = 0.03
 
 # 复活探测：这些 reject_reason 关键词代表"质量不行被汰"，恢复了也不该回来。
 # 用排除法而非白名单——将来出现新的技术性下线原因（如 dns-fail）会自动纳入探测。
-REVIVAL_QUALITY_MARKERS = ("pool-cap", "rotation-group-laggard", "zombie",
-                           "duplicate", "auto-removed")
+# 定义在 rss_registry，与 rss-trial-manager 的 retry 守卫共用一份，避免口径漂移。
+REVIVAL_QUALITY_MARKERS = _reg.QUALITY_REJECT_MARKERS
 HEALTH_CHECK_FILE = os.path.join(SCRIPT_DIR, "rss-health-check.py")
 REVIVAL_MAX_AGE_HOURS = 24 * 365  # 绕过 staleness 判定：复活探测只关心"解析得出文章"
 
@@ -204,13 +209,17 @@ def find_degraded(registry, records, now, *, recent_days=7, baseline_days=60,
 
 def find_rotation_candidates(registry, records, now, *, window_days=30,
                              min_group=3, min_active_days=7, grace_days=30,
-                             zombie_max=1) -> list:
+                             zombie_max=1, min_margin=ROTATION_MIN_MARGIN) -> list:
     """组内实测优胜劣汰：每个 category 内**入选率**垫底且明显低于同类的源 → 建议轮换。
 
     口径为入选率(selected/fetched)而非绝对入选数：`fetched` 由 news-sources-config
     的 per-source `limit` 配额决定（limit=3 → 30d 抓 ~99 篇，limit=6 → ~198），
     绝对入选数的天花板被配额锁死，按绝对数比中位会系统性误判小配额源垫底
     （2026-07-26 IEEE Spectrum 误报：44% 入选率却因 limit=3 被点名）。
+
+    判据是两道门：入选率 < 组内中位的一半，**且**比这个阈值再低 min_margin 个百分点。
+    只有比例这一道时，中位数附近就是悬崖——2026-08-16 周报点名 RFI English(30.39%)，
+    同组 The Guardian World(31.37%) 安全，两者差半篇文章，判定却是永久下线 vs 没事。
 
     保多元：legacy(无 category)豁免；组内有数据源 <= min_group 整组豁免；每组最多标 1 个。
     去重：selected <= zombie_max 的归 A 僵尸，不在此重复。低频保护沿用 active_days/在岗宽限。
@@ -242,7 +251,7 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
         t = tenure_days(s, now)
         if t is not None and t < grace_days:       # 在岗宽限
             continue
-        if rate < rate_median / 2:                 # 明显低于同类
+        if rate < rate_median / 2 - min_margin:    # 明显低于同类（比例 + 绝对边距）
             out.append({"name": s["name"], "category": cat, "selected": sel,
                         "fetched": a["fetched"], "rate": rate,
                         "group_rate_median": rate_median,
@@ -251,14 +260,45 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
     return out
 
 
-def find_revival_candidates(registry) -> list:
+def _normalize_feed_url(url: str) -> str:
+    """比对用的 URL 规范化：去协议、去尾斜杠、小写。
+
+    registry 里 `https://endpts.com/feed/` 与现役 config 里 `http://endpts.com/feed`
+    是同一个源，字符串直接比对认不出来。
+    """
+    u = (url or "").strip().lower().rstrip("/")
+    for scheme in ("https://", "http://"):
+        if u.startswith(scheme):
+            return u[len(scheme):]
+    return u
+
+
+def _load_live_feeds(sources_file: str = "") -> list:
+    """读现役 config 的 rss_feeds。读不到就当空池——探测多报几条，不至于炸掉周报。"""
+    try:
+        with open(sources_file or SOURCES_FILE, encoding="utf-8") as f:
+            return json.load(f).get("news_sources", {}).get("rss_feeds", [])
+    except Exception:
+        return []
+
+
+def find_revival_candidates(registry, live_feeds=None) -> list:
     """挑出值得探测是否复活的源：曾进过生产、且因技术原因（非质量原因）下线。
 
-    两个条件都要满足：
+    三个条件都要满足：
       1. status=rejected 且带 production 字段（曾真正进过生产）——这排除了
          pool-cap 淘汰的 discovered 候选，它们从未进过生产。
       2. reject_reason 不含质量类关键词，且非空。
+      3. 名字和 URL 都不在现役 config 里。registry 允许同名多条（2026-08-16 实测
+         30 组重名，Endpoints News 独占 4 条），一条 rejected 的幽灵孤儿会让一个
+         从未离岗的源被报成"复活"——照报告去 promote 还会因为 URL 变体绕过
+         rss-promote-candidate.py 的幂等检查，往池里塞进同源重复。
+         live_feeds=None 表示自己去读 SOURCES_FILE；传 [] 才是"池子是空的"。
     """
+    feeds = _load_live_feeds() if live_feeds is None else live_feeds
+    live_names = {(f.get("name") or "").strip().lower() for f in feeds}
+    live_urls = {_normalize_feed_url(f.get("url")) for f in feeds}
+
     out = []
     for s in _reg.get_sources(registry):
         if s.get("status") != "rejected" or not s.get("production"):
@@ -267,6 +307,10 @@ def find_revival_candidates(registry) -> list:
         if not reason:
             continue
         if any(m in reason for m in REVIVAL_QUALITY_MARKERS):
+            continue
+        if (s.get("name") or "").strip().lower() in live_names:
+            continue
+        if _normalize_feed_url(s.get("url")) in live_urls:
             continue
         out.append(s)
     return out
@@ -322,7 +366,8 @@ def _resolve_final_url(url: str, resolver=None) -> str:
 
 
 def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None,
-                   budget_seconds=REVIVAL_PROBE_BUDGET_SECONDS, clock=time.monotonic) -> list:
+                   budget_seconds=REVIVAL_PROBE_BUDGET_SECONDS, clock=time.monotonic,
+                   live_feeds=None) -> list:
     """探测技术性下线的源是否恢复。只返回已恢复的。
 
     判据是 article_count >= 1 而非 status["ok"] —— ok 还含 staleness 判定，
@@ -348,7 +393,7 @@ def probe_revivals(registry, prober=None, *, fallbacks=None, resolver=None,
 
     revived = []
     try:
-        candidates = find_revival_candidates(registry)
+        candidates = find_revival_candidates(registry, live_feeds=live_feeds)
     except Exception:
         return []                 # fail closed：畸形 registry 也不能让异常逃出
     deadline = clock() + budget_seconds

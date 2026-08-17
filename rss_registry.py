@@ -14,6 +14,24 @@ REGISTRY_FILE = os.path.join(SCRIPT_DIR, "config", "rss-registry.json")
 TUNING_FILE = os.path.join(SCRIPT_DIR, "digest-tuning.json")
 DEFAULT_GRADUATE_TIER = "standard"
 
+# reject_reason 里出现这些关键词 = "质量不行被汰"，与"技术原因下线"相对。
+# 两处共用，别各留一份：rss-production-review 用它决定哪些源值得探测复活，
+# rss-trial-manager retry 用它决定哪些源不许回 trial 队列。口径漂移会让一个
+# 被轮换淘汰的源从 retry 溜回池子。
+QUALITY_REJECT_MARKERS = ("pool-cap", "rotation-group-laggard", "zombie",
+                          "duplicate", "auto-removed")
+
+
+def is_quality_rejection(source: dict) -> bool:
+    """这条 rejected 记录是因为质量被汰（而非 403/timeout 这类技术原因）吗？
+
+    reason 为空也算质量类：来历不明的下线不该自动放行。
+    """
+    reason = (source.get("reject_reason") or "").strip().lower()
+    if not reason:
+        return True
+    return any(m in reason for m in QUALITY_REJECT_MARKERS)
+
 
 def _atomic_write(path: str, data: dict) -> None:
     dir_ = os.path.dirname(path) or "."
@@ -209,3 +227,26 @@ def assign_default_tier(name: str,
     tiers.setdefault(default_tier, []).append(name)
     _atomic_write(path, tuning)
     return True
+
+
+def remove_tier(name: str, tuning_path: str | None = None) -> bool:
+    """Drop *name* from every source_tiers list — the mirror of assign_default_tier.
+
+    Without this, demoting a source leaves an orphan tier entry behind and
+    tests/test_region_rules_liveness.py's guard goes red. Idempotent; returns
+    False if the source wasn't tiered or the tuning file is missing.
+    """
+    path = tuning_path or TUNING_FILE
+    if not os.path.isfile(path):
+        return False
+    with open(path, encoding="utf-8") as f:
+        tuning = json.load(f)
+    tiers = tuning.get("source_tiers", {})
+    removed = False
+    for tier, members in tiers.items():
+        if name in members:
+            tiers[tier] = [m for m in members if m != name]
+            removed = True
+    if removed:
+        _atomic_write(path, tuning)
+    return removed

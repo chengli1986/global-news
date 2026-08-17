@@ -69,6 +69,45 @@ def test_demote_existing_production(tmp_path):
     assert feeds[0]["name"] == "Other"
 
 
+def _make_tuning(tmp_path, tiers: dict) -> str:
+    path = str(tmp_path / "digest-tuning.json")
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({"source_tiers": tiers}, f)
+    return path
+
+
+def test_demote_removes_source_tier_entry(tmp_path):
+    """demote 要清掉 digest-tuning.json 里的 tier 条目。
+
+    promote 那侧用 assign_default_tier 写入，demote 不清就是不对称——每 demote
+    一个源就留一条孤儿，tests/test_region_rules_liveness.py 的守卫会红
+    （2026-08-17 demote Dawn Pakistan 时实际发生）。
+    """
+    source = {"name": "Lag Feed", "url": "https://example.com/lag",
+              "status": "production", "production": {"keywords": [], "limit": 3}}
+    reg = _make_registry(tmp_path, [source])
+    src = _make_sources(tmp_path, [{"name": "Lag Feed", "url": "https://example.com/lag"},
+                                   {"name": "Keep Feed", "url": "https://example.com/keep"}])
+    tuning = _make_tuning(tmp_path, {"standard": ["Lag Feed", "Keep Feed"],
+                                     "suppressed": []})
+    assert demote_source("Lag Feed", "rotation-group-laggard",
+                         registry_file=reg, sources_file=src, tuning_file=tuning)
+    tiers = _load_json(tuning)["source_tiers"]
+    assert tiers["standard"] == ["Keep Feed"]
+    assert "Lag Feed" not in {s for names in tiers.values() for s in names}
+
+
+def test_demote_survives_missing_tuning_file(tmp_path):
+    """tuning 文件不存在也不能让 demote 失败——registry/config 才是主线。"""
+    source = {"name": "Lag Feed", "url": "https://example.com/lag",
+              "status": "production", "production": {"keywords": [], "limit": 3}}
+    reg = _make_registry(tmp_path, [source])
+    src = _make_sources(tmp_path, [{"name": "Lag Feed", "url": "https://example.com/lag"}])
+    assert demote_source("Lag Feed", "rotation-group-laggard", registry_file=reg,
+                         sources_file=src, tuning_file=str(tmp_path / "nope.json"))
+    assert _load_json(reg)["sources"][0]["status"] == "rejected"
+
+
 def test_demote_nonexistent(tmp_path):
     """Return False when source not in registry."""
     registry_file = _make_registry(tmp_path, [])

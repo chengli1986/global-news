@@ -875,9 +875,16 @@ def cmd_retry() -> None:
     `retry <name>` clears the trial metadata and makes the source eligible for
     promotion again at the next discovery run.
 
-    Only sources with trial.outcome == 'auto-removed' can be retried. Sources
-    rejected for pool-cap or duplicate_publisher reasons are discovery-level
-    decisions, not trial-level, and shouldn't use this path.
+    Eligible: trial.outcome == 'auto-removed', or a source that reached production
+    and was later demoted for a *technical* reason (persistent 403/timeout/DNS) —
+    rss-production-review's revival probe reports those as alive again, and without
+    this path the only way back into the queue is hand-editing registry JSON.
+
+    Not eligible: quality rejections (pool-cap, rotation-group-laggard, zombie,
+    duplicate…, see _reg.QUALITY_REJECT_MARKERS). Those are deliberate decisions —
+    a source voted out for a bottom-of-group selection rate must not slip back in
+    through retry. A blank reject_reason counts as quality too: an unexplained
+    demotion doesn't get auto-forgiven.
 
     Usage: rss-trial-manager.py retry "<source name>"
     """
@@ -898,10 +905,15 @@ def cmd_retry() -> None:
         sys.exit(1)
 
     prior_trial = target.get("trial") or {}
-    if target.get("status") != "rejected" or prior_trial.get("outcome") != "auto-removed":
+    was_auto_removed = prior_trial.get("outcome") == "auto-removed"
+    # 曾进过生产、因技术原因（403/timeout/DNS…）被摘的源同样可以回队列——
+    # 复活探测报了它活过来，却没有入口能送它回去，就只能手改 registry JSON。
+    was_technically_demoted = bool(target.get("production")) and not _reg.is_quality_rejection(target)
+    if target.get("status") != "rejected" or not (was_auto_removed or was_technically_demoted):
         print(f"ERROR: '{name}' is not retry-eligible "
-              f"(status={target.get('status')}, outcome={prior_trial.get('outcome')}). "
-              f"Only auto-removed trials can be retried.", file=sys.stderr)
+              f"(status={target.get('status')}, outcome={prior_trial.get('outcome')}, "
+              f"reject_reason={target.get('reject_reason')}). Only auto-removed trials "
+              f"or technically-demoted production sources can be retried.", file=sys.stderr)
         sys.exit(1)
 
     # Preserve the old trial run as history on the source for audit trail

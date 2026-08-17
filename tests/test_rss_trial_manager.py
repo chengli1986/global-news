@@ -326,6 +326,61 @@ class TestCmdRetry(unittest.TestCase):
             self.assertEqual(reg["sources"][0]["status"], "rejected")
             self.assertEqual(reg["sources"][0]["reject_reason"], "pool-cap")
 
+    def test_retry_accepts_technically_demoted_production_source(self):
+        """曾进过生产、因技术原因（403/timeout）下线的源，也该能回 trial 队列。
+
+        rss-production-review 的复活探测会报"这个源又能抓到文章了"，但在此之前
+        没有任何受支持的入口能把它送回队列——邮件只能建议手改 registry JSON。
+        Nikkei Asia via rsshub 就是这种：trial 期 21/21 全入选、auto-graduated
+        毕业进生产，两周后 persistent-timeout 被摘，outcome 不是 auto-removed。
+        """
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = {
+                "name": "Nikkei Asia via rsshub",
+                "url": "https://rsshub.rssforever.com/nikkei/asia",
+                "status": "rejected",
+                "reject_reason": "persistent-timeout-removed-from-sources-2026-05-21",
+                "scores": {"final": 0.899},
+                "trial": {"start_date": "2026-05-03", "end_date": "2026-05-06",
+                          "outcome": "auto-graduated", "daily_stats": [],
+                          "auto_decided": True, "candidate_score": 0.899},
+                "production": {"keywords": [], "limit": 3},
+            }
+            reg_path = self._seed_registry(tmp_dir, target)
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "retry",
+                                            "Nikkei Asia via rsshub"]):
+                tm.cmd_retry()
+            with open(reg_path) as f:
+                s = json.load(f)["sources"][0]
+            self.assertEqual(s["status"], "discovered")
+            self.assertIsNone(s["trial"])
+            self.assertNotIn("reject_reason", s)
+            self.assertEqual(s["trial_history"][0]["outcome"], "auto-graduated")
+
+    def test_retry_refuses_rotation_demoted_production_source(self):
+        """因入选率垫底被轮换掉的源，曾进过生产也不能靠 retry 溜回来。"""
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            target = {
+                "name": "Laggard Feed",
+                "url": "https://laggard.example.com/rss",
+                "status": "rejected",
+                "reject_reason": "rotation-group-laggard",
+                "scores": {"final": 0.88},
+                "trial": {"outcome": "auto-graduated", "daily_stats": []},
+                "production": {"keywords": [], "limit": 3},
+            }
+            reg_path = self._seed_registry(tmp_dir, target)
+            with patch.object(_reg, "REGISTRY_FILE", reg_path), \
+                 patch.object(sys, "argv", ["rss-trial-manager.py", "retry", "Laggard Feed"]):
+                with self.assertRaises(SystemExit) as cm:
+                    tm.cmd_retry()
+                self.assertEqual(cm.exception.code, 1)
+            with open(reg_path) as f:
+                s = json.load(f)["sources"][0]
+            self.assertEqual(s["status"], "rejected")
+            self.assertEqual(s["reject_reason"], "rotation-group-laggard")
+
     def test_retry_refuses_unknown_name(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
             reg_path = self._seed_registry(tmp_dir, {
