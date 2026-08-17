@@ -207,9 +207,53 @@ def find_degraded(registry, records, now, *, recent_days=7, baseline_days=60,
     return out
 
 
+@functools.lru_cache(maxsize=1)
+def _load_region_map() -> dict:
+    """source name → 邮件板块，取自 evaluate_digest.SOURCE_TO_REGION。
+
+    读不到就返回 {}——豁免随之失效（回到只有比例+边距两道门），但周报照发。
+    """
+    try:
+        import evaluate_digest
+        return dict(evaluate_digest.SOURCE_TO_REGION)
+    except Exception:
+        return {}
+
+
+def find_sole_region_sources(registry, region_map=None) -> set:
+    """现役源里，哪些是自己那个邮件板块的唯一供给。
+
+    只数 production：已离池的源留在映射表里会让板块显得"还有人撑着"
+    （路由表死引用是这个系统反复出现的漂移，见 tests/test_region_rules_liveness.py）。
+    """
+    rmap = _load_region_map() if region_map is None else region_map
+    live = {s.get("name") for s in _reg.get_by_status(registry, "production")}
+    per_region = {}
+    for name in live:
+        region = rmap.get(name)
+        if region:
+            per_region.setdefault(region, []).append(name)
+    return {names[0] for names in per_region.values() if len(names) == 1}
+
+
+def find_exempt_laggards(registry, records, now, *, region_map=None, **kw) -> list:
+    """本该被标为轮换候选、但因是板块唯一供给而豁免的源。
+
+    豁免绝不能是静默的：入选率垫底仍然是个信号，藏起来等于把"该补源了"这件事
+    一起藏了。报告单列一节，附板块名，让人知道要先补源再谈淘汰。
+    """
+    sole = find_sole_region_sources(registry, region_map)
+    if not sole:
+        return []
+    rmap = _load_region_map() if region_map is None else region_map
+    raw = find_rotation_candidates(registry, records, now, region_map={}, **kw)
+    return [dict(r, region=rmap.get(r["name"], "?")) for r in raw if r["name"] in sole]
+
+
 def find_rotation_candidates(registry, records, now, *, window_days=30,
                              min_group=3, min_active_days=7, grace_days=30,
-                             zombie_max=1, min_margin=ROTATION_MIN_MARGIN) -> list:
+                             zombie_max=1, min_margin=ROTATION_MIN_MARGIN,
+                             region_map=None) -> list:
     """组内实测优胜劣汰：每个 category 内**入选率**垫底且明显低于同类的源 → 建议轮换。
 
     口径为入选率(selected/fetched)而非绝对入选数：`fetched` 由 news-sources-config
@@ -221,10 +265,15 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
     只有比例这一道时，中位数附近就是悬崖——2026-08-16 周报点名 RFI English(30.39%)，
     同组 The Guardian World(31.37%) 安全，两者差半篇文章，判定却是永久下线 vs 没事。
 
-    保多元：legacy(无 category)豁免；组内有数据源 <= min_group 整组豁免；每组最多标 1 个。
+    保多元：legacy(无 category)豁免；组内有数据源 <= min_group 整组豁免；每组最多标 1 个；
+    **组内垫底源若是某邮件板块的唯一供给则整组本轮不标**（棘轮效应：每淘汰一个就把组
+    中位推高、机械造出下一个垫底，2026-08-17 demote Dawn Pakistan 后 CNA 当场从
+    "被挡住"变成 −7.11pp，而 ASIA-PACIFIC 只有 CNA 一个源）。被这条挡下的源不会消失，
+    由 find_exempt_laggards 单列进报告。
     去重：selected <= zombie_max 的归 A 僵尸，不在此重复。低频保护沿用 active_days/在岗宽限。
     """
     import collections
+    sole_region_sources = find_sole_region_sources(registry, region_map)
     agg = aggregate_by_source(filter_window(records, now, window_days))
     by_cat = collections.defaultdict(list)
     for s in _reg.get_by_status(registry, "production"):
@@ -244,6 +293,8 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
         median = statistics.median(sorted(a["selected"] for _, a in live))
         s, a = min(live, key=lambda x: _rate(x[1]))        # 组内入选率最低
         sel, ad, rate = a["selected"], a["active_days"], _rate(a)
+        if s["name"] in sole_region_sources:       # 板块唯一供给：没替代源不能淘汰
+            continue
         if sel <= zombie_max:                      # 归 A 僵尸，不重复
             continue
         if ad < min_active_days:                   # 低频样本保护
@@ -448,7 +499,7 @@ def _esc(s) -> str:
 
 
 def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None,
-                      revival_html_block="") -> str:
+                      revival_html_block="", exempt=None) -> str:
     """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
     ts = now.strftime("%Y-%m-%d %H:%M BJT")
 
@@ -489,6 +540,27 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
     else:
         rot_section = ""
 
+    if exempt:
+        e_rows = "".join(
+            f"<tr><td>{_esc(x['name'])}</td><td>{_esc(x['category'])}</td>"
+            f"<td>{_esc(x.get('region', '?'))}</td>"
+            f"<td style='text-align:center'>{x['rate']:.0%}</td>"
+            f"<td style='text-align:center'>{x['group_rate_median']:.0%}</td>"
+            f"<td style='text-align:center'>{x['selected']}/{x['fetched']}</td></tr>"
+            for x in exempt)
+        exempt_section = (
+            f"<h3>🛡️ 板块唯一源豁免（{len(exempt)}）入选率够得上轮换，但没有替代源</h3>"
+            "<p style='color:#666;font-size:13px;margin:4px 0'>这些源是所列邮件板块的"
+            "<b>唯一供给</b>，淘汰即该板块无源级保障，故本轮不建议 demote，也不给命令。"
+            "要处理请<b>先补一个同板块的源</b>（discovery/trial 走完），下轮它们会自动回到"
+            "建议轮换里。<b>不补源就长期挂在这里</b>——这条豁免只挡刀，不解决入选率低本身。</p>"
+            "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
+            "<tr style='background:#e8f5e9'><th>源</th><th>类别</th><th>邮件板块</th>"
+            "<th>30d 入选率</th><th>组内入选率中位</th><th>30d 入选/抓取</th></tr>"
+            f"{e_rows}</table>")
+    else:
+        exempt_section = ""
+
     if degraded:
         d_rows = "".join(
             f"<tr><td>{_esc(d['name'])}</td><td>{_esc(d['signal'])}</td>"
@@ -510,7 +582,7 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
                     f"{snap_rows}</table>")
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
-            f"{revival_html_block}{plan_c_html}{a_section}{rot_section}"
+            f"{revival_html_block}{plan_c_html}{a_section}{rot_section}{exempt_section}"
             f"{b_section}{snap_section}")
 
 
@@ -656,6 +728,7 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     degraded = find_degraded(registry, records, now)
     snapshot = snapshot_rows(registry, records, now)
     rotation = find_rotation_candidates(registry, records, now)
+    exempt = find_exempt_laggards(registry, records, now)
     plan_c_html = plan_c_reminder_html(registry, records, now)
     try:
         revived = probe_revivals(registry)
@@ -666,11 +739,12 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
         revival_block = ""
         print("[prod-review] revival probe/render failed, skipping revival section")
     html = build_report_html(zombies, degraded, snapshot, now, plan_c_html, rotation,
-                             revival_block)
+                             revival_block, exempt)
     subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸 / {len(rotation)} 建议轮换 / "
                f"{len(degraded)} 变质 — {now.strftime('%m月%d日')}")
     print(f"[prod-review] {len(zombies)} zombies, {len(degraded)} degraded, "
-          f"{len(snapshot)} sources reviewed, {len(revived)} revived.")
+          f"{len(snapshot)} sources reviewed, {len(revived)} revived, "
+          f"{len(exempt)} exempt (sole source of a digest region).")
     if send:
         if not send_report_email(html, subject):
             return 1

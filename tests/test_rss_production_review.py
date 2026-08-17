@@ -62,6 +62,21 @@ def _empty_live_pool(monkeypatch):
     monkeypatch.setattr(_mod, "_load_live_feeds", lambda *a, **kw: [])
 
 
+_REAL_LOAD_REGION_MAP = _mod._load_region_map
+
+
+@pytest.fixture(autouse=True)
+def _no_region_map(monkeypatch):
+    """默认关掉"板块唯一源豁免"，让轮换测试只考察比例+边距两道门。
+
+    同 _empty_live_pool 的理由：不隔离的话，测试里的假源名一旦和
+    evaluate_digest.SOURCE_TO_REGION 撞上，断言就变成在测真实路由表的内容。
+    要考察豁免本身的测试显式传 region_map=，要考察默认读取路径的换回
+    _REAL_LOAD_REGION_MAP。
+    """
+    monkeypatch.setattr(_mod, "_load_region_map", lambda: {})
+
+
 def _write_log(tmp_path, lines: list) -> str:
     p = str(tmp_path / "prod-log.jsonl")
     with open(p, "w", encoding="utf-8") as f:
@@ -269,6 +284,35 @@ def test_cmd_run_builds_and_sends(tmp_path, monkeypatch):
     assert "1 僵尸" in captured["subject"]
 
 
+def test_cmd_run_wires_exempt_laggards_into_report(tmp_path, monkeypatch):
+    """同 revival 那条的理由：exempt 是 build_report_html 的第 8 个带默认值的参数，
+    cmd_run 漏传的话豁免清单会静默消失、测试却全绿。这条专盯接线。
+    """
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(_registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Sole")]), f)
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Sole", 100, 20) for d in range(1, 11)]
+    log_path = _write_log(tmp_path, recs)
+
+    monkeypatch.setattr(_mod, "_load_region_map",
+                        lambda: {"Sole": "亚太要闻 ASIA-PACIFIC"})
+    monkeypatch.setattr(_reg, "REGISTRY_FILE", reg_path)
+    captured = {}
+
+    def fake_send(html, subject, env_path=_mod.ENV_FILE):
+        captured["html"] = html
+        return True
+    monkeypatch.setattr(_mod, "send_report_email", fake_send)
+
+    assert _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True) == 0
+    assert "板块唯一源豁免" in captured["html"]
+    assert "亚太要闻 ASIA-PACIFIC" in captured["html"]
+    # 豁免了就不该同时出现在建议轮换里
+    assert "--name \"Sole\"" not in captured["html"]
+
+
 def test_cmd_run_wires_probe_revivals_into_report(tmp_path, monkeypatch):
     """Minor(#4)：build_report_html 的 revival_html_block 参数有默认值 ""——
     将来重构时漏传第 7 个实参，功能会静默失效而所有测试仍然全绿。这条测试专门
@@ -462,6 +506,25 @@ def test_build_report_includes_rotation_section():
     assert "rss-demote-source.py" in html
 
 
+def test_build_report_includes_exempt_section():
+    """被板块唯一源豁免挡下的垫底源要在报告里露面，附板块名，且不给 demote 命令。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    exempt = [{"name": "CNA", "category": "hk_sea", "selected": 55, "fetched": 204,
+               "rate": 0.2696, "group_rate_median": 0.68, "group_median": 96,
+               "group_size": 5, "tenure_days": None, "region": "亚太要闻 ASIA-PACIFIC"}]
+    html = _mod.build_report_html([], [], [], now, "", [], "", exempt)
+    assert "CNA" in html
+    assert "亚太要闻 ASIA-PACIFIC" in html
+    assert "27%" in html
+    assert "rss-demote-source.py --name \"CNA\"" not in html
+
+
+def test_build_report_no_exempt_section_when_empty():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now, "", [], "", [])
+    assert "板块唯一源" not in html
+
+
 def test_build_report_no_rotation_section_when_empty():
     now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
     html = _mod.build_report_html([], [], [], now, "", [])
@@ -516,6 +579,77 @@ def test_rotation_flags_laggard_beyond_absolute_margin():
     recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
     recs += [_rec(d, "Far", 100, 26) for d in range(1, 11)]  # 26% vs 阈值 30%，差 4pp
     assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["Far"]
+
+
+def test_rotation_exempts_sole_source_of_a_digest_region():
+    """组内垫底源若是某邮件板块的唯一供给 → 整组本轮不标。
+
+    2026-08-17 实测的棘轮效应：demote 掉 hk_sea 垫底的 Dawn Pakistan 后，组内中位
+    从 60.7% 被推到 68%、阈值升到 34.07%，CNA 立刻从"被每组最多标1个挡住"变成
+    −7.11pp 的头号候选——而 evaluate_digest 里 ASIA-PACIFIC 板块只有 CNA 一个源。
+    规则每淘汰一个就机械造出下一个垫底，没有替代源时不能让它继续吃。
+    """
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Sole")])
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Sole", 100, 20) for d in range(1, 11)]  # 20% vs 阈值 30%
+    region_map = {"Sole": "亚太要闻 ASIA-PACIFIC", "A": "全球政治 GLOBAL POLITICS",
+                  "B": "全球政治 GLOBAL POLITICS", "C": "全球政治 GLOBAL POLITICS"}
+    assert _mod.find_rotation_candidates(reg, recs, now, region_map=region_map) == []
+
+
+def test_rotation_still_flags_when_region_has_another_source():
+    """同板块还有别的源撑着 → 照标不误，豁免只保唯一供给。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Lag")])
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Lag", 100, 20) for d in range(1, 11)]
+    region_map = {"Lag": "亚太要闻 ASIA-PACIFIC", "A": "亚太要闻 ASIA-PACIFIC",
+                  "B": "全球政治 GLOBAL POLITICS", "C": "全球政治 GLOBAL POLITICS"}
+    out = _mod.find_rotation_candidates(reg, recs, now, region_map=region_map)
+    assert [x["name"] for x in out] == ["Lag"]
+
+
+def test_exempt_laggards_surfaces_the_shielded_source():
+    """豁免不能是静默的——被保护下来的垫底源要能单独报出来，附板块名。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Sole")])
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Sole", 100, 20) for d in range(1, 11)]
+    region_map = {"Sole": "亚太要闻 ASIA-PACIFIC", "A": "全球政治 GLOBAL POLITICS",
+                  "B": "全球政治 GLOBAL POLITICS", "C": "全球政治 GLOBAL POLITICS"}
+    out = _mod.find_exempt_laggards(reg, recs, now, region_map=region_map)
+    assert [x["name"] for x in out] == ["Sole"]
+    assert out[0]["region"] == "亚太要闻 ASIA-PACIFIC"
+    assert round(out[0]["rate"], 2) == 0.20
+
+
+def test_exempt_laggards_empty_when_nobody_would_be_flagged():
+    """没人够得上被标 → 豁免清单也是空的，别把健康的唯一源天天挂出来。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Sole")])
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Sole", 100, 55) for d in range(1, 11)]  # 55%，健康
+    region_map = {"Sole": "亚太要闻 ASIA-PACIFIC"}
+    assert _mod.find_exempt_laggards(reg, recs, now, region_map=region_map) == []
+
+
+def test_sole_region_sources_counts_only_production():
+    """已离池的源不该让一个板块显得"还有两个源撑着"。"""
+    reg = _registry([_prod_cat("Live", "hk_sea"),
+                     {"name": "Gone", "category": "hk_sea", "status": "rejected"}])
+    region_map = {"Live": "亚太要闻 ASIA-PACIFIC", "Gone": "亚太要闻 ASIA-PACIFIC"}
+    assert _mod.find_sole_region_sources(reg, region_map) == {"Live"}
+
+
+def test_load_region_map_reads_evaluate_digest():
+    """默认路径：真的从 evaluate_digest 拿到板块映射，而不是静默返回空表。
+
+    空表会让豁免整条失效且不报错——这个测试是它唯一的哨兵。
+    """
+    rmap = _REAL_LOAD_REGION_MAP()
+    assert rmap, "SOURCE_TO_REGION 没读到——evaluate_digest 结构变了？"
+    assert all(isinstance(v, str) and v for v in rmap.values())
 
 
 def test_build_report_rotation_shows_selection_rate():
