@@ -3289,7 +3289,7 @@
       "url": "https://rsshub.rssforever.com/nikkei/asia",
       "language": "en",
       "category": "hk_sea",
-      "status": "discovered",
+      "status": "trialing",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -3311,7 +3311,15 @@
         "uniqueness": 0.72,
         "final": 0.899
       },
-      "trial": null,
+      "trial": {
+        "start_date": "2026-08-18",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.899
+      },
       "production": {
         "keywords": [],
         "limit": 3
