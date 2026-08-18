@@ -9907,6 +9907,63 @@
         "final": 0.839
       },
       "status": "discovered"
+    },
+    {
+      "name": "Fortune",
+      "url": "https://fortune.com/feed/",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 1.07,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 137,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.85,
+        "uniqueness": 0.35,
+        "final": 0.805
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "CBC News Top Stories",
+      "url": "http://rss.cbc.ca/lineup/topstories.xml",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 1193.69,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 180,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 0.69,
+        "content_depth": 0.6,
+        "authority": 0.78,
+        "uniqueness": 0.58,
+        "final": 0.622
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     }
   ]
 }
