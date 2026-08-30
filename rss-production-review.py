@@ -25,6 +25,10 @@ ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 SENDER_FILE = os.path.join(SCRIPT_DIR, "unified-global-news-sender.py")
 PLAN_C_CATEGORIES = ("healthcare", "vertical", "global_south")  # categories with no dedicated board until 方案 C
 SOURCES_FILE = os.path.join(SCRIPT_DIR, "news-sources-config.json")
+TUNING_FILE = os.path.join(SCRIPT_DIR, "digest-tuning.json")
+# digest_pipeline._get_tier() 找不到源时返回 "commodity"（不是 standard）——
+# 这里必须与 ranker 保持同一口径，否则报告会把 0.6 的源标成 1.0。
+RANKER_FALLBACK_TIER = "commodity"
 ROTATION_MIN_GROUP = 3
 ROTATION_WINDOW_DAYS = 30
 ROTATION_MIN_ACTIVE_DAYS = 7
@@ -355,6 +359,77 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
     return out
 
 
+def _load_tuning(tuning_path: str = "") -> dict:
+    """读 digest-tuning.json。读不到返回 {} —— 标注消失，但周报照发。"""
+    try:
+        with open(tuning_path or TUNING_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def tier_of(name: str, *, tuning_path: str = "", tuning=None):
+    """(tier, boost)；读不到配置返回 (None, None)。
+
+    未显式列出的源按 ranker 的 fallback 算成 commodity(0.6)。
+    ⚠ rss_registry / trial-manager 的 docstring 长期写着"默认 1.0"，那是错的
+    （2026-08-30 实测订正）——这里跟 digest_pipeline._get_tier() 对齐。
+    """
+    t = _load_tuning(tuning_path) if tuning is None else tuning
+    tiers = t.get("source_tiers")
+    if not tiers:
+        return (None, None)
+    tier = next((k for k, members in tiers.items() if name in members),
+                RANKER_FALLBACK_TIER)
+    return (tier, t.get("tier_boost", {}).get(tier))
+
+
+def board_quota_note(name, registry, *, region_map=None, tuning_path: str = "",
+                     tuning=None):
+    """源所属邮件板块的**配置事实**：限额多少、几个现役源默认落在这里。
+
+    刻意只报配置、不报"饱和度%"：算饱和度得假设 source-default 就是文章的实际
+    落位，而实测按该假设 MACRO/AI 两个板块得出 139%/141%（Stage 3 地名路由与
+    Stage 4 LLM 会把文章送去别的板块），前提本身不成立。给一个自己都不信的
+    百分比比不给更糟 —— 这里只陈述"这个源的板块是几个源共享的限额池"，
+    是不是问题交给人判断。
+    """
+    rmap = _load_region_map() if region_map is None else region_map
+    board = rmap.get(name)
+    if not board:
+        return None
+    quotas = (_load_tuning(tuning_path) if tuning is None else tuning).get("region_quotas", {})
+    q = quotas.get(board)
+    if not q:
+        return None
+    live = {s.get("name") for s in _reg.get_by_status(registry, "production")}
+    sharers = sum(1 for n in live if rmap.get(n) == board)
+    return {"board": board, "max": q.get("max"), "min": q.get("min"),
+            "sharers": sharers}
+
+
+def annotate_config_context(rows, registry, *, region_map=None,
+                            tuning_path: str = "") -> list:
+    """给报告行补上 tier / 板块限额这两类**配置事实**，不参与判定。
+
+    入选率被三个旋钮共同决定：tier_boost(0.1–1.5)、板块限额、板块归属。
+    判据按组内相对比已经消掉一部分，但同组里混着不同 tier 时仍会失真
+    （实测：CNA 是 hk_sea 唯一的 commodity(0.6)，同组其余全是 standard(1.0)，
+    而它的 feed 元数据这四个月反而在变好）。把旋钮摆到台面上，让人自己判断。
+    """
+    tuning = _load_tuning(tuning_path)
+    rmap = _load_region_map() if region_map is None else region_map
+    out = []
+    for r in rows:
+        tier, boost = tier_of(r["name"], tuning=tuning)
+        note = board_quota_note(r["name"], registry, region_map=rmap, tuning=tuning)
+        out.append(dict(r, tier=tier, tier_boost=boost,
+                        board=note["board"] if note else None,
+                        board_max=note["max"] if note else None,
+                        board_sharers=note["sharers"] if note else None))
+    return out
+
+
 def annotate_successors(registry, records, now, rotation, **kw) -> list:
     """给每条轮换建议标出"执行后下一个垫底是谁"。
 
@@ -574,6 +649,19 @@ IRREVERSIBLE_HTML = (
     "要回池只能重新走 discovery/trial。</p>")
 
 
+def _config_cell(r: dict) -> str:
+    """配置上下文列：tier(权重) + 板块限额。纯事实，不下判断。"""
+    bits = []
+    tier, boost = r.get("tier"), r.get("tier_boost")
+    if tier:
+        mark = " ⚠降权" if isinstance(boost, (int, float)) and boost < 1.0 else ""
+        bits.append(f"{_esc(tier)}({boost}×){mark}")
+    if r.get("board") and r.get("board_max"):
+        bits.append(f"{_esc(r['board'])} 限额{r['board_max']}/天，"
+                    f"{r['board_sharers']} 源共享")
+    return "<br>".join(bits) if bits else "—"
+
+
 def _self_trend_cell(r: dict) -> str:
     """轮换建议里的"自身趋势"列：上一同长窗口的入选率 → 现在。
 
@@ -632,6 +720,7 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
             f"<td style='text-align:center'>{r['group_rate_median']:.0%}</td>"
             f"<td style='text-align:center'>{r['selected']}/{r['fetched']}</td>"
             f"<td style='text-align:center'>{r['group_size']}</td>"
+            f"<td style='font-size:12px'>{_config_cell(r)}</td>"
             f"<td style='text-align:center'>{_self_trend_cell(r)}</td>"
             f"<td style='text-align:center'>{_successor_cell(r)}</td>"
             f"<td><code>python3 ~/global-news/rss-demote-source.py --name \"{_esc(r['name'])}\" "
@@ -645,12 +734,21 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
                        "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
                        "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 入选率</th>"
                        "<th>组内入选率中位</th><th>30d 入选/抓取</th><th>组大小</th>"
-                       "<th>自身趋势</th><th>执行后下一个垫底</th><th>确认后执行</th></tr>"
+                       "<th>配置上下文</th><th>自身趋势</th>"
+                       "<th>执行后下一个垫底</th><th>确认后执行</th></tr>"
                        f"{r_rows}</table>")
     else:
         rot_section = ""
 
     warn_section = IRREVERSIBLE_HTML if (zombies or rotation) else ""
+    if any(isinstance(r.get("tier_boost"), (int, float)) and r["tier_boost"] < 1.0
+           for r in list(rotation or []) + list(exempt or [])):
+        warn_section += (
+            "<p style='background:#eef2ff;border-left:4px solid #6366f1;padding:8px 12px;"
+            "margin:10px 0;font-size:13px'>ℹ️ 名单里有<b>被人为降权</b>的源"
+            "（tier_boost &lt; 1.0）。它们的入选率天然低于同组 standard 源——"
+            "这是我们自己的编辑取向，不是内容质量。判定按组内相对比已消掉一部分，"
+            "但同组混着不同 tier 时仍会失真，请结合这一列自行判断。</p>")
 
     if exempt:
         e_rows = "".join(
@@ -658,7 +756,8 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
             f"<td>{_esc(x.get('region', '?'))}</td>"
             f"<td style='text-align:center'>{x['rate']:.0%}</td>"
             f"<td style='text-align:center'>{x['group_rate_median']:.0%}</td>"
-            f"<td style='text-align:center'>{x['selected']}/{x['fetched']}</td></tr>"
+            f"<td style='text-align:center'>{x['selected']}/{x['fetched']}</td>"
+            f"<td style='font-size:12px'>{_config_cell(x)}</td></tr>"
             for x in exempt)
         exempt_section = (
             f"<h3>🛡️ 板块唯一源豁免（{len(exempt)}）入选率够得上轮换，但没有替代源</h3>"
@@ -668,7 +767,8 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
             "建议轮换里。<b>不补源就长期挂在这里</b>——这条豁免只挡刀，不解决入选率低本身。</p>"
             "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
             "<tr style='background:#e8f5e9'><th>源</th><th>类别</th><th>邮件板块</th>"
-            "<th>30d 入选率</th><th>组内入选率中位</th><th>30d 入选/抓取</th></tr>"
+            "<th>30d 入选率</th><th>组内入选率中位</th><th>30d 入选/抓取</th>"
+            "<th>配置上下文</th></tr>"
             f"{e_rows}</table>")
     else:
         exempt_section = ""
@@ -839,9 +939,12 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     zombies = find_zombies(registry, records, now)
     degraded = find_degraded(registry, records, now)
     snapshot = snapshot_rows(registry, records, now)
-    rotation = annotate_successors(registry, records, now,
-                                   find_rotation_candidates(registry, records, now))
-    exempt = find_exempt_laggards(registry, records, now)
+    rotation = annotate_config_context(
+        annotate_successors(registry, records, now,
+                            find_rotation_candidates(registry, records, now)),
+        registry)
+    exempt = annotate_config_context(find_exempt_laggards(registry, records, now),
+                                     registry)
     plan_c_html = plan_c_reminder_html(registry, records, now)
     try:
         revived = probe_revivals(registry)

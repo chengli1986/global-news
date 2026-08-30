@@ -1380,3 +1380,125 @@ def test_report_shows_self_trend_column():
     html = _mod.build_report_html([], [], [], now, "", rotation)
     assert "自身趋势" in html
     assert "42%" in html
+
+
+# --- C：权重/配额只标注不判定 ---------------------------------------------
+
+_TUNING_FIXTURE = {
+    "source_tiers": {"premium": ["Prem"], "standard": ["Std"], "commodity": ["Cheap"]},
+    "tier_boost": {"premium": 1.5, "standard": 1.0, "commodity": 0.6, "suppressed": 0.1},
+    "region_quotas": {"甲板块": {"min": 4, "max": 10}, "乙板块": {"min": 8, "max": 14}},
+}
+
+
+def _tuning_file(tmp_path):
+    p = tmp_path / "digest-tuning.json"
+    p.write_text(json.dumps(_TUNING_FIXTURE, ensure_ascii=False), encoding="utf-8")
+    return str(p)
+
+
+def test_tier_of_reads_explicit_tier_and_boost(tmp_path):
+    t = _tuning_file(tmp_path)
+    assert _mod.tier_of("Prem", tuning_path=t) == ("premium", 1.5)
+    assert _mod.tier_of("Cheap", tuning_path=t) == ("commodity", 0.6)
+
+
+def test_tier_of_untiered_matches_ranker_fallback(tmp_path):
+    """没写 tier 的源在 ranker 里落到 commodity(0.6)，不是 1.0 —— 别再报错数字。"""
+    t = _tuning_file(tmp_path)
+    assert _mod.tier_of("从没见过", tuning_path=t) == ("commodity", 0.6)
+
+
+def test_tier_of_missing_tuning_file_is_soft(tmp_path):
+    """读不到 tuning 就不标注，周报照发。"""
+    assert _mod.tier_of("X", tuning_path=str(tmp_path / "nope.json")) == (None, None)
+
+
+def test_board_quota_note_reports_cap_and_sharers(tmp_path):
+    """只陈述配置事实：板块限额多少、几个现役源默认落在这里。
+
+    刻意不给"饱和度%"——那要假设 source-default 等于文章实际落位，而实测
+    MACRO/AI 板块按该假设算出 139%/141%，证明前提不成立（Stage 3/4 会把文章
+    路由到别的板块）。给一个自己都不信的百分比，比不给更糟。
+    """
+    reg = _registry([_prod_cat(n, "x") for n in ("A", "B", "C")])
+    rmap = {"A": "甲板块", "B": "甲板块", "C": "乙板块"}
+    note = _mod.board_quota_note("A", reg, region_map=rmap,
+                                 tuning_path=_tuning_file(tmp_path))
+    assert note["board"] == "甲板块"
+    assert note["max"] == 10
+    assert note["sharers"] == 2
+    assert "saturation" not in note
+
+
+def test_board_quota_note_none_when_source_has_no_board(tmp_path):
+    reg = _registry([_prod_cat("A", "x")])
+    assert _mod.board_quota_note("A", reg, region_map={},
+                                 tuning_path=_tuning_file(tmp_path)) is None
+
+
+def test_report_annotates_downweighted_source(tmp_path):
+    """被人为降权的源要在报告里标出来，并说明它的入选率天然低于同组 standard 源。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    rotation = [{"name": "Cheap", "category": "hk_sea", "selected": 20, "fetched": 100,
+                 "rate": 0.20, "group_rate_median": 0.68, "group_median": 50,
+                 "group_size": 5, "tenure_days": 200, "successor": None,
+                 "successor_rate": None, "self_baseline_rate": 0.4, "self_delta": -0.2,
+                 "tier": "commodity", "tier_boost": 0.6,
+                 "board": "甲板块", "board_max": 10, "board_sharers": 4}]
+    html = _mod.build_report_html([], [], [], now, "", rotation)
+    assert "commodity" in html and "0.6" in html
+    assert "甲板块" in html and "10" in html
+    assert "降权" in html
+
+
+def test_report_no_downweight_warning_for_standard_source():
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    rotation = [{"name": "Std", "category": "europe", "selected": 20, "fetched": 100,
+                 "rate": 0.20, "group_rate_median": 0.68, "group_median": 50,
+                 "group_size": 5, "tenure_days": 200, "successor": None,
+                 "successor_rate": None, "self_baseline_rate": 0.4, "self_delta": -0.2,
+                 "tier": "standard", "tier_boost": 1.0,
+                 "board": None, "board_max": None, "board_sharers": None}]
+    html = _mod.build_report_html([], [], [], now, "", rotation)
+    assert "降权" not in html
+
+
+def test_annotate_config_context_fills_tier_and_board(tmp_path):
+    reg = _registry([_prod_cat(n, "x") for n in ("Cheap", "B")])
+    rmap = {"Cheap": "甲板块", "B": "甲板块"}
+    rows = _mod.annotate_config_context(
+        [{"name": "Cheap"}], reg, region_map=rmap, tuning_path=_tuning_file(tmp_path))
+    assert rows[0]["tier"] == "commodity"
+    assert rows[0]["tier_boost"] == 0.6
+    assert rows[0]["board"] == "甲板块"
+    assert rows[0]["board_sharers"] == 2
+
+
+def test_cmd_run_wires_config_context_into_report(tmp_path, monkeypatch):
+    """annotate_config_context 漏接线的话，配置上下文列会静默变成"—"而测试全绿。
+
+    同 exempt / revival 两条接线测试的理由：build_report_html 的这些参数都有默认值。
+    """
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Cheap")])
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(reg, f)
+    recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Cheap", 100, 20) for d in range(1, 11)]
+    recs += _series(now, 61, 31, "Cheap", 100, 50)
+    log_path = _write_log(tmp_path, recs)
+
+    monkeypatch.setattr(_mod, "TUNING_FILE", _tuning_file(tmp_path))
+    monkeypatch.setattr(_mod, "_load_region_map", lambda: {})
+    monkeypatch.setattr(_reg, "REGISTRY_FILE", reg_path)
+    monkeypatch.setattr(_mod, "probe_revivals", lambda *a, **k: [])
+    captured = {}
+    monkeypatch.setattr(_mod, "send_report_email",
+                        lambda html, subject, **kw: captured.update(html=html) or True)
+
+    assert _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True) == 0
+    rot = captured["html"].split("♻️ 建议轮换")[1].split("<h3>")[0]
+    assert "commodity" in rot and "0.6" in rot   # tier 标注真的落到了轮换段里
+    assert "降权" in captured["html"]            # 降权说明条同时出现
