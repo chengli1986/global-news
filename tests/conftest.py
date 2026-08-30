@@ -168,3 +168,46 @@ def sender(minimal_config_file):
     os.environ.setdefault("OPENAI_API_KEY", "test-key-not-real")
     from unified_global_news_sender import UnifiedNewsSender
     return UnifiedNewsSender(config_file=minimal_config_file)
+
+
+# ---------------------------------------------------------------------------
+# 生产配置写入守卫（2026-08-30 加）
+#
+# 起因：给 add_trial_to_config / remove_trial_from_config 补 tier 生命周期时，
+# 两条既有测试只 patch 了 tm.SOURCES_FILE 而没 patch _reg.TUNING_FILE，
+# 于是新加的 _reg.remove_tier() 直接把 ProPublica 从真实 digest-tuning.json 的
+# standard 列表里删掉了 —— 测试全绿，损害发生在被测代码之外。
+#
+# 「测试隔离了它当时知道要隔离的那个文件」是会过期的：被测函数多碰一个文件，
+# 旧测试就静默漏了。这道守卫按文件内容比对，不依赖任何一条测试记得去 patch。
+# ---------------------------------------------------------------------------
+_GUARDED_PROD_FILES = ("digest-tuning.json", "news-sources-config.json",
+                       "config/rss-registry.json")
+
+
+def _snapshot_prod_files() -> dict:
+    snap = {}
+    for rel in _GUARDED_PROD_FILES:
+        path = os.path.join(_global_news_dir, rel)
+        try:
+            with open(path, "rb") as f:
+                snap[rel] = f.read()
+        except OSError:
+            snap[rel] = None
+    return snap
+
+
+@pytest.fixture(autouse=True)
+def _no_writes_to_production_config():
+    """任何测试改动真实生产配置即失败，并当场还原，避免污染后续测试。"""
+    before = _snapshot_prod_files()
+    yield
+    after = _snapshot_prod_files()
+    dirty = [rel for rel in _GUARDED_PROD_FILES if before[rel] != after[rel]]
+    for rel in dirty:                     # 先还原再报错，别让污染扩散
+        if before[rel] is not None:
+            with open(os.path.join(_global_news_dir, rel), "wb") as f:
+                f.write(before[rel])
+    assert not dirty, (
+        f"测试写了真实生产配置 {dirty}（已还原）——"
+        "被测函数多碰了一个文件而这条测试没 patch 它，请补上对应的 patch.object")

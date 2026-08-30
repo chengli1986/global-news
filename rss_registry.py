@@ -207,10 +207,15 @@ def assign_default_tier(name: str,
                         tuning_path: str | None = None) -> bool:
     """Ensure a freshly-graduated source has an explicit tier in digest-tuning.json.
 
-    Sources missing from source_tiers silently get tier_boost=1.0 in the digest
-    ranker, which masks editorial intent and accumulates over time as auto-promote
-    runs. This function inserts the name into the default tier list iff it isn't
+    Sources missing from source_tiers fall through digest_pipeline._get_tier()
+    to "commodity" (tier_boost=0.6) — NOT 1.0 as this docstring claimed until
+    2026-08-30. The ranker penalty is real but invisible, and the source sits
+    outside the editorial tier framework where nothing states its intent.
+    This function inserts the name into the default tier list iff it isn't
     already present in any tier. Idempotent — safe to call repeatedly.
+
+    Note it is a no-op when the source already carries ANY tier — use set_tier()
+    to move a source between tiers (e.g. trial commodity → graduated standard).
 
     Returns True if the source was added; False if it was already tiered or the
     tuning file is missing.
@@ -225,6 +230,30 @@ def assign_default_tier(name: str,
         if name in members:
             return False
     tiers.setdefault(default_tier, []).append(name)
+    _atomic_write(path, tuning)
+    return True
+
+
+def set_tier(name: str, tier: str, tuning_path: str | None = None) -> bool:
+    """把 *name* 移到 *tier*，覆盖它当前所在的任何 tier。
+
+    assign_default_tier 遇到"已有 tier"就什么都不做，所以升降档必须走这里：
+    试用期准入写 commodity(0.6)，毕业要升 standard(1.0) —— 若毕业仍调
+    assign_default_tier，源会永远卡在 0.6。
+
+    一次原子写完成移出+写入，避免中途崩溃留下"两个 tier 都有"或"哪个都没有"。
+    Idempotent。tuning 文件不存在时返回 False。
+    """
+    path = tuning_path or TUNING_FILE
+    if not os.path.isfile(path):
+        return False
+    with open(path, encoding="utf-8") as f:
+        tuning = json.load(f)
+    tiers = tuning.setdefault("source_tiers", {})
+    for t, members in tiers.items():
+        if name in members:
+            tiers[t] = [m for m in members if m != name]
+    tiers.setdefault(tier, []).append(name)
     _atomic_write(path, tuning)
     return True
 

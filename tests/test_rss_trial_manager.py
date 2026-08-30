@@ -113,7 +113,12 @@ class TestConfigManagement(unittest.TestCase):
         with tempfile.TemporaryDirectory() as d:
             cfg = self._write_config(d)
             candidate = make_candidate("ProPublica", url="https://pp.org/rss")
-            with patch.object(tm, "SOURCES_FILE", cfg):
+            tuning = os.path.join(d, "digest-tuning.json")
+            with open(tuning, "w") as f:
+                json.dump({"source_tiers": {"standard": [], "commodity": []}}, f)
+            # 准入现在也写 digest-tuning.json，不隔离就会改到真实生产配置
+            with patch.object(tm, "SOURCES_FILE", cfg), \
+                 patch.object(_reg, "TUNING_FILE", tuning):
                 tm.add_trial_to_config(candidate)
             with open(cfg) as f:
                 config = json.load(f)
@@ -129,7 +134,12 @@ class TestConfigManagement(unittest.TestCase):
                 {"name": "Existing", "url": "https://ex.com/rss", "keywords": [], "limit": 3},
                 {"name": "ProPublica", "url": "https://pp.org/rss", "keywords": [], "limit": 3, "trial": True},
             ])
-            with patch.object(tm, "SOURCES_FILE", cfg):
+            tuning = os.path.join(d, "digest-tuning.json")
+            with open(tuning, "w") as f:
+                json.dump({"source_tiers": {"standard": [], "commodity": ["ProPublica"]}}, f)
+            # 出池现在也清 tier，不隔离就会改到真实生产配置
+            with patch.object(tm, "SOURCES_FILE", cfg), \
+                 patch.object(_reg, "TUNING_FILE", tuning):
                 removed = tm.remove_trial_from_config("ProPublica")
             with open(cfg) as f:
                 config = json.load(f)
@@ -1016,3 +1026,88 @@ class TestStrictAutoKeepThresholds(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class TestTrialTierLifecycle(unittest.TestCase):
+    """试用期 tier 生命周期 —— spec 2026-04-11 §Entry actions 第 2 条 / §Decision 表。
+
+    spec 明确：试用期 tier = commodity(boost 0.6)，理由「Low priority prevents
+    displacing proven sources」。此前准入只做了 entry action 1（写 rss_feeds），
+    漏了 action 2（写 source_tiers.commodity），于是试用源不在任何 tier 列表里，
+    只是靠 digest_pipeline._get_tier() 的 fallback 意外拿到 commodity。
+    排名结果相同，但「每个现役源都有显式 tier」这条不变量被真实破坏了
+    （test_region_rules_liveness 每次试用都会红）。
+    """
+
+    def _cfg(self, d, feeds=None):
+        path = os.path.join(d, "news-sources-config.json")
+        with open(path, "w") as f:
+            json.dump({"news_sources": {"rss_feeds": feeds or [],
+                                        "sina_api": [], "hn_api": []}}, f)
+        return path
+
+    def _tuning(self, d, tiers=None):
+        path = os.path.join(d, "digest-tuning.json")
+        with open(path, "w") as f:
+            json.dump({"source_tiers": tiers if tiers is not None
+                       else {"premium": [], "standard": [], "commodity": []},
+                       "tier_boost": {"premium": 1.5, "standard": 1.0,
+                                      "commodity": 0.6, "suppressed": 0.1}}, f)
+        return path
+
+    def _tiers(self, path):
+        with open(path) as f:
+            return json.load(f)["source_tiers"]
+
+    def test_trial_admission_writes_explicit_commodity_tier(self):
+        """准入必须显式写 commodity，而不是靠 ranker 的 fallback 兜底。"""
+        with tempfile.TemporaryDirectory() as d:
+            cfg, tuning = self._cfg(d), self._tuning(d)
+            with patch.object(tm, "SOURCES_FILE", cfg), \
+                 patch.object(_reg, "TUNING_FILE", tuning):
+                tm.add_trial_to_config(make_candidate("Newcomer", url="https://n.org/rss"))
+            tiers = self._tiers(tuning)
+        self.assertIn("Newcomer", tiers["commodity"])
+        self.assertNotIn("Newcomer", tiers["standard"])
+
+    def test_graduation_promotes_commodity_to_standard(self):
+        """毕业必须把 commodity 升成 standard。
+
+        assign_default_tier 遇到"已在某个 tier 里"就返回 False 什么都不做——
+        准入写了 commodity 之后，若毕业仍只调它，源会永远停在 0.6，
+        比不写 tier 还糟。这条测试就是钉住这个回归。
+        """
+        with tempfile.TemporaryDirectory() as d:
+            cfg = self._cfg(d, feeds=[{"name": "Newcomer", "url": "https://n.org/rss",
+                                       "keywords": [], "limit": 3, "trial": True}])
+            tuning = self._tuning(d, {"premium": [], "standard": [], "commodity": ["Newcomer"]})
+            with patch.object(tm, "SOURCES_FILE", cfg), \
+                 patch.object(_reg, "TUNING_FILE", tuning):
+                self.assertTrue(tm.graduate_trial_in_config("Newcomer"))
+            tiers = self._tiers(tuning)
+        self.assertIn("Newcomer", tiers["standard"])
+        self.assertNotIn("Newcomer", tiers["commodity"])
+
+    def test_trial_rejection_clears_tier(self):
+        """被拒的试用源要把 commodity 条目一并清掉，否则留下孤儿 tier。"""
+        with tempfile.TemporaryDirectory() as d:
+            cfg = self._cfg(d, feeds=[{"name": "Newcomer", "url": "https://n.org/rss",
+                                       "keywords": [], "limit": 3, "trial": True}])
+            tuning = self._tuning(d, {"premium": [], "standard": [], "commodity": ["Newcomer"]})
+            with patch.object(tm, "SOURCES_FILE", cfg), \
+                 patch.object(_reg, "TUNING_FILE", tuning):
+                self.assertTrue(tm.remove_trial_from_config("Newcomer"))
+            tiers = self._tiers(tuning)
+        self.assertNotIn("Newcomer", [n for names in tiers.values() for n in names])
+
+    def test_untiered_source_falls_back_to_commodity_not_standard(self):
+        """锁住 ranker 的 fallback 语义。
+
+        rss_registry.assign_default_tier / rss-trial-manager.graduate_trial_in_config
+        的 docstring 曾写"missing from source_tiers silently get tier_boost=1.0"——
+        实测是 0.6（_get_tier 找不到时返回 'commodity'）。spec 要的就是 0.6，
+        所以代码对、注释错。这条测试防止有人照着错注释把 fallback 改成 standard。
+        """
+        import digest_pipeline
+        tiers = {"premium": ["FT"], "standard": ["BBC"], "commodity": ["CNA"]}
+        self.assertEqual(digest_pipeline._get_tier("从未见过的源", tiers), "commodity")

@@ -109,6 +109,10 @@ def add_trial_to_config(candidate: dict) -> None:
     }
     config["news_sources"]["rss_feeds"].append(entry)
     _atomic_write(SOURCES_FILE, config)
+    # spec 2026-04-11 §Entry actions #2：试用期显式落 commodity(0.6)。
+    # 不写也能靠 _get_tier() 的 fallback 拿到同样的 0.6，但那样源就不在任何
+    # tier 列表里，"每个现役源都有显式 tier"这条不变量每次试用都会破。
+    _reg.assign_default_tier(candidate["name"], default_tier="commodity")
 
 
 def _clear_health_state_for(source_name: str) -> None:
@@ -159,6 +163,9 @@ def remove_trial_from_config(source_name: str) -> bool:
     if len(config["news_sources"]["rss_feeds"]) < original_len:
         _atomic_write(SOURCES_FILE, config)
         _clear_health_state_for(source_name)
+        # 准入写了 commodity，出池就得清掉，否则留下孤儿 tier
+        # （spec §Remove 同款要求，与 rss-demote-source.py 的处理一致）。
+        _reg.remove_tier(source_name)
         return True
     return False
 
@@ -166,9 +173,10 @@ def remove_trial_from_config(source_name: str) -> bool:
 def graduate_trial_in_config(source_name: str) -> bool:
     """Remove trial=True flag from source (graduates to permanent).
 
-    Also ensures the graduated source has an explicit tier in digest-tuning.json
-    (defaults to 'standard'). Without this, auto-promoted sources silently use
-    tier_boost=1.0 and drift outside the editorial tier framework over time.
+    Also moves the graduated source from its trial tier to 'standard' in
+    digest-tuning.json. Must be set_tier, not assign_default_tier: the latter
+    no-ops on a source that already carries a tier, so a trial source admitted
+    as commodity(0.6) would stay at 0.6 forever after graduating.
     """
     with open(SOURCES_FILE, encoding="utf-8") as f:
         config = json.load(f)
@@ -181,7 +189,7 @@ def graduate_trial_in_config(source_name: str) -> bool:
             break
     if found:
         _atomic_write(SOURCES_FILE, config)
-        _reg.assign_default_tier(source_name)
+        _reg.set_tier(source_name, _reg.DEFAULT_GRADUATE_TIER)
     return found
 
 
