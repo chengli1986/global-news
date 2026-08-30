@@ -1175,3 +1175,104 @@ def test_build_report_html_without_revival_block_still_works():
     now = datetime(2026, 8, 9, 9, 30, tzinfo=BJT)
     html = _mod.build_report_html([], [], [], now)
     assert isinstance(html, str) and html
+
+
+# --- 棘轮可见性：demote 一个会不会当场造出下一个 ---------------------------
+
+def test_rotation_exclude_treats_source_as_already_demoted():
+    """exclude 里的源按"已不在池"处理——这是模拟下一轮的基础原语。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Mid", "Lag")])
+    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]   # 67%
+    recs += [_rec(d, "Mid", 6, 2) for d in range(1, 11)]                        # 33%
+    recs += [_rec(d, "Lag", 6, 1) for d in range(1, 11)]                        # 17%
+    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["Lag"]
+    # Lag 走人后 n=4，中位升到 67%，阈值 30.5% → Mid(33%) 仍安全
+    assert _mod.find_rotation_candidates(reg, recs, now, exclude=("Lag",)) == []
+
+
+def test_rotation_exclude_surfaces_the_next_laggard():
+    """淘汰垫底会把中位推高，当场造出下一个垫底——这正是要暴露的棘轮。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "Mid", "Lag")])
+    recs = [_rec(d, n, 3, 3) for d in range(1, 11) for n in ("A", "B", "C", "D")]  # 100%
+    recs += [_rec(d, "Mid", 10, 2) for d in range(1, 11)]                          # 20%
+    recs += [_rec(d, "Lag", 10, 1) for d in range(1, 11)]                          # 10%
+    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["Lag"]
+    nxt = _mod.find_rotation_candidates(reg, recs, now, exclude=("Lag",))
+    assert [x["name"] for x in nxt] == ["Mid"]
+
+
+def test_annotate_successors_names_who_is_next():
+    """报告里每条轮换建议都要带上"执行后下一个垫底是谁"。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "Mid", "Lag")])
+    recs = [_rec(d, n, 3, 3) for d in range(1, 11) for n in ("A", "B", "C", "D")]
+    recs += [_rec(d, "Mid", 10, 2) for d in range(1, 11)]
+    recs += [_rec(d, "Lag", 10, 1) for d in range(1, 11)]
+    rot = _mod.find_rotation_candidates(reg, recs, now)
+    out = _mod.annotate_successors(reg, recs, now, rot)
+    assert out[0]["name"] == "Lag"
+    assert out[0]["successor"] == "Mid"
+    assert out[0]["successor_rate"] == pytest.approx(0.2)
+
+
+def test_annotate_successors_none_when_group_hits_floor():
+    """淘汰后组缩到保底线以下 → 整组豁免，没有下一个。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Lag")])
+    recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]
+    recs += [_rec(d, "Lag", 6, 1) for d in range(1, 11)]
+    rot = _mod.find_rotation_candidates(reg, recs, now)
+    out = _mod.annotate_successors(reg, recs, now, rot)
+    assert out[0]["successor"] is None
+
+
+def test_report_shows_successor_and_irreversible_warning():
+    """一键命令是不可逆的（rejected 终态 + 复活探测排除 quality reject），报告必须说破。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    rotation = [{"name": "Lag News", "category": "europe", "selected": 7,
+                 "fetched": 42, "rate": 0.1667, "group_rate_median": 0.67,
+                 "group_median": 20, "group_size": 5, "tenure_days": 90,
+                 "successor": "Next News", "successor_rate": 0.28}]
+    html = _mod.build_report_html([], [], [], now, "", rotation)
+    assert "Next News" in html
+    assert "不可逆" in html
+
+
+def test_report_warns_irreversible_for_zombie_section_too():
+    """A 段命令用 reason=zombie-…，同样落在 QUALITY_REJECT_MARKERS 里，同样捞不回来。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    zombies = [{"name": "Dead Weight", "category": "europe", "fetched": 90,
+                "selected": 0, "tenure_days": 200}]
+    html = _mod.build_report_html(zombies, [], [], now)
+    assert "不可逆" in html
+
+
+def test_report_no_irreversible_warning_when_nothing_to_execute():
+    """没有任何可执行命令时不要挂无谓的警告。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now)
+    assert "不可逆" not in html
+
+
+def test_cmd_run_wires_successors_into_report(tmp_path, monkeypatch):
+    """cmd_run 必须真的走 annotate_successors，否则邮件里永远看不到后继。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "Mid", "Lag")])
+    recs = [_rec(d, n, 3, 3) for d in range(1, 11) for n in ("A", "B", "C", "D")]
+    recs += [_rec(d, "Mid", 10, 2) for d in range(1, 11)]
+    recs += [_rec(d, "Lag", 10, 1) for d in range(1, 11)]
+    reg_path = str(tmp_path / "reg.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(reg, f)
+    log_path = _write_log(tmp_path, recs)
+    captured = {}
+    monkeypatch.setattr(_mod, "send_report_email",
+                        lambda html, subject, **kw: captured.update(html=html) or True)
+    monkeypatch.setattr(_mod, "probe_revivals", lambda *a, **k: [])
+    assert _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True) == 0
+    # 快照表里本来就有 "Mid"，光断言名字出现是假绿——必须锁在轮换段内。
+    rot_section = captured["html"].split("♻️ 建议轮换")[1].split("<h3>")[0]
+    assert "Mid" in rot_section
+    assert "不可逆" in captured["html"]

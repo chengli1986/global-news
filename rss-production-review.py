@@ -220,14 +220,15 @@ def _load_region_map() -> dict:
         return {}
 
 
-def find_sole_region_sources(registry, region_map=None) -> set:
+def find_sole_region_sources(registry, region_map=None, exclude=()) -> set:
     """现役源里，哪些是自己那个邮件板块的唯一供给。
 
     只数 production：已离池的源留在映射表里会让板块显得"还有人撑着"
     （路由表死引用是这个系统反复出现的漂移，见 tests/test_region_rules_liveness.py）。
     """
     rmap = _load_region_map() if region_map is None else region_map
-    live = {s.get("name") for s in _reg.get_by_status(registry, "production")}
+    skip = set(exclude)
+    live = {s.get("name") for s in _reg.get_by_status(registry, "production")} - skip
     per_region = {}
     for name in live:
         region = rmap.get(name)
@@ -253,7 +254,7 @@ def find_exempt_laggards(registry, records, now, *, region_map=None, **kw) -> li
 def find_rotation_candidates(registry, records, now, *, window_days=30,
                              min_group=3, min_active_days=7, grace_days=30,
                              zombie_max=1, min_margin=ROTATION_MIN_MARGIN,
-                             region_map=None) -> list:
+                             region_map=None, exclude=()) -> list:
     """组内实测优胜劣汰：每个 category 内**入选率**垫底且明显低于同类的源 → 建议轮换。
 
     口径为入选率(selected/fetched)而非绝对入选数：`fetched` 由 news-sources-config
@@ -273,10 +274,13 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
     去重：selected <= zombie_max 的归 A 僵尸，不在此重复。低频保护沿用 active_days/在岗宽限。
     """
     import collections
-    sole_region_sources = find_sole_region_sources(registry, region_map)
+    skip = set(exclude)
+    sole_region_sources = find_sole_region_sources(registry, region_map, exclude=skip)
     agg = aggregate_by_source(filter_window(records, now, window_days))
     by_cat = collections.defaultdict(list)
     for s in _reg.get_by_status(registry, "production"):
+        if s.get("name") in skip:                  # 模拟"已被 demote"
+            continue
         if s.get("category"):                      # legacy(无 category)豁免
             by_cat[s["category"]].append(s)
 
@@ -308,6 +312,29 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
                         "group_rate_median": rate_median,
                         "group_median": median, "group_size": len(live),
                         "tenure_days": t})
+    return out
+
+
+def annotate_successors(registry, records, now, rotation, **kw) -> list:
+    """给每条轮换建议标出"执行后下一个垫底是谁"。
+
+    棘轮效应是这套规则的固有性质：判据是**组内相对**的，淘汰垫底会把组中位推高，
+    阈值(中位/2 - margin)跟着抬，于是当场造出下一个垫底。min_margin 挡的是单次
+    噪声，挡不住这个连锁——2026-08-17 demote Dawn Pakistan 后 CNA 立刻从"被挡住"
+    变成命中，就是同一个机制。
+
+    这里不改判定，只把连锁摊开：按同一套规则重算"假设它已经走了"的下一轮，
+    让人在按下不可逆命令之前先看见代价。successor=None 表示淘汰后该组缩到保底线
+    以下（整组豁免）或次低者确实安全。
+    """
+    out = []
+    for r in rotation:
+        nxt = find_rotation_candidates(registry, records, now,
+                                       exclude=(r["name"],), **kw)
+        succ = next((x for x in nxt if x["category"] == r["category"]), None)
+        out.append(dict(r,
+                        successor=succ["name"] if succ else None,
+                        successor_rate=succ["rate"] if succ else None))
     return out
 
 
@@ -498,6 +525,30 @@ def _esc(s) -> str:
             .replace(">", "&gt;").replace('"', "&quot;"))
 
 
+IRREVERSIBLE_HTML = (
+    "<p style='background:#fff4e5;border-left:4px solid #f59e0b;padding:8px 12px;"
+    "margin:10px 0;font-size:13px'>⚠️ <b>下面的 demote 命令不可逆</b>：registry 里 "
+    "<code>rejected</code> 是终态（<code>rss-demote-source.py</code> 拒绝反向操作），"
+    "且 <code>zombie</code> / <code>rotation-group-laggard</code> 都在 "
+    "<code>QUALITY_REJECT_MARKERS</code> 里——复活探测会<b>主动跳过</b>它们，源恢复了也不会自己回来。"
+    "要回池只能重新走 discovery/trial。</p>")
+
+
+def _successor_cell(r: dict) -> str:
+    """轮换建议里的"执行后下一个垫底"列。
+
+    没跑过 annotate_successors 时显示"—"而不是骗人的"无"：区分"算过且确实没有"
+    与"根本没算"。
+    """
+    if "successor" not in r:
+        return "—"
+    if r["successor"] is None:
+        return "<span style='color:#16a34a'>无</span>"
+    rate = r.get("successor_rate")
+    tail = f"（{rate:.0%}）" if isinstance(rate, (int, float)) else ""
+    return f"<b style='color:#b91c1c'>{_esc(r['successor'])}</b>{tail}"
+
+
 def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None,
                       revival_html_block="", exempt=None) -> str:
     """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
@@ -527,6 +578,7 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
             f"<td style='text-align:center'>{r['group_rate_median']:.0%}</td>"
             f"<td style='text-align:center'>{r['selected']}/{r['fetched']}</td>"
             f"<td style='text-align:center'>{r['group_size']}</td>"
+            f"<td style='text-align:center'>{_successor_cell(r)}</td>"
             f"<td><code>python3 ~/global-news/rss-demote-source.py --name \"{_esc(r['name'])}\" "
             f"--reason \"rotation-group-laggard\"</code></td></tr>"
             for r in rotation)
@@ -535,10 +587,13 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
                        "抓取量由 config 的 per-source <code>limit</code> 配额决定，绝对入选数不可跨配额比较。</p>"
                        "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
                        "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 入选率</th>"
-                       "<th>组内入选率中位</th><th>30d 入选/抓取</th><th>组大小</th><th>确认后执行</th></tr>"
+                       "<th>组内入选率中位</th><th>30d 入选/抓取</th><th>组大小</th>"
+                       "<th>执行后下一个垫底</th><th>确认后执行</th></tr>"
                        f"{r_rows}</table>")
     else:
         rot_section = ""
+
+    warn_section = IRREVERSIBLE_HTML if (zombies or rotation) else ""
 
     if exempt:
         e_rows = "".join(
@@ -582,7 +637,7 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
                     f"{snap_rows}</table>")
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
-            f"{revival_html_block}{plan_c_html}{a_section}{rot_section}{exempt_section}"
+            f"{revival_html_block}{plan_c_html}{warn_section}{a_section}{rot_section}{exempt_section}"
             f"{b_section}{snap_section}")
 
 
@@ -727,7 +782,8 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     zombies = find_zombies(registry, records, now)
     degraded = find_degraded(registry, records, now)
     snapshot = snapshot_rows(registry, records, now)
-    rotation = find_rotation_candidates(registry, records, now)
+    rotation = annotate_successors(registry, records, now,
+                                   find_rotation_candidates(registry, records, now))
     exempt = find_exempt_laggards(registry, records, now)
     plan_c_html = plan_c_reminder_html(registry, records, now)
     try:
