@@ -292,8 +292,11 @@ def test_cmd_run_wires_exempt_laggards_into_report(tmp_path, monkeypatch):
     reg_path = str(tmp_path / "registry.json")
     with open(reg_path, "w", encoding="utf-8") as f:
         json.dump(_registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Sole")]), f)
+    # 走完整生产判据（含自身基线与门），所以要有上一个同长窗口的数据：
+    # Sole 从 50% 跌到 20%，自身也在退步。
     recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
     recs += [_rec(d, "Sole", 100, 20) for d in range(1, 11)]
+    recs += _series(now, 61, 31, "Sole", 100, 50)
     log_path = _write_log(tmp_path, recs)
 
     monkeypatch.setattr(_mod, "_load_region_map",
@@ -451,7 +454,8 @@ def test_rotation_flags_group_laggard():
     reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Lag")])
     recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]  # 67%, active_days=10
     recs += [_rec(d, "Lag", 6, 1) for d in range(1, 8)]  # active_days=7, 17% < 中位 67% 的一半
-    out = _mod.find_rotation_candidates(reg, recs, now)
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    out = _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)
     assert [x["name"] for x in out] == ["Lag"]
 
 
@@ -551,7 +555,8 @@ def test_rotation_flags_laggard_by_selection_rate():
     reg = _registry([_prod_cat(n, "hk_sea") for n in ("A", "B", "C", "Lag")])
     recs = [_rec(d, n, 6, 3) for d in range(1, 11) for n in ("A", "B", "C")]
     recs += [_rec(d, "Lag", 6, 1) for d in range(1, 11)]  # 17% vs 中位 50%
-    out = _mod.find_rotation_candidates(reg, recs, now)
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    out = _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)
     assert [x["name"] for x in out] == ["Lag"]
     assert round(out[0]["rate"], 2) == 0.17
     assert out[0]["group_rate_median"] == 0.5
@@ -578,7 +583,8 @@ def test_rotation_flags_laggard_beyond_absolute_margin():
     reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Far")])
     recs = [_rec(d, n, 100, 60) for d in range(1, 11) for n in ("A", "B", "C")]
     recs += [_rec(d, "Far", 100, 26) for d in range(1, 11)]  # 26% vs 阈值 30%，差 4pp
-    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["Far"]
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)] == ["Far"]
 
 
 def test_rotation_exempts_sole_source_of_a_digest_region():
@@ -606,7 +612,8 @@ def test_rotation_still_flags_when_region_has_another_source():
     recs += [_rec(d, "Lag", 100, 20) for d in range(1, 11)]
     region_map = {"Lag": "亚太要闻 ASIA-PACIFIC", "A": "亚太要闻 ASIA-PACIFIC",
                   "B": "全球政治 GLOBAL POLITICS", "C": "全球政治 GLOBAL POLITICS"}
-    out = _mod.find_rotation_candidates(reg, recs, now, region_map=region_map)
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    out = _mod.find_rotation_candidates(reg, recs, now, region_map=region_map, min_self_decline=None)
     assert [x["name"] for x in out] == ["Lag"]
 
 
@@ -618,7 +625,8 @@ def test_exempt_laggards_surfaces_the_shielded_source():
     recs += [_rec(d, "Sole", 100, 20) for d in range(1, 11)]
     region_map = {"Sole": "亚太要闻 ASIA-PACIFIC", "A": "全球政治 GLOBAL POLITICS",
                   "B": "全球政治 GLOBAL POLITICS", "C": "全球政治 GLOBAL POLITICS"}
-    out = _mod.find_exempt_laggards(reg, recs, now, region_map=region_map)
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    out = _mod.find_exempt_laggards(reg, recs, now, region_map=region_map, min_self_decline=None)
     assert [x["name"] for x in out] == ["Sole"]
     assert out[0]["region"] == "亚太要闻 ASIA-PACIFIC"
     assert round(out[0]["rate"], 2) == 0.20
@@ -1186,9 +1194,10 @@ def test_rotation_exclude_treats_source_as_already_demoted():
     recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]   # 67%
     recs += [_rec(d, "Mid", 6, 2) for d in range(1, 11)]                        # 33%
     recs += [_rec(d, "Lag", 6, 1) for d in range(1, 11)]                        # 17%
-    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["Lag"]
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)] == ["Lag"]
     # Lag 走人后 n=4，中位升到 67%，阈值 30.5% → Mid(33%) 仍安全
-    assert _mod.find_rotation_candidates(reg, recs, now, exclude=("Lag",)) == []
+    assert _mod.find_rotation_candidates(reg, recs, now, exclude=("Lag",), min_self_decline=None) == []
 
 
 def test_rotation_exclude_surfaces_the_next_laggard():
@@ -1198,8 +1207,9 @@ def test_rotation_exclude_surfaces_the_next_laggard():
     recs = [_rec(d, n, 3, 3) for d in range(1, 11) for n in ("A", "B", "C", "D")]  # 100%
     recs += [_rec(d, "Mid", 10, 2) for d in range(1, 11)]                          # 20%
     recs += [_rec(d, "Lag", 10, 1) for d in range(1, 11)]                          # 10%
-    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["Lag"]
-    nxt = _mod.find_rotation_candidates(reg, recs, now, exclude=("Lag",))
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)] == ["Lag"]
+    nxt = _mod.find_rotation_candidates(reg, recs, now, exclude=("Lag",), min_self_decline=None)
     assert [x["name"] for x in nxt] == ["Mid"]
 
 
@@ -1210,8 +1220,9 @@ def test_annotate_successors_names_who_is_next():
     recs = [_rec(d, n, 3, 3) for d in range(1, 11) for n in ("A", "B", "C", "D")]
     recs += [_rec(d, "Mid", 10, 2) for d in range(1, 11)]
     recs += [_rec(d, "Lag", 10, 1) for d in range(1, 11)]
-    rot = _mod.find_rotation_candidates(reg, recs, now)
-    out = _mod.annotate_successors(reg, recs, now, rot)
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    rot = _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)
+    out = _mod.annotate_successors(reg, recs, now, rot, min_self_decline=None)
     assert out[0]["name"] == "Lag"
     assert out[0]["successor"] == "Mid"
     assert out[0]["successor_rate"] == pytest.approx(0.2)
@@ -1223,8 +1234,9 @@ def test_annotate_successors_none_when_group_hits_floor():
     reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "Lag")])
     recs = [_rec(d, n, 3, 2) for d in range(1, 11) for n in ("A", "B", "C")]
     recs += [_rec(d, "Lag", 6, 1) for d in range(1, 11)]
-    rot = _mod.find_rotation_candidates(reg, recs, now)
-    out = _mod.annotate_successors(reg, recs, now, rot)
+    # 这条只验组内相对/豁免这道门；自身基线与门由 test_rotation_*_self_decline 系列覆盖
+    rot = _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)
+    out = _mod.annotate_successors(reg, recs, now, rot, min_self_decline=None)
     assert out[0]["successor"] is None
 
 
@@ -1263,6 +1275,10 @@ def test_cmd_run_wires_successors_into_report(tmp_path, monkeypatch):
     recs = [_rec(d, n, 3, 3) for d in range(1, 11) for n in ("A", "B", "C", "D")]
     recs += [_rec(d, "Mid", 10, 2) for d in range(1, 11)]
     recs += [_rec(d, "Lag", 10, 1) for d in range(1, 11)]
+    # 走完整生产判据：Lag 与 Mid 自身都要相对上一同长窗口在跌，
+    # 否则新的自身基线与门会把它们挡下，后继列也就无从谈起。
+    recs += _series(now, 61, 31, "Lag", 10, 6)
+    recs += _series(now, 61, 31, "Mid", 10, 7)
     reg_path = str(tmp_path / "reg.json")
     with open(reg_path, "w", encoding="utf-8") as f:
         json.dump(reg, f)
@@ -1276,3 +1292,91 @@ def test_cmd_run_wires_successors_into_report(tmp_path, monkeypatch):
     rot_section = captured["html"].split("♻️ 建议轮换")[1].split("<h3>")[0]
     assert "Mid" in rot_section
     assert "不可逆" in captured["html"]
+
+
+# --- B：自身历史基线与门 -------------------------------------------------
+
+def _rec_at(dt: datetime, source, fetched, selected):
+    return {"ts": dt.isoformat(), "source": source, "fetched": fetched, "selected": selected}
+
+
+def _series(now, days_ago_from, days_ago_to, source, fetched, selected):
+    """在 [now-days_ago_from, now-days_ago_to) 每天一条。"""
+    out = []
+    for d in range(days_ago_to, days_ago_from):
+        out.append(_rec_at(now - timedelta(days=d), source, fetched, selected))
+    return out
+
+
+def test_rotation_requires_self_decline():
+    """组内垫底但自身相对自身基线持平 → 不淘汰。
+
+    2026-06-15 全池筛选口径变更让所有源的入选率集体腰斩，只看组内相对会把
+    "被全局变更压下去"误判成"这个源变差了"。真实案例：RFI English 7月 28.4%
+    → 8月 28.0%，自身完全持平，却因 Guardian World 被淘汰而当场变成新垫底。
+    """
+    now = datetime(2026, 8, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "Flat")])
+    recs = []
+    for n in ("A", "B", "C", "D"):
+        recs += _series(now, 60, 0, n, 3, 3)                 # 100%
+    recs += _series(now, 60, 0, "Flat", 10, 1)               # 10%，前后一致
+    out = _mod.find_rotation_candidates(reg, recs, now)
+    assert out == []
+
+
+def test_rotation_flags_laggard_that_is_also_declining_against_itself():
+    """组内垫底 且 自身相对自身也在跌 → 淘汰。"""
+    now = datetime(2026, 8, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "Falling")])
+    recs = []
+    for n in ("A", "B", "C", "D"):
+        recs += _series(now, 60, 0, n, 3, 3)
+    # 避开 now-30d 那一刻：filter_window 用 >= 截断（该刻归近窗），
+    # self_baseline_rate 用左闭右开（该刻归基线窗）——两窗互补但边界那条会偏，
+    # 数据不压在边界上，断言才测的是判据本身而不是边界约定。
+    recs += _series(now, 61, 31, "Falling", 10, 5)           # 基线 50%
+    recs += _series(now, 30, 0, "Falling", 10, 1)            # 近窗 10%
+    out = _mod.find_rotation_candidates(reg, recs, now)
+    assert [x["name"] for x in out] == ["Falling"]
+    assert out[0]["self_baseline_rate"] == pytest.approx(0.5)
+    assert out[0]["self_delta"] == pytest.approx(-0.4)
+
+
+def test_rotation_skips_when_baseline_sample_too_thin():
+    """基线窗样本不足 → 不淘汰。
+
+    demote 不可逆，"算不出基线"绝不能等同于"基线没问题"——缺证据必须偏向留源。
+    """
+    now = datetime(2026, 8, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "NoHist")])
+    recs = []
+    for n in ("A", "B", "C", "D"):
+        recs += _series(now, 60, 0, n, 3, 3)
+    recs += _series(now, 30, 0, "NoHist", 10, 1)             # 基线窗完全没有数据
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def test_rotation_self_decline_gate_can_be_disabled():
+    """min_self_decline=None 关掉与门 —— 供 find_exempt_laggards 等旧口径复用。"""
+    now = datetime(2026, 8, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "Flat")])
+    recs = []
+    for n in ("A", "B", "C", "D"):
+        recs += _series(now, 60, 0, n, 3, 3)
+    recs += _series(now, 60, 0, "Flat", 10, 1)
+    out = _mod.find_rotation_candidates(reg, recs, now, min_self_decline=None)
+    assert [x["name"] for x in out] == ["Flat"]
+
+
+def test_report_shows_self_trend_column():
+    """报告要把"自身趋势"摆出来，让人看见淘汰理由不只是组内相对。"""
+    now = datetime(2026, 6, 30, 8, 0, tzinfo=BJT)
+    rotation = [{"name": "Lag News", "category": "europe", "selected": 7,
+                 "fetched": 42, "rate": 0.1667, "group_rate_median": 0.67,
+                 "group_median": 20, "group_size": 5, "tenure_days": 90,
+                 "successor": None, "successor_rate": None,
+                 "self_baseline_rate": 0.42, "self_delta": -0.25}]
+    html = _mod.build_report_html([], [], [], now, "", rotation)
+    assert "自身趋势" in html
+    assert "42%" in html

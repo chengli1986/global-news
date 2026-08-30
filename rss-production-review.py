@@ -33,6 +33,11 @@ ROTATION_GRACE_DAYS = 30
 # 同组 The Guardian World(31.37%) 安全——差半篇文章，判定却是"永久下线"vs"没事"。
 # 要求同时跨过这个绝对边距，把噪声挡在外面。
 ROTATION_MIN_MARGIN = 0.03
+# 自身历史基线与门：组内垫底还不够，还得比它自己的上一个同长窗口明显更差。
+# 2026-06-15 全池筛选口径变更让所有源集体腰斩（变更前 26 个源都是 100% 入选，
+# 那阶段根本没在筛），只看组内相对会把全局变更误判成个别源变差。
+ROTATION_MIN_SELF_DECLINE = 0.05
+ROTATION_MIN_BASELINE_FETCHED = 10
 
 # 复活探测：这些 reject_reason 关键词代表"质量不行被汰"，恢复了也不该回来。
 # 用排除法而非白名单——将来出现新的技术性下线原因（如 dns-fail）会自动纳入探测。
@@ -251,10 +256,35 @@ def find_exempt_laggards(registry, records, now, *, region_map=None, **kw) -> li
     return [dict(r, region=rmap.get(r["name"], "?")) for r in raw if r["name"] in sole]
 
 
+def self_baseline_rate(records, source, now, *, window_days=30,
+                       min_fetched=ROTATION_MIN_BASELINE_FETCHED):
+    """源在"上一个同长窗口"[now-2w, now-w) 的入选率；样本不足返回 None。
+
+    刻意用紧邻的上一个窗口而不是全历史：全历史会把 2026-06-15 变更之前那段
+    "抓到就选"的 100% 混进基线，让每个源看起来都在暴跌。
+    """
+    lo, hi = now - timedelta(days=window_days * 2), now - timedelta(days=window_days)
+    f = sel = 0
+    for r in records:
+        if r.get("source") != source:
+            continue
+        try:
+            ts = parse_ts(r["ts"])
+        except (KeyError, ValueError):
+            continue
+        if lo <= ts < hi:
+            f += int(r.get("fetched", 0) or 0)
+            sel += int(r.get("selected", 0) or 0)
+    if f < min_fetched:
+        return None
+    return sel / f
+
+
 def find_rotation_candidates(registry, records, now, *, window_days=30,
                              min_group=3, min_active_days=7, grace_days=30,
                              zombie_max=1, min_margin=ROTATION_MIN_MARGIN,
-                             region_map=None, exclude=()) -> list:
+                             region_map=None, exclude=(),
+                             min_self_decline=ROTATION_MIN_SELF_DECLINE) -> list:
     """组内实测优胜劣汰：每个 category 内**入选率**垫底且明显低于同类的源 → 建议轮换。
 
     口径为入选率(selected/fetched)而非绝对入选数：`fetched` 由 news-sources-config
@@ -306,12 +336,22 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
         t = tenure_days(s, now)
         if t is not None and t < grace_days:       # 在岗宽限
             continue
-        if rate < rate_median / 2 - min_margin:    # 明显低于同类（比例 + 绝对边距）
-            out.append({"name": s["name"], "category": cat, "selected": sel,
-                        "fetched": a["fetched"], "rate": rate,
-                        "group_rate_median": rate_median,
-                        "group_median": median, "group_size": len(live),
-                        "tenure_days": t})
+        if rate >= rate_median / 2 - min_margin:   # 未明显低于同类（比例 + 绝对边距）
+            continue
+        base = delta = None
+        if min_self_decline is not None:
+            base = self_baseline_rate(records, s["name"], now, window_days=window_days)
+            if base is None:                       # 算不出基线 → 偏向留源
+                continue                           # （demote 不可逆，缺证据不等于没问题）
+            delta = rate - base
+            if delta > -min_self_decline:          # 自身没明显退步 → 可能只是全局变更
+                continue
+        out.append({"name": s["name"], "category": cat, "selected": sel,
+                    "fetched": a["fetched"], "rate": rate,
+                    "group_rate_median": rate_median,
+                    "group_median": median, "group_size": len(live),
+                    "tenure_days": t,
+                    "self_baseline_rate": base, "self_delta": delta})
     return out
 
 
@@ -534,6 +574,20 @@ IRREVERSIBLE_HTML = (
     "要回池只能重新走 discovery/trial。</p>")
 
 
+def _self_trend_cell(r: dict) -> str:
+    """轮换建议里的"自身趋势"列：上一同长窗口的入选率 → 现在。
+
+    摆出来是为了让人看见淘汰理由不只是"组内比别人差"，而是"它自己也在退步"——
+    这两件事在 2026-06-15 那种全池口径变更下会完全脱钩。
+    """
+    base = r.get("self_baseline_rate")
+    if base is None:
+        return "—"
+    d = r.get("self_delta")
+    arrow = f"（{d*100:+.0f}pp）" if isinstance(d, (int, float)) else ""
+    return f"{base:.0%} → {r['rate']:.0%}{arrow}"
+
+
 def _successor_cell(r: dict) -> str:
     """轮换建议里的"执行后下一个垫底"列。
 
@@ -578,17 +632,20 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
             f"<td style='text-align:center'>{r['group_rate_median']:.0%}</td>"
             f"<td style='text-align:center'>{r['selected']}/{r['fetched']}</td>"
             f"<td style='text-align:center'>{r['group_size']}</td>"
+            f"<td style='text-align:center'>{_self_trend_cell(r)}</td>"
             f"<td style='text-align:center'>{_successor_cell(r)}</td>"
             f"<td><code>python3 ~/global-news/rss-demote-source.py --name \"{_esc(r['name'])}\" "
             f"--reason \"rotation-group-laggard\"</code></td></tr>"
             for r in rotation)
         rot_section = (f"<h3>♻️ 建议轮换（{len(rotation)}）组内入选率垫底，确认后 demote 换新源</h3>"
                        "<p style='color:#666;font-size:13px;margin:4px 0'>口径=入选率（selected/fetched）；"
-                       "抓取量由 config 的 per-source <code>limit</code> 配额决定，绝对入选数不可跨配额比较。</p>"
+                       "抓取量由 config 的 per-source <code>limit</code> 配额决定，绝对入选数不可跨配额比较。"
+                       "<br>两道门都要过：<b>组内明显垫底</b> 且 <b>自身相对上一个同长窗口也在跌</b>"
+                       "——只看组内相对，会把 2026-06-15 那种全池口径变更误判成个别源变差。</p>"
                        "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
                        "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>30d 入选率</th>"
                        "<th>组内入选率中位</th><th>30d 入选/抓取</th><th>组大小</th>"
-                       "<th>执行后下一个垫底</th><th>确认后执行</th></tr>"
+                       "<th>自身趋势</th><th>执行后下一个垫底</th><th>确认后执行</th></tr>"
                        f"{r_rows}</table>")
     else:
         rot_section = ""
