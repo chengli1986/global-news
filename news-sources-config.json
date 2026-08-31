@@ -367,6 +367,13 @@
         "keywords": [],
         "limit": 3,
         "trial": true
+      },
+      {
+        "name": "CoinDesk",
+        "url": "https://www.coindesk.com/arc/outboundfeeds/rss",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [
