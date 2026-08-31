@@ -6714,7 +6714,8 @@
         "uniqueness": 0.68,
         "final": 0.769
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "端傳媒 Initium Media",
@@ -8918,7 +8919,8 @@
         "uniqueness": 0.75,
         "final": 0.769
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "RFA Mandarin",
@@ -9640,7 +9642,8 @@
         "uniqueness": 0.6,
         "final": 0.77
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Hong Kong Free Press",
@@ -9725,7 +9728,8 @@
         "uniqueness": 0.35,
         "final": 0.754
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Buenos Aires Herald",
@@ -10069,7 +10073,8 @@
         "uniqueness": 0.7,
         "final": 0.761
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "HousingWire",
@@ -10380,6 +10385,175 @@
         "authority": 0.68,
         "uniqueness": 0.85,
         "final": 0.827
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "Simon Willison's Weblog",
+      "url": "https://simonwillison.net/atom/everything/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 20.3,
+        "has_descriptions": false,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 0,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.0,
+        "content_depth": 0.0,
+        "authority": 0.7,
+        "uniqueness": 0.75,
+        "final": 0.58
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Marginal Revolution",
+      "url": "https://marginalrevolution.com/feed",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 15,
+        "newest_age_hours": 3.91,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 420,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.8,
+        "uniqueness": 0.6,
+        "final": 0.84
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "CoinDesk",
+      "url": "https://www.coindesk.com/arc/outboundfeeds/rss",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 25,
+        "newest_age_hours": 4.74,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 138,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.85,
+        "final": 0.886
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "The Bulwark",
+      "url": "https://www.thebulwark.com/feed",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 0.79,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 146,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 0.6,
+        "authority": 0.68,
+        "uniqueness": 0.7,
+        "final": 0.797
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "Notes from Poland",
+      "url": "https://notesfrompoland.com/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 12,
+        "newest_age_hours": 3.57,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 103,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.62,
+        "uniqueness": 0.75,
+        "final": 0.816
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "BusinessDay Nigeria",
+      "url": "https://businessday.ng/feed/",
+      "language": "en",
+      "category": "global_south",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 5,
+        "newest_age_hours": 1.06,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 225,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.55,
+        "uniqueness": 0.68,
+        "final": 0.781
       },
       "status": "discovered"
     }
