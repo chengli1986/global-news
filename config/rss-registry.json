@@ -10570,6 +10570,34 @@
         "final": 0.781
       },
       "status": "discovered"
+    },
+    {
+      "name": "Sixth Tone",
+      "url": "https://api.sixthtone.com/cont/output/rssApi",
+      "language": "en",
+      "category": "china_depth",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 51,
+        "newest_age_hours": null,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 163,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.8,
+        "final": 0.726
+      },
+      "status": "discovered"
     }
   ]
 }
