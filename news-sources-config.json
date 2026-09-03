@@ -362,13 +362,6 @@
         "limit": 3
       },
       {
-        "name": "PBS NewsHour World",
-        "url": "https://www.pbs.org/newshour/feeds/rss/world",
-        "keywords": [],
-        "limit": 3,
-        "trial": true
-      },
-      {
         "name": "CoinDesk",
         "url": "https://www.coindesk.com/arc/outboundfeeds/rss",
         "keywords": [],
