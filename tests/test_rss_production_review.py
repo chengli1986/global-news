@@ -1502,3 +1502,90 @@ def test_cmd_run_wires_config_context_into_report(tmp_path, monkeypatch):
     rot = captured["html"].split("♻️ 建议轮换")[1].split("<h3>")[0]
     assert "commodity" in rot and "0.6" in rot   # tier 标注真的落到了轮换段里
     assert "降权" in captured["html"]            # 降权说明条同时出现
+
+
+# --- C：同日重复运行去重（2026-09-06） ----------------------------------
+# 实测事故：2026-07-25 这套程序当天跑了 4 次（12:16 + 13:34/13:36/13:38），
+# 后三次每次全池 100% 入选；2026-08-03 跑了 2 次。正常日只跑 1 次、全池 ~52%。
+# 这两天落在 30 天基线窗 [now-60d, now-30d)，把每个源的基线成绩系统性抬高，
+# 于是 8-30 才加的第二道门"自身相对上一个同长窗口也在跌"被反向触发。
+# 第二道门防的是窗口**之间**的口径变更（2026-06-15），防不住窗口**之内**的重复运行。
+
+def test_load_records_drops_repeat_runs_same_day(tmp_path):
+    """同一源同一天多条 → 只留最早那次（定时跑），后面的重跑丢弃。"""
+    p = str(tmp_path / "dup.jsonl")
+    base = datetime(2026, 7, 25, 12, 16, tzinfo=BJT)
+    with open(p, "w", encoding="utf-8") as f:
+        for dt_, fe, se in ((base, 3, 1),
+                            (base.replace(hour=13, minute=34), 3, 3),
+                            (base.replace(hour=13, minute=36), 3, 3),
+                            (base + timedelta(days=1), 3, 2)):
+            f.write(json.dumps(_rec_at(dt_, "A", fe, se)) + "\n")
+    recs = _mod.load_records(p)
+    agg = _mod.aggregate_by_source(recs)
+    assert agg["A"]["fetched"] == 6      # 07-25 一次 + 07-26 一次，不是 12
+    assert agg["A"]["selected"] == 3     # 1 + 2，不是 9
+    assert agg["A"]["active_days"] == 2
+
+
+def test_load_records_keeps_earliest_run_regardless_of_line_order(tmp_path):
+    """留哪一条按时间戳定，不能靠文件里的行序——追加写乱序过就会静默取错。"""
+    p = str(tmp_path / "unordered.jsonl")
+    base = datetime(2026, 7, 25, 12, 16, tzinfo=BJT)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(json.dumps(_rec_at(base.replace(hour=13, minute=38), "A", 3, 3)) + "\n")
+        f.write(json.dumps(_rec_at(base, "A", 3, 1)) + "\n")
+    recs = _mod.load_records(p)
+    assert len(recs) == 1
+    assert recs[0]["ts"].startswith("2026-07-25T12:16")
+    assert recs[0]["selected"] == 1
+
+
+def test_load_records_keeps_rows_with_unusable_ts(tmp_path):
+    """去重不能顺手吃掉判不出日期的行——那是丢数据，不是去重。"""
+    p = str(tmp_path / "badts.jsonl")
+    with open(p, "w", encoding="utf-8") as f:
+        f.write(json.dumps({"source": "A", "fetched": 3, "selected": 1}) + "\n")
+        f.write(json.dumps({"ts": "garbage", "source": "A", "fetched": 3, "selected": 1}) + "\n")
+    assert len(_mod.load_records(p)) == 2
+
+
+def test_rotation_not_triggered_by_duplicated_baseline_run(tmp_path):
+    """基线窗里混进一次 100% 入选的重跑 → 不得把持平的源判成"自身在跌"。
+
+    这是 2026-09-06 周报点名 The Guardian World 的真实形状：剔掉 07-25/08-03
+    两个重跑日后，它的基线从 30.4% 落到 19.0%，本窗 21.1% 其实是**上升**。
+    走 load_records 这个真实入口，不直接喂已清洗的 records——否则测试和被测代码
+    共用同一个"输入已经干净"的错误假设。
+    """
+    now = datetime(2026, 8, 30, 8, 0, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "europe") for n in ("A", "B", "C", "D", "Flat")])
+    recs = []
+    for n in ("A", "B", "C", "D"):
+        recs += _series(now, 60, 0, n, 3, 3)
+    recs += _series(now, 60, 0, "Flat", 10, 1)               # 前后都是 10%，持平
+    # 基线窗里的某一天多跑一次：4 倍抓取量、全部入选
+    recs.append(_rec_at(now - timedelta(days=45) + timedelta(hours=5), "Flat", 40, 40))
+    p = _write_log(tmp_path, recs)
+    out = _mod.find_rotation_candidates(reg, _mod.load_records(p), now)
+    assert out == []
+
+
+def test_dedup_collapses_legacy_three_runs_per_day(tmp_path):
+    """特征测试（不是新行为）：钉住 dedup 对 2026-06-19 以前 3 次/天旧排期的越界。
+
+    那个时期 digest 本来就每天跑 3 次(00:11/08:06/16:16)，后两次不是重跑。
+    这条规则一视同仁只留最早那次 —— 是刻意接受的取舍（见 dedup_same_day_runs
+    的 docstring），写成测试是为了让它**可见**：哪天有人想回溯 6 月以前的绝对
+    篇数，这条会先红，提醒他这个函数的输出不适合那个用途。
+    """
+    p = str(tmp_path / "legacy.jsonl")
+    day = datetime(2026, 6, 1, tzinfo=BJT)
+    with open(p, "w", encoding="utf-8") as f:
+        for hh, mm in ((0, 11), (8, 6), (16, 16)):
+            f.write(json.dumps(_rec_at(day.replace(hour=hh, minute=mm), "A", 5, 3)) + "\n")
+    recs = _mod.load_records(p)
+    assert len(recs) == 1
+    assert recs[0]["ts"].startswith("2026-06-01T00:11")
+    agg = _mod.aggregate_by_source(recs)
+    assert (agg["A"]["fetched"], agg["A"]["selected"]) == (5, 3)   # 不是 (15, 9)

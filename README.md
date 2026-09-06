@@ -259,12 +259,18 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 414 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + revival probe + region-rules liveness + contract defenses + rotation ratchet visibility + trial tier lifecycle + self-baseline rotation gate + config-context annotation)
+python3 -m pytest tests/ -q   # 419 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + revival probe + region-rules liveness + contract defenses + rotation ratchet visibility + trial tier lifecycle + self-baseline rotation gate + config-context annotation + same-day run dedup)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```
 
 **Production-config write guard** (`tests/conftest.py`, added 2026-08-30): an autouse fixture byte-compares `digest-tuning.json`, `news-sources-config.json` and `config/rss-registry.json` around every test; any test that mutates one fails and the file is restored on the spot. It exists because a real incident: extending `remove_trial_from_config()` to clear tiers made two pre-existing tests — which patched `SOURCES_FILE` but not `_reg.TUNING_FILE` — delete ProPublica from the **live** `digest-tuning.json`, with the suite still fully green. "This test isolates the file it knew about when it was written" expires the moment the code under test touches one more file, so the guard compares files instead of trusting every test to remember a patch.
+
+**Same-day run dedup** (`rss-production-review.py:dedup_same_day_runs`, added 2026-09-06): `load_records()` keeps only the earliest telemetry row per source per day. The digest normally runs once daily (~12:16 BJT), but 2026-07-25 recorded **four** runs (12:16 + 13:34/13:36/13:38) and 08-03/08-04 two each; every re-run logged **100% selection pool-wide** (a re-run starts with a clean dedup state, so every article looks new) against a normal day's ~52%.
+
+Both `aggregate_by_source()` and `self_baseline_rate()` only sum, so those rows became inflated samples. The damage was not a slightly-off number but an **inverted verdict**: 07-25 and 08-03 sit inside the 30-day baseline window `[now-60d, now-30d)`, lifting every source's baseline and thereby tripping the "declining against its own previous window" gate added 2026-08-30 — the gate that exists to prevent exactly this class of false positive. It guards against a **change between** windows (2026-06-15's pool-wide criteria change); it could not see a duplicate **inside** one. The 2026-09-06 report named The Guardian World on that basis; with the re-run days removed its baseline falls 30.4% → 19.0% and the current window's 21.1% is a **rise**, not a fall.
+
+Cleaning happens in `load_records()` — the single entry point — because `self_baseline_rate()` and `_meta_series()` iterate records directly instead of going through `aggregate_by_source()`; patching only the aggregator would have left the poisoned path untouched. Known accepted over-reach: before 2026-06-19 the digest genuinely ran 3×/day, and this rule collapses those too. That era is outside every window the report reads, and holding the time-of-day slot fixed is the better basis for cross-period comparison anyway (it discards volume, not rate) — pinned by `test_dedup_collapses_legacy_three_runs_per_day` so it stays visible. The root fix is a `run_id`/slot field written by `unified-global-news-sender.py`; until then this is inference from observation.
 
 ## Development
 

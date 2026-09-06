@@ -63,8 +63,68 @@ def parse_ts(ts: str) -> datetime:
     return datetime.fromisoformat(ts)
 
 
+def dedup_same_day_runs(records: list) -> list:
+    """同一源同一天只保留时间戳最早的那一条；判不出日期的行原样留下。
+
+    这套程序 2026-06-19 起每天只跑一次(~12:16 BJT)，但 2026-07-25 实测跑了 4 次
+    (12:16 + 13:34/13:36/13:38)、2026-08-03 跑了 2 次。重跑那几次每一次都是
+    **全池 100% 入选**（重跑时去重状态是干净的，每篇都算新文章），而正常日全池
+    只有 ~52%。`aggregate_by_source` 与 `self_baseline_rate` 都只做求和，
+    重跑就成了虚高样本。
+
+    ⚠ 后果不是"数字略偏"，是判据反向：那两天落在 30 天基线窗 [now-60d, now-30d)，
+    把每个源的基线抬高，于是 2026-08-30 才加的第二道门"自身相对上一个同长窗口
+    也在跌"被反向触发。第二道门防的是窗口**之间**的口径变更(2026-06-15)，
+    防不住窗口**之内**的重复运行——2026-09-06 周报据此点名 The Guardian World，
+    剔掉重跑日后它的基线 30.4%→19.0%，本窗 21.1% 其实是在**涨**。
+
+    留最早那条而不是求平均/取最大：最早那次才是 cron 定时跑出来、真正生成了当天
+    邮件的那一次；后面的重跑没有对应的邮件，平均会把它的虚高按比例掺进来。
+    ⚠ 这条依赖"定时跑总是当天最早"——实测 07-25/08-03/08-04 与正常日都符合
+    (12:15-12:17 打头)，但日志里没有 run 类型字段可以直接证明，属于按观测定的约定。
+    根治要在 unified-global-news-sender 写入 run_id/slot，这里只能按观测推断。
+
+    ⚠ **已知越界，刻意接受**：2026-05-27~06-18 那段 digest 本来就是每天跑 3 次
+    (00:11/08:06/16:16 的旧排期)，这条规则会把当时的后两次也一并丢掉——那不是重跑。
+    之所以接受：报告最长只看 60 天窗口，该时段早已滚出所有窗口；且"每天固定取同一
+    个时段"比"把每天跑几次都不一样的量硬加起来"更适合跨期比较（丢的是量，不是率）。
+    真要回溯 6 月以前的绝对篇数，别用这个函数的输出。
+    行为由 test_dedup_collapses_legacy_three_runs_per_day 钉住，避免哪天悄悄变掉。
+
+    放在 load_records 而不是 aggregate_by_source：`self_baseline_rate` 与
+    `_meta_series` 各自直接遍历 records，不走 aggregate——只修 aggregate 会漏掉
+    被污染的那条路径。清洗放在唯一的入口，所有下游共用同一个抽象。
+    """
+    best = {}          # (source, date) -> (ts, index)
+    for i, r in enumerate(records):
+        try:
+            ts = parse_ts(r["ts"])
+        except (KeyError, ValueError, TypeError):
+            continue   # 判不出日期 → 不参与去重，下面原样保留
+        key = (r.get("source"), ts.astimezone(BJT).date())
+        cur = best.get(key)
+        if cur is None or ts < cur[0]:
+            best[key] = (ts, i)
+    keep = {i for _, i in best.values()}
+    out = []
+    for i, r in enumerate(records):
+        try:
+            parse_ts(r["ts"])
+        except (KeyError, ValueError, TypeError):
+            out.append(r)          # 无法判日期的行不丢
+            continue
+        if i in keep:
+            out.append(r)
+    return out
+
+
 def load_records(log_path: str) -> list:
-    """Read JSONL, skipping blank/malformed lines. Bare rows (no metadata) kept as-is."""
+    """Read JSONL, skipping blank/malformed lines. Bare rows (no metadata) kept as-is.
+
+    出口过 dedup_same_day_runs：同一源同一天的重跑只留最早那次。这是**唯一**的
+    清洗点，下游 aggregate_by_source / self_baseline_rate / _meta_series 都假定
+    拿到的是"每源每天一条"。
+    """
     out = []
     if not os.path.isfile(log_path):
         return out
@@ -79,7 +139,7 @@ def load_records(log_path: str) -> list:
                 continue
             if isinstance(d, dict) and d.get("source"):
                 out.append(d)
-    return out
+    return dedup_same_day_runs(out)
 
 
 def filter_window(records: list, now: datetime, days: int) -> list:
