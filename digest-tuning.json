@@ -54,7 +54,8 @@
       "量子位",
       "Science News",
       "Nautilus Magazine",
-      "Korea Herald"
+      "Korea Herald",
+      "CoinDesk"
     ],
     "commodity": [
       "Solidot",
@@ -65,8 +66,7 @@
       "The Verge",
       "Globe & Mail",
       "Daily Maverick",
-      "The Guardian Science",
-      "CoinDesk"
+      "The Guardian Science"
     ],
     "suppressed": []
   },

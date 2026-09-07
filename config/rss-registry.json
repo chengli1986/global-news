@@ -10491,10 +10491,10 @@
         "uniqueness": 0.85,
         "final": 0.886
       },
-      "status": "trialing",
+      "status": "production",
       "trial": {
         "start_date": "2026-09-01",
-        "end_date": null,
+        "end_date": "2026-09-08",
         "report_sent": false,
         "daily_stats": [
           {
@@ -10529,13 +10529,22 @@
           },
           {
             "date": "2026-09-07",
+            "fetched": 3,
+            "selected": 2
+          },
+          {
+            "date": "2026-09-08",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-graduated",
+        "auto_decided": true,
         "candidate_score": 0.886
+      },
+      "production": {
+        "keywords": [],
+        "limit": 3
       }
     },
     {
