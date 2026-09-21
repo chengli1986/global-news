@@ -208,7 +208,6 @@ class UnifiedNewsSender:
         # _log_source_stats. RSS feeds populate; Sina/HN don't (skip).
         self.article_metadata: dict[tuple[str, str], dict] = {}
         self._openai_key = os.getenv("OPENAI_API_KEY", "")
-        self._gemini_key = os.getenv("GEMINI_API_KEY", "") or os.getenv("GOOGLE_API_KEY", "")
         self._last_provider = ""  # set by _llm_api_call to the provider that handled each call
         self._llm_status = []  # tracks (step, provider_or_None, ok: bool) for email status banner
         self._use_pipeline = False  # off by default, enable with --pipeline
@@ -524,7 +523,7 @@ class UnifiedNewsSender:
                 raise
             except (urllib.error.URLError, TimeoutError) as e:
                 # Socket read/connect timeout — single-request hang, often resolves on retry.
-                # Without this branch, one slow OpenAI request triggers Gemini fallback unnecessarily.
+                # Without this branch, one slow OpenAI request fails the whole call unnecessarily.
                 if attempt < max_retries - 1:
                     wait = 3
                     reason = getattr(e, "reason", e)
@@ -546,48 +545,23 @@ class UnifiedNewsSender:
         return json.loads(stripped)
 
     def _llm_api_call(self, payload: dict, timeout: int = 90, max_retries: int = 3) -> dict:
-        """Make LLM API call: try OpenAI first, fallback to Gemini.
-        Sets self._last_provider to the provider that actually handled the call."""
-        # Try OpenAI (gpt-4.1-mini)
-        if self._openai_key:
-            try:
-                result = self._api_call_with_retry(
-                    url="https://api.openai.com/v1/chat/completions",
-                    api_key=self._openai_key, payload=payload,
-                    timeout=timeout, max_retries=max_retries, provider="OpenAI",
-                )
-                self._last_provider = "OpenAI"
-                return result
-            except Exception as openai_err:
-                if self._gemini_key:
-                    print(f"  ⚠️  OpenAI failed ({openai_err}), switching to Gemini...")
-                else:
-                    raise
+        """Make the LLM API call against OpenAI (gpt-4.1-mini).
 
-        # Fallback: Gemini via OpenAI-compatible endpoint
-        # Strip response_format — Gemini's compat endpoint returns 503 with it on larger payloads.
-        # Try gemini-2.5-flash first, then gemini-2.5-flash-lite if capacity-limited.
-        # Gemini 2.5 Flash 503 is a known regional capacity issue — fast-fail (max_retries=2,
-        # i.e. 1 retry then move on) so we reach flash-lite in ~5s instead of burning ~15s.
-        if self._gemini_key:
-            base_payload = {k: v for k, v in payload.items() if k != "response_format"}
-            gemini_url = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions"
-            for gemini_model in ("gemini-2.5-flash", "gemini-2.5-flash-lite"):
-                try:
-                    result = self._api_call_with_retry(
-                        url=gemini_url, api_key=self._gemini_key,
-                        payload=dict(base_payload, model=gemini_model),
-                        timeout=timeout, max_retries=2, provider=f"Gemini({gemini_model})",
-                    )
-                    self._last_provider = gemini_model
-                    return result
-                except Exception as gemini_err:
-                    if gemini_model == "gemini-2.5-flash":
-                        print(f"  ⚠️  {gemini_model} unavailable ({gemini_err}), trying flash-lite...")
-                    else:
-                        raise
-
-        raise RuntimeError("No LLM API keys available (OPENAI_API_KEY / GEMINI_API_KEY)")
+        Single provider since 2026-09-21: the Gemini fallback was removed when the
+        Google key was retired. It had never fired in the retained logs, and both
+        callers already degrade in-process on failure (classification falls back
+        to keyword routing, translation keeps English titles), so a second
+        provider bought nothing but a second key to guard.
+        Sets self._last_provider to the provider that handled the call."""
+        if not self._openai_key:
+            raise RuntimeError("No LLM API key available (OPENAI_API_KEY)")
+        result = self._api_call_with_retry(
+            url="https://api.openai.com/v1/chat/completions",
+            api_key=self._openai_key, payload=payload,
+            timeout=timeout, max_retries=max_retries, provider="OpenAI",
+        )
+        self._last_provider = "OpenAI"
+        return result
 
     def translate_titles(self):
         """Translate English news titles to simplified Chinese via GPT-4.1-mini.
@@ -619,7 +593,7 @@ class UnifiedNewsSender:
             print("ℹ️  No English titles to translate")
             return
 
-        if not self._openai_key and not self._gemini_key:
+        if not self._openai_key:
             print("⚠️  No LLM API key set, skipping title translation")
             return
 
@@ -897,7 +871,7 @@ class UnifiedNewsSender:
             self._print_routing_stats()
             return
 
-        if not self._openai_key and not self._gemini_key:
+        if not self._openai_key:
             print("⚠️  No LLM API key set, skipping article classification")
             self._print_routing_stats()
             return

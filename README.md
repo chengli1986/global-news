@@ -102,20 +102,24 @@ Articles from mixed-content sources are classified into correct sections using G
 
 所有 production 源的文章统一走上面的文章级 LLM 标签归入邮件板块（`_collect_region_articles` 遍历**全部** `news_data` 源，而非只手工 `REGION_GROUPS` 清单）；不再有"源不在手工清单就全堆其他区"的盲区。新源无 LLM 标签时兜底 `REGION_OTHER`（"其他 OTHER"，理想接近空）。healthcare/科学类文章归入「🔬 科学·健康 SCIENCE & HEALTH」专属板块（方案 C 第一步，2026-06-21；`docs/superpowers/specs/2026-06-21-science-health-section-design.md`）；vertical 调查/地缘类（ProPublica/Foreign Policy 等）仍暂散现有板块，待方案 C 第二步「深度·专题」。Spec: `docs/superpowers/specs/2026-06-14-category-driven-region-grouping-design.md`
 
-## LLM Fallback Chain
+## LLM Provider
 
-Both translation and classification use a multi-provider fallback chain to ensure resilience:
+Both translation and classification call OpenAI (gpt-4.1-mini) directly. The
+Gemini fallback chain was removed on 2026-09-21 when the Google key was
+retired; it had never fired in the retained logs.
 
 ```
-GPT-4.1-mini → Gemini 2.5 Flash → Gemini 2.5 Flash-Lite → keyword fallback
+GPT-4.1-mini → in-process degradation (keyword routing / original English titles)
 ```
 
 Retry behavior:
-- HTTP 429 (rate limit): 1 retry after 2 seconds, then move to next provider.
-- HTTP 5xx (transient server error): retried with exponential backoff (5s, 10s) on OpenAI; Gemini calls fast-fail with `max_retries=2` (one retry then move on) since flash 503 is a known regional capacity issue and waiting longer rarely recovers.
-- Socket read timeout: retried 3s later (up to `max_retries`); avoids triggering Gemini fallback for a single slow OpenAI request.
+- HTTP 429 (rate limit): 1 retry after 2 seconds.
+- HTTP 5xx (transient server error): retried with exponential backoff (5s, 10s).
+- Socket read timeout: retried 3s later (up to `max_retries`).
 
-The email includes an LLM Status banner when fallback is active (orange for FALLBACK, red for FAILED), hidden when all calls succeed via the primary provider.
+If all retries fail, classification falls back to keyword-based routing and
+translation keeps the original English titles; the email still goes out and
+carries a red LLM Status banner (FAILED).
 
 ## Cross-Send Deduplication
 
@@ -259,7 +263,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 419 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + revival probe + region-rules liveness + contract defenses + rotation ratchet visibility + trial tier lifecycle + self-baseline rotation gate + config-context annotation + same-day run dedup)
+python3 -m pytest tests/ -q   # 420 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + revival probe + region-rules liveness + contract defenses + rotation ratchet visibility + trial tier lifecycle + self-baseline rotation gate + config-context annotation + same-day run dedup)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```

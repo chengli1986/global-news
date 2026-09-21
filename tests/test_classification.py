@@ -82,7 +82,6 @@ def _make_sender_with_news(news_data: dict) -> UnifiedNewsSender:
     sender._llm_status = []
     # Force no LLM keys so classify_articles only does Stage 1 work
     sender._openai_key = None
-    sender._gemini_key = None
     return sender
 
 

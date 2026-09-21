@@ -573,7 +573,7 @@ def find_revival_candidates(registry, live_feeds=None) -> list:
 def _load_health_module():
     """加载 rss-health-check.py（文件名带连字符，不能直接 import）。
 
-    同 scripts/benchmark_classifier_providers.py 的做法。该模块顶层只有常量与
+    同 scripts/dry_run_classifier.py 的做法。该模块顶层只有常量与
     函数定义（外加 __main__ 守卫），加载无副作用。
 
     缓存一次即可——probe_revivals 每探一个 URL 都会走这条路径（默认 prober），
