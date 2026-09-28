@@ -10686,7 +10686,8 @@
         "uniqueness": 0.65,
         "final": 0.762
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Japan Times",
@@ -10803,6 +10804,63 @@
       },
       "status": "rejected",
       "reject_reason": "pool-cap"
+    },
+    {
+      "name": "The Register",
+      "url": "https://www.theregister.com/?lab_viewport=rss",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 250,
+        "newest_age_hours": 0.56,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 88,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "content_depth": 0.3,
+        "authority": 0.7,
+        "uniqueness": 0.65,
+        "final": 0.715
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Yonhap English",
+      "url": "http://en.yna.co.kr/RSS/news.xml",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 102,
+        "newest_age_hours": 1.36,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 78,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 0.3,
+        "authority": 0.75,
+        "uniqueness": 0.45,
+        "final": 0.767
+      },
+      "status": "discovered"
     }
   ]
 }
