@@ -2604,7 +2604,7 @@
       "url": "https://www.theguardian.com/science/rss",
       "language": "en",
       "category": "vertical",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2626,7 +2626,7 @@
         "uniqueness": 0.65,
         "final": 0.894
       },
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard (manual 2026-10-12: chronic low selection, flat trend)",
       "trial": {
         "start_date": "2026-05-14",
         "end_date": "2026-05-17",
@@ -2854,7 +2854,7 @@
       "url": "https://www.quantamagazine.org/feed/",
       "language": "en",
       "category": "vertical",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2876,7 +2876,7 @@
         "uniqueness": 0.9,
         "final": 0.885
       },
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard (manual 2026-10-12: chronic low selection, flat trend)",
       "trial": {
         "start_date": "2026-05-22",
         "end_date": "2026-05-25",

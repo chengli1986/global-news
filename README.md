@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 56 sources (53 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 54 sources (51 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 56 sources (53 RSS feeds +
 Cron (1x daily: 12:15 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (56 sources)
+           ├── news-sources-config.json (54 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (53 sources, includes active trials)
+           └── RSS/Atom feeds (51 sources, includes active trials)
 
 Cron (1x daily: 12:05 BJT)
  └── rss-health-check.py
@@ -80,7 +80,7 @@ python3 rss-health-check.py --email
 
 - **tech_ai** (12): Ars Technica, BBC Technology, IEEE Spectrum, MIT Technology Review, NYT Technology, Solidot, TechCrunch, The Verge, Wired, 虎嗅, 量子位, 钛媒体
 - **global_finance** (10): BBC Business, Bloomberg, Bloomberg Econ, Bloomberg Politics, CNBC, Economist Business, Economist Finance, Economist Leaders, FT, NYT Business
-- **vertical** (8): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica, Quanta Magazine, The Guardian Science
+- **vertical** (6): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica
 - **hk_sea** (5): CNA, Korea Herald, Philippine Daily Inquirer, Rappler, SCMP
 - **europe** (6): Al Jazeera English, BBC World, France24 English, Politico Europe, RFI English, The Guardian World
 - **china_depth** (5): BBC中文, RFI中文, 澎湃新闻, 端傳媒 Initium Media, 纽约时报中文

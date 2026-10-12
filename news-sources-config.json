@@ -235,13 +235,6 @@
         "limit": 3
       },
       {
-        "name": "The Guardian Science",
-        "url": "https://www.theguardian.com/science/rss",
-        "keywords": [],
-        "limit": 3,
-        "max_age_hours": 96
-      },
-      {
         "name": "RFI中文",
         "url": "https://www.rfi.fr/cn/rss",
         "keywords": [],
@@ -266,13 +259,6 @@
         "url": "https://plink.anyfeeder.com/thepaper",
         "keywords": [],
         "limit": 3
-      },
-      {
-        "name": "Quanta Magazine",
-        "url": "https://www.quantamagazine.org/feed/",
-        "keywords": [],
-        "limit": 3,
-        "max_age_hours": 168
       },
       {
         "name": "端傳媒 Initium Media",
