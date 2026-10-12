@@ -223,13 +223,6 @@
         "limit": 3
       },
       {
-        "name": "KFF Health News",
-        "url": "https://kffhealthnews.org/feed/",
-        "keywords": [],
-        "limit": 3,
-        "max_age_hours": 96
-      },
-      {
         "name": "Daily Maverick",
         "url": "https://www.dailymaverick.co.za/dmrss/",
         "keywords": [],
@@ -258,7 +251,7 @@
         "name": "IEEE Spectrum",
         "url": "https://spectrum.ieee.org/feeds/feed.rss",
         "keywords": [],
-        "limit": 6,
+        "limit": 3,
         "max_age_hours": 168
       },
       {

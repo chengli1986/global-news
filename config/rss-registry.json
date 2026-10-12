@@ -2385,7 +2385,7 @@
       "url": "https://kffhealthnews.org/feed/",
       "language": "en",
       "category": "healthcare",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2407,7 +2407,7 @@
         "uniqueness": 0.85,
         "final": 0.896
       },
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard",
       "trial": {
         "start_date": "2026-05-09",
         "end_date": "2026-05-12",
