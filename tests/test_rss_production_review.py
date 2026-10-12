@@ -1589,3 +1589,272 @@ def test_dedup_collapses_legacy_three_runs_per_day(tmp_path):
     assert recs[0]["ts"].startswith("2026-06-01T00:11")
     agg = _mod.aggregate_by_source(recs)
     assert (agg["A"]["fetched"], agg["A"]["selected"]) == (5, 3)   # 不是 (15, 9)
+
+
+# ---- 长期低迷（chronic laggards）：组内垫底已持续两个窗口、趋势平 ----
+# 2026-10-12：Guardian Science 4/90、Quanta 8/90 九周都在组中位一半以下，但自身没在跌，
+# 建议轮换的「自身下滑」门永远放行，周报从不点名，最后是人看快照手工 demote 的。
+
+def _two_windows(now, name, cur, base, fetched=3):
+    """当前窗 [now-30, now) 与上一窗 [now-60, now-30) 各 30 天，每天 fetched 篇。"""
+    return (_series(now, 30, 0, name, fetched, cur)
+            + _series(now, 60, 30, name, fetched, base))
+
+
+def _chronic_fixture(now, low=("Low",)):
+    names = ("A", "B", "C", "D") + tuple(low)
+    reg = _registry([_prod_cat(n, "vertical") for n in names])
+    recs = []
+    for n in ("A", "B", "C", "D"):
+        recs += _two_windows(now, n, 2, 2)          # 67% 两窗都是
+    return reg, recs
+
+
+def test_chronic_flags_source_low_in_both_windows():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now)
+    # Low：每天抓 3 篇、每 3 天入选 1 篇 = 10/90 ≈ 11%，两窗相同（趋势平）
+    recs += _low_series(now, "Low", 30, 0) + _low_series(now, "Low", 60, 30)
+    out = _mod.find_chronic_laggards(reg, recs, now)
+    assert [x["name"] for x in out] == ["Low"]
+    row = out[0]
+    # 边界那天（now-30d）两窗互补归当前窗，故不是精确的 10/90（见 test_rotation_* 边界注释）
+    assert row["rate"] == pytest.approx(0.11, abs=0.01)
+    assert row["self_baseline_rate"] == pytest.approx(0.11, abs=0.01)
+    assert row["group_rate_median"] == pytest.approx(2 / 3)
+    # 趋势平 ⇒ 建议轮换那条门本来就放行它——这正是新栏目存在的理由
+    assert _mod.find_rotation_candidates(reg, recs, now) == []
+
+
+def _low_series(now, name, days_from, days_to, every=3):
+    """每天抓 3 篇，每 every 天入选 1 篇。"""
+    out = _series(now, days_from, days_to, name, 3, 0)
+    for i, r in enumerate(out):
+        if i % every == 0:
+            r["selected"] = 1
+    return out
+
+
+def test_chronic_skips_source_that_was_fine_last_window():
+    """上一窗正常、这一窗才掉下去的源是「在跌」，归建议轮换管，不重复列。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now)
+    recs += _low_series(now, "Low", 30, 0) + _series(now, 60, 30, "Low", 3, 2)
+    assert _mod.find_chronic_laggards(reg, recs, now) == []
+
+
+def test_chronic_requires_baseline_sample():
+    """上一窗样本不足（<10 篇）→ 不能说「长期」，不列。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now)
+    recs += _low_series(now, "Low", 30, 0) + _low_series(now, "Low", 33, 30)
+    assert _mod.find_chronic_laggards(reg, recs, now) == []
+
+
+def test_chronic_lists_every_low_source_not_just_bottom():
+    """建议轮换每组只标 1 个；长期低迷是提示栏，同组几个都低就都列。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now, low=("Low1", "Low2"))
+    for n in ("Low1", "Low2"):
+        recs += _low_series(now, n, 30, 0) + _low_series(now, n, 60, 30)
+    assert sorted(x["name"] for x in _mod.find_chronic_laggards(reg, recs, now)) == ["Low1", "Low2"]
+
+
+def test_chronic_excludes_zombie_sole_region_and_rotation():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now, low=("Zombie", "Sole", "Low"))
+    recs += _series(now, 30, 0, "Zombie", 3, 0) + _low_series(now, "Zombie", 60, 30)
+    for n in ("Sole", "Low"):
+        recs += _low_series(now, n, 30, 0) + _low_series(now, n, 60, 30)
+    out = _mod.find_chronic_laggards(reg, recs, now, region_map={"Sole": "亚太要闻"},
+                                     exclude=("Low",))
+    assert out == []          # Zombie 归 A、Sole 归豁免、Low 已在建议轮换（exclude）
+
+
+def test_chronic_small_group_exempt():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "vertical") for n in ("A", "B", "Low")])
+    recs = _two_windows(now, "A", 2, 2) + _two_windows(now, "B", 2, 2)
+    recs += _low_series(now, "Low", 30, 0) + _low_series(now, "Low", 60, 30)
+    assert _mod.find_chronic_laggards(reg, recs, now) == []
+
+
+def test_build_report_includes_chronic_section():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    chronic = [{"name": "Quanta Magazine", "category": "vertical", "selected": 8,
+                "fetched": 90, "rate": 8 / 90, "group_rate_median": 0.33,
+                "self_baseline_rate": 0.1, "baseline_group_rate_median": 0.35,
+                "group_size": 8, "tenure_days": None}]
+    html = _mod.build_report_html([], [], [], now, "", [], "", [], chronic)
+    assert "长期低迷" in html
+    assert "Quanta Magazine" in html
+    assert "10% → 9%" in html
+    assert 'rss-demote-source.py --name "Quanta Magazine"' in html
+    assert "不可逆" in html       # 带 demote 命令就必须带不可逆警示
+
+
+def test_build_report_no_chronic_section_when_empty():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now, "", [], "", [], [])
+    assert "长期低迷" not in html
+
+
+def test_cmd_run_wires_chronic_into_report(tmp_path, monkeypatch):
+    """同 exempt 那条：chronic 是 build_report_html 带默认值的参数，漏传会静默消失。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now)
+    recs += _low_series(now, "Low", 30, 0) + _low_series(now, "Low", 60, 30)
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(reg, f)
+    log_path = _write_log(tmp_path, recs)
+    monkeypatch.setattr(_reg, "REGISTRY_FILE", reg_path)
+    captured = {}
+
+    def fake_send(html, subject, env_path=_mod.ENV_FILE):
+        captured.update(html=html, subject=subject)
+        return True
+    monkeypatch.setattr(_mod, "send_report_email", fake_send)
+    assert _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True) == 0
+    assert "长期低迷" in captured["html"]
+    assert '--name "Low"' in captured["html"]
+    assert "1 长期低迷" in captured["subject"]
+
+
+# ---- 口径 3（2026-10-12 用户定）：组内垫底 OR 两窗都低于及格线 10%，每行标触发原因 ----
+
+def _rate_series(now, name, days_from, days_to, sel_days):
+    """每天抓 10 篇；第 i 天入选 sel_days(i) 篇。"""
+    out = _series(now, days_from, days_to, name, 10, 0)
+    for i, r in enumerate(out):
+        r["selected"] = sel_days(i)
+    return out
+
+
+def test_chronic_absolute_floor_catches_low_source_in_all_low_group():
+    """整组都低（vertical 实况）时组内门抓不到，及格线要能抓到——Quanta 的真实形状。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    names = ("A", "B", "C", "D", "Q")
+    reg = _registry([_prod_cat(n, "vertical") for n in names])
+    recs = []
+    for n in ("A", "B", "C", "D"):                      # 组内都是 ~15%
+        recs += _rate_series(now, n, 60, 0, lambda i: 2 if i % 2 else 1)
+    recs += _rate_series(now, "Q", 60, 0, lambda i: 1 if i % 2 else 0)   # ~5%：组中位一半-3pp≈4.5% 之上
+    out = _mod.find_chronic_laggards(reg, recs, now)
+    assert [x["name"] for x in out] == ["Q"]
+    assert out[0]["triggers"] == ["below_floor"]
+
+
+def test_chronic_floor_is_strict_at_exactly_ten_percent():
+    """上一窗正好 10.0%（KFF 10-11 的真实值）不算低于及格线。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "solo") for n in ("K",)])
+    recs = (_rate_series(now, "K", 30, 0, lambda i: 0 if i % 3 else 1)
+            + _rate_series(now, "K", 60, 30, lambda i: 1))   # 上一窗 30/300 = 10.0%
+    assert _mod.find_chronic_laggards(reg, recs, now) == []
+
+
+def test_chronic_floor_applies_even_without_group():
+    """及格线不依赖分组：组太小、甚至 legacy 无 category 的源也照查。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg = _registry([{"name": "L", "status": "production", "trial": None}])
+    recs = _rate_series(now, "L", 60, 0, lambda i: 1 if i % 2 else 0)   # 5%
+    out = _mod.find_chronic_laggards(reg, recs, now)
+    assert [x["name"] for x in out] == ["L"]
+    assert out[0]["triggers"] == ["below_floor"]
+    assert out[0]["group_rate_median"] is None
+
+
+def test_chronic_both_triggers_listed():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now)                       # A-D 67%
+    recs += _rate_series(now, "Low", 60, 0, lambda i: 1 if i % 2 else 0)   # 5%
+    out = _mod.find_chronic_laggards(reg, recs, now)
+    assert out[0]["triggers"] == ["group_laggard", "below_floor"]
+
+
+def test_board_saturation_marks_capped_board():
+    """板块多数天打满上限 → 标记名额满（Economist 四源 cap 10，10-11 窗口 32 天里 20 天打满）。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "global_finance") for n in ("E1", "E2")])
+    recs = _series(now, 30, 0, "E1", 6, 1) + _series(now, 30, 0, "E2", 6, 1)   # 每天合计 2
+    rows = [{"name": "E1"}]
+    rmap = {"E1": "ECON", "E2": "ECON"}
+    tuning = {"region_quotas": {"ECON": {"min": 1, "max": 2}}}
+    out = _mod.annotate_board_saturation(rows, reg, recs, now, region_map=rmap, tuning=tuning)
+    assert out[0]["board_saturated"] is True
+    assert out[0]["board_full_days"] == out[0]["board_days"]
+    tuning_loose = {"region_quotas": {"ECON": {"min": 1, "max": 5}}}
+    out = _mod.annotate_board_saturation(rows, reg, recs, now, region_map=rmap, tuning=tuning_loose)
+    assert out[0]["board_saturated"] is False
+
+
+def test_board_saturation_unknown_board_is_not_saturated():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    out = _mod.annotate_board_saturation([{"name": "X"}], _registry([]), [], now,
+                                         region_map={}, tuning={})
+    assert out[0]["board_saturated"] is False
+
+
+def _chronic_row(**kw):
+    row = {"name": "Quanta Magazine", "category": "vertical", "selected": 8,
+           "fetched": 90, "rate": 8 / 90, "group_rate_median": 0.16,
+           "self_baseline_rate": 0.067, "baseline_group_rate_median": 0.12,
+           "group_size": 8, "tenure_days": None, "triggers": ["below_floor"]}
+    row.update(kw)
+    return row
+
+
+def test_build_report_chronic_shows_trigger_labels():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    html = _mod.build_report_html([], [], [], now, "", [], "", [],
+                                  [_chronic_row(triggers=["group_laggard", "below_floor"])])
+    assert "组内垫底" in html and "低于及格线 10%" in html
+
+
+def test_build_report_chronic_saturated_board_gets_no_command():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    row = _chronic_row(name="Economist Finance", triggers=["group_laggard"],
+                       board_saturated=True, board_full_days=20, board_days=32,
+                       board="经济学人 THE ECONOMIST", board_max=10)
+    html = _mod.build_report_html([], [], [], now, "", [], "", [], [row])
+    assert "Economist Finance" in html
+    assert 'rss-demote-source.py --name "Economist Finance"' not in html
+    assert "20/32" in html
+    assert "不可逆" not in html          # 没给任何命令就不必挂不可逆警示
+
+
+def test_build_report_chronic_no_group_median_renders_dash():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    row = _chronic_row(category=None, group_rate_median=None,
+                       baseline_group_rate_median=None, group_size=None)
+    html = _mod.build_report_html([], [], [], now, "", [], "", [], [row])
+    assert "Quanta Magazine" in html
+
+
+def test_cmd_run_wires_board_saturation(tmp_path, monkeypatch):
+    """cmd_run 漏接 annotate_board_saturation 的话，名额满的源会照样拿到 demote 命令。"""
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now)
+    recs += _low_series(now, "Low", 30, 0) + _low_series(now, "Low", 60, 30)
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(reg, f)
+    tuning_path = str(tmp_path / "tuning.json")
+    with open(tuning_path, "w", encoding="utf-8") as f:
+        json.dump({"region_quotas": {"ECON": {"min": 1, "max": 1}}}, f)
+    log_path = _write_log(tmp_path, recs)
+    monkeypatch.setattr(_reg, "REGISTRY_FILE", reg_path)
+    monkeypatch.setattr(_mod, "TUNING_FILE", tuning_path)
+    # Low 与 A 同板块（A 每天入选 2 ≥ 限额 1 ⇒ 天天打满）；两个源分享板块 ⇒ 不是唯一供给
+    monkeypatch.setattr(_mod, "_load_region_map", lambda: {"Low": "ECON", "A": "ECON"})
+    captured = {}
+
+    def fake_send(html, subject, env_path=_mod.ENV_FILE):
+        captured["html"] = html
+        return True
+    monkeypatch.setattr(_mod, "send_report_email", fake_send)
+    assert _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True) == 0
+    assert "长期低迷" in captured["html"]
+    assert '--name "Low"' not in captured["html"]
+    assert "天打满" in captured["html"]

@@ -42,6 +42,12 @@ ROTATION_MIN_MARGIN = 0.03
 # 那阶段根本没在筛），只看组内相对会把全局变更误判成个别源变差。
 ROTATION_MIN_SELF_DECLINE = 0.05
 ROTATION_MIN_BASELINE_FETCHED = 10
+# 长期低迷的及格线：两窗入选率都严格低于它就列（不看分组）。2026-10-12 用户定 10%。
+CHRONIC_ABS_FLOOR = 0.10
+CHRONIC_TRIGGER_LABELS = {"group_laggard": "组内垫底",
+                          "below_floor": f"低于及格线 {CHRONIC_ABS_FLOOR:.0%}"}
+# 板块打满限额的天数占比达到它，就当「名额满」，长期低迷栏不给 demote 命令。
+CHRONIC_SATURATED_DAY_SHARE = 0.5
 
 # 复活探测：这些 reject_reason 关键词代表"质量不行被汰"，恢复了也不该回来。
 # 用排除法而非白名单——将来出现新的技术性下线原因（如 dns-fail）会自动纳入探测。
@@ -419,6 +425,121 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
     return out
 
 
+def find_chronic_laggards(registry, records, now, *, window_days=30,
+                          min_group=3, min_active_days=7, grace_days=30,
+                          zombie_max=1, min_margin=ROTATION_MIN_MARGIN,
+                          floor=CHRONIC_ABS_FLOOR,
+                          region_map=None, exclude=()) -> list:
+    """长期低迷：当前窗**和**上一个同长窗口都低，且趋势平（在跌的归建议轮换）。
+
+    两条触发，任一成立即列，行里 `triggers` 记是哪条（2026-10-12 用户定口径 3）：
+      - group_laggard：两窗都低于**各自窗口**组内入选率中位的一半再减边距。各窗用各窗
+        的中位，是为了不把 2026-06-15 那种全池口径变更误判成个别源变差。
+      - below_floor：两窗都**严格低于**及格线 floor（默认 10%），不看分组——整组都低时
+        组内门抓不到。10-11 实况：vertical 组中位 12–16%，Quanta 8%/Guardian Science 4%
+        都过不了组内门；KFF 上一窗正好 10.0%，按严格小于不算。
+
+    建议轮换要求「自身也在跌」，一直低、趋势平的源永远过不了那道门——这一栏补的就是
+    这块盲区。不限每组 1 个。去重：僵尸归 A；板块唯一供给归豁免栏；exclude（已在建议
+    轮换里的）只管不列，**不参与**唯一供给计算——与 find_rotation_candidates 的
+    「模拟已 demote」语义不同，否则会把同板块邻居误算成唯一供给而藏掉。
+    """
+    import collections
+    skip = set(exclude)
+    sole_region_sources = find_sole_region_sources(registry, region_map)
+    cur = aggregate_by_source(filter_window(records, now, window_days))
+
+    def _rate(a: dict) -> float:
+        return a["selected"] / a["fetched"] if a["fetched"] > 0 else 0.0
+
+    live = [(s, cur[s["name"]]) for s in _reg.get_by_status(registry, "production")
+            if cur.get(s["name"], {}).get("fetched", 0) > 0]
+    base = {s["name"]: self_baseline_rate(records, s["name"], now, window_days=window_days)
+            for s, _ in live}
+
+    # 组内中位：组太小或上一窗样本不够的组，组内门不适用（及格线照查）
+    by_cat = collections.defaultdict(list)
+    for s, a in live:
+        if s.get("category"):                      # legacy(无 category)不参与组内比
+            by_cat[s["category"]].append((s, a))
+    group = {}
+    for cat, members in by_cat.items():
+        if len(members) <= min_group:
+            continue
+        known = sorted(v for v in (base[s["name"]] for s, _ in members) if v is not None)
+        if len(known) <= min_group:
+            continue
+        group[cat] = (statistics.median(sorted(_rate(a) for _, a in members)),
+                      statistics.median(known), len(members))
+
+    out = []
+    for s, a in sorted(live, key=lambda x: (x[0].get("category") or "", _rate(x[1]))):
+        name, rate, b = s["name"], _rate(a), base[s["name"]]
+        if name in skip or name in sole_region_sources:
+            continue
+        if a["selected"] <= zombie_max or a["active_days"] < min_active_days:
+            continue
+        t = tenure_days(s, now)
+        if t is not None and t < grace_days:
+            continue
+        if b is None:                              # 上一窗样本不足：说不上「长期」
+            continue
+        triggers = []
+        g = group.get(s.get("category"))
+        if g and rate < g[0] / 2 - min_margin and b < g[1] / 2 - min_margin:
+            triggers.append("group_laggard")
+        if rate < floor and b < floor:
+            triggers.append("below_floor")
+        if not triggers:
+            continue
+        out.append({"name": name, "category": s.get("category"),
+                    "selected": a["selected"], "fetched": a["fetched"], "rate": rate,
+                    "group_rate_median": g[0] if g else None,
+                    "self_baseline_rate": b,
+                    "baseline_group_rate_median": g[1] if g else None,
+                    "group_size": g[2] if g else None, "tenure_days": t,
+                    "triggers": triggers})
+    return out
+
+
+def annotate_board_saturation(rows, registry, records, now, *, window_days=30,
+                              region_map=None, tuning_path: str = "", tuning=None) -> list:
+    """给行补「所在邮件板块多少天打满了限额」，打满天数过半记 board_saturated。
+
+    名额满的板块里，入选率低主要是在跟同板块的源抢名额（零和），不能当内容差的证据
+    ——10-11 实测经济学人四源（限额 10）32 天里 20 天合计正好 10。这类行报告里不给
+    demote 命令。
+
+    ⚠ 按「源的默认板块」把入选数加总：非锁定板块的文章可能被路由去别处，加总会偏高
+    （见 board_quota_note 的说明）。偏高只会让更多行被判「满」而**少给**命令——
+    出错方向是保守的，所以这里可以用；但它不是精确饱和度，报告只陈述天数。
+    """
+    import collections
+    tuning = _load_tuning(tuning_path) if tuning is None else tuning
+    rmap = _load_region_map() if region_map is None else region_map
+    quotas = tuning.get("region_quotas", {})
+    live = {s.get("name") for s in _reg.get_by_status(registry, "production")}
+    window = filter_window(records, now, window_days)
+    out = []
+    for r in rows:
+        board = rmap.get(r["name"])
+        cap = (quotas.get(board) or {}).get("max") if board else None
+        if not cap:
+            out.append(dict(r, board_saturated=False))
+            continue
+        members = {n for n in live if rmap.get(n) == board}
+        per_day = collections.Counter()
+        for x in window:
+            if x.get("source") in members:
+                per_day[x["ts"][:10]] += int(x.get("selected", 0) or 0)
+        days = len(per_day)
+        full = sum(1 for v in per_day.values() if v >= cap)
+        out.append(dict(r, board=board, board_max=cap, board_days=days,
+                        board_full_days=full,
+                        board_saturated=days > 0 and full / days >= CHRONIC_SATURATED_DAY_SHARE))
+    return out
+
+
 def _load_tuning(tuning_path: str = "") -> dict:
     """读 digest-tuning.json。读不到返回 {} —— 标注消失，但周报照发。"""
     try:
@@ -718,7 +839,7 @@ def _config_cell(r: dict) -> str:
         bits.append(f"{_esc(tier)}({boost}×){mark}")
     if r.get("board") and r.get("board_max"):
         bits.append(f"{_esc(r['board'])} 限额{r['board_max']}/天，"
-                    f"{r['board_sharers']} 源共享")
+                    f"{r.get('board_sharers', '?')} 源共享")
     return "<br>".join(bits) if bits else "—"
 
 
@@ -752,7 +873,7 @@ def _successor_cell(r: dict) -> str:
 
 
 def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None,
-                      revival_html_block="", exempt=None) -> str:
+                      revival_html_block="", exempt=None, chronic=None) -> str:
     """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
     ts = now.strftime("%Y-%m-%d %H:%M BJT")
 
@@ -800,9 +921,48 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
     else:
         rot_section = ""
 
-    warn_section = IRREVERSIBLE_HTML if (zombies or rotation) else ""
+    def _pct(v) -> str:
+        return f"{v:.0%}" if isinstance(v, (int, float)) else "—"
+
+    def _chronic_cmd(c: dict) -> str:
+        if c.get("board_saturated"):
+            return (f"不给命令：所在板块 {_esc(c.get('board', '?'))}（限额 {c.get('board_max')}）"
+                    f"{c.get('board_full_days')}/{c.get('board_days')} 天打满，"
+                    "入选率低主要是在抢名额，不代表内容差")
+        return (f"<code>python3 ~/global-news/rss-demote-source.py --name \"{_esc(c['name'])}\" "
+                f"--reason \"rotation-group-laggard (chronic)\"</code>")
+
+    chronic_cmds = [c for c in (chronic or []) if not c.get("board_saturated")]
+    if chronic:
+        c_rows = "".join(
+            f"<tr><td>{_esc(c['name'])}</td><td>{_esc(c.get('category') or '—')}</td>"
+            f"<td>{'、'.join(CHRONIC_TRIGGER_LABELS.get(t, t) for t in c.get('triggers', []))}</td>"
+            f"<td style='text-align:center'>{_pct(c['self_baseline_rate'])} → {_pct(c['rate'])}</td>"
+            f"<td style='text-align:center'>{_pct(c.get('baseline_group_rate_median'))} → "
+            f"{_pct(c.get('group_rate_median'))}</td>"
+            f"<td style='text-align:center'>{c['selected']}/{c['fetched']}</td>"
+            f"<td style='font-size:12px'>{_config_cell(c)}</td>"
+            f"<td style='font-size:12px'>{_chronic_cmd(c)}</td></tr>"
+            for c in chronic)
+        chronic_section = (
+            f"<h3>🐢 长期低迷（{len(chronic)}）连续两个窗口都低、但没在跌，所以不进建议轮换</h3>"
+            "<p style='color:#666;font-size:13px;margin:4px 0'>两条触发任一即列："
+            "<b>组内垫底</b>＝当前 30 天和上一个 30 天都低于各自窗口组内入选率中位的一半；"
+            f"<b>低于及格线 {CHRONIC_ABS_FLOOR:.0%}</b>＝两窗入选率都低于它，不看分组"
+            "（整组都低时组内比较抓不到）。建议轮换要求「自身也在跌」，这类源一直低、没在跌，"
+            "那道门永远放行——这一栏就是为它们设的。所在板块多数天打满限额的源不给命令。"
+            "执行前请确认是内容不对路，而不是配额/降权造成的。</p>"
+            "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
+            "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>触发</th>"
+            "<th>入选率 上一窗 → 本窗</th><th>组中位 上一窗 → 本窗</th>"
+            "<th>30d 入选/抓取</th><th>配置上下文</th><th>确认后执行</th></tr>"
+            f"{c_rows}</table>")
+    else:
+        chronic_section = ""
+
+    warn_section = IRREVERSIBLE_HTML if (zombies or rotation or chronic_cmds) else ""
     if any(isinstance(r.get("tier_boost"), (int, float)) and r["tier_boost"] < 1.0
-           for r in list(rotation or []) + list(exempt or [])):
+           for r in list(rotation or []) + list(exempt or []) + list(chronic or [])):
         warn_section += (
             "<p style='background:#eef2ff;border-left:4px solid #6366f1;padding:8px 12px;"
             "margin:10px 0;font-size:13px'>ℹ️ 名单里有<b>被人为降权</b>的源"
@@ -854,7 +1014,7 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
                     f"{snap_rows}</table>")
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
-            f"{revival_html_block}{plan_c_html}{warn_section}{a_section}{rot_section}{exempt_section}"
+            f"{revival_html_block}{plan_c_html}{warn_section}{a_section}{rot_section}{chronic_section}{exempt_section}"
             f"{b_section}{snap_section}")
 
 
@@ -1005,6 +1165,12 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
         registry)
     exempt = annotate_config_context(find_exempt_laggards(registry, records, now),
                                      registry)
+    chronic = annotate_board_saturation(
+        annotate_config_context(
+            find_chronic_laggards(registry, records, now,
+                                  exclude=[r["name"] for r in rotation]),
+            registry),
+        registry, records, now)
     plan_c_html = plan_c_reminder_html(registry, records, now)
     try:
         revived = probe_revivals(registry)
@@ -1015,8 +1181,9 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
         revival_block = ""
         print("[prod-review] revival probe/render failed, skipping revival section")
     html = build_report_html(zombies, degraded, snapshot, now, plan_c_html, rotation,
-                             revival_block, exempt)
+                             revival_block, exempt, chronic)
     subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸 / {len(rotation)} 建议轮换 / "
+               f"{len(chronic)} 长期低迷 / "
                f"{len(degraded)} 变质 — {now.strftime('%m月%d日')}")
     print(f"[prod-review] {len(zombies)} zombies, {len(degraded)} degraded, "
           f"{len(snapshot)} sources reviewed, {len(revived)} revived, "
