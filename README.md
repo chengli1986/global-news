@@ -1,6 +1,6 @@
 # Global News Digest
 
-Automated global news digest system that fetches from 57 sources (54 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
+Automated global news digest system that fetches from 56 sources (53 RSS feeds + 2 Sina Finance APIs + 1 HN Firebase API; exact count drifts ±1–2 as trial sources rotate) and delivers HTML email reports once daily, with LLM-based article classification, periodic health monitoring and automatic failover.
 
 ## Architecture
 
@@ -8,10 +8,10 @@ Automated global news digest system that fetches from 57 sources (54 RSS feeds +
 Cron (1x daily: 12:15 BJT)
  └── global-news-cron-wrapper.sh
       └── unified-global-news-sender.py
-           ├── news-sources-config.json (57 sources)
+           ├── news-sources-config.json (56 sources)
            ├── Sina Finance JSON API (2 sources)
            ├── HN Firebase API (1 source, structured data with scores)
-           └── RSS/Atom feeds (54 sources, includes active trials)
+           └── RSS/Atom feeds (53 sources, includes active trials)
 
 Cron (1x daily: 12:05 BJT)
  └── rss-health-check.py
@@ -85,7 +85,7 @@ python3 rss-health-check.py --email
 - **europe** (6): Al Jazeera English, BBC World, France24 English, Politico Europe, RFI English, The Guardian World
 - **china_depth** (5): BBC中文, RFI中文, 澎湃新闻, 端傳媒 Initium Media, 纽约时报中文
 - **north_america** (3): Globe & Mail, Politico US Politics, The New Yorker
-- **healthcare** (4): Endpoints News, KFF Health News, Science News, STAT News
+- **healthcare** (3): Endpoints News, Science News, STAT News
 - **global_south** (1): Daily Maverick
 
 **API sources (3)**: 中国科技/AI, 中国财经要闻 (Sina Finance JSON APIs), Hacker News (Firebase API)
