@@ -321,12 +321,21 @@ def run_checks():
         entry["last_check"] = now_bjt
         state[name] = entry
 
+        # Self-heal a bogus marker left by an earlier A→A swap (2026-10-15:
+        # 澎湃新闻 had swapped_from == its current URL, so it was stuck as
+        # "already swapped" and the revert branch skipped it forever).
+        if entry.get("swapped_from") and entry["swapped_from"] == _get_current_url(config, name):
+            entry["swapped_from"] = None
+
         # Auto-swap at threshold (only if not already swapped)
         if not res["ok"] and entry["consecutive_fails"] >= FAIL_THRESHOLD and name in FALLBACK_URLS:
             if entry.get("swapped_from") is not None:
                 continue
             fallback_url = FALLBACK_URLS[name]
             old_url = _get_current_url(config, name)
+            # Fallback already live → nothing to swap to; don't report a fake switch.
+            if old_url == fallback_url:
+                continue
             if old_url and swap_url_in_config(old_url, fallback_url):
                 entry["swapped_from"] = old_url
                 swapped.append((name, old_url, fallback_url))
