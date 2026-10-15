@@ -53,9 +53,12 @@ def demote_source(
     reg_path = registry_file or _reg.REGISTRY_FILE
     registry = _reg.load_registry(reg_path)
 
+    # Several registry rows can share a name (old rejected URLs + the live
+    # one); prefer the production row so we demote the right entry.
+    same_name = [s for s in _reg.get_sources(registry) if s.get("name") == name]
     source = next(
-        (s for s in _reg.get_sources(registry) if s.get("name") == name),
-        None,
+        (s for s in same_name if s.get("status") == "production"),
+        same_name[0] if same_name else None,
     )
     if source is None:
         print(f"ERROR: source '{name}' not found in registry.", file=sys.stderr)
@@ -83,7 +86,10 @@ def demote_source(
         sources_data["news_sources"]["rss_feeds"] = kept_feeds
         _atomic_write(sources_file, sources_data)
 
-    _reg.reject_source(registry, name, reason)
+    # Mark the selected row directly — reject_source() matches by name and
+    # would hit the first same-name row instead.
+    source["status"] = "rejected"
+    source["reject_reason"] = reason
     _reg.save_registry(registry, reg_path)
     # 对称清理：promote 侧 assign_default_tier 会写入 tier，这里不清就留孤儿条目。
     _reg.remove_tier(name, tuning_path=tuning_file or None)

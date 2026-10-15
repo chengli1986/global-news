@@ -196,3 +196,31 @@ def test_demote_trial_source_refuses(tmp_path):
     assert result is False
     rdata = _load_json(registry_file)
     assert rdata["sources"][0]["status"] == "trialing"
+
+
+def test_demote_picks_production_entry_among_same_name(tmp_path):
+    """Registry can hold several entries with one name (old rejected URLs +
+    the live one). 2026-10-15: 澎湃新闻 had a rejected feedx entry listed
+    before the production entry; picking the first name match refused the
+    demote, and reject_source() would have re-marked the wrong row."""
+    old = {"name": "Dup", "url": "https://old.example.com/feed",
+           "status": "rejected", "reject_reason": "pool-cap"}
+    live = {"name": "Dup", "url": "https://live.example.com/feed",
+            "status": "production", "production": {"keywords": [], "limit": 3}}
+    reg = _make_registry(tmp_path, [old, live])
+    src = _make_sources(tmp_path, [
+        {"name": "Dup", "url": "https://mirror.example.com/feed", "keywords": [], "limit": 3},
+        {"name": "Other", "url": "https://example.com/other", "keywords": [], "limit": 3},
+    ])
+    tuning = str(tmp_path / "digest-tuning.json")
+    with open(tuning, "w", encoding="utf-8") as f:
+        json.dump({"source_tiers": {"standard": ["Dup"]}}, f)
+
+    assert demote_source(name="Dup", reason="anti-crawl", registry_file=reg,
+                         sources_file=src, tuning_file=tuning) is True
+
+    rows = _load_json(reg)["sources"]
+    assert rows[0]["reject_reason"] == "pool-cap"
+    assert rows[1]["status"] == "rejected"
+    assert rows[1]["reject_reason"] == "anti-crawl"
+    assert [f["name"] for f in _load_json(src)["news_sources"]["rss_feeds"]] == ["Other"]

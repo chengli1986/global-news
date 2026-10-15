@@ -78,8 +78,10 @@ def promote_candidate(
         _atomic_write(sources_file, sources_data)
 
     # Update registry: mark as production
+    # Set on the selected row directly — set_production_config() matches by
+    # name and would hit an earlier same-name rejected row.
     source["status"] = "production"
-    _reg.set_production_config(registry, name, keywords=[], limit=limit)
+    source["production"] = {"keywords": [], "limit": limit}
     _reg.save_registry(registry, reg_path)
     _reg.assign_default_tier(name, tuning_path=tuning_path)
 

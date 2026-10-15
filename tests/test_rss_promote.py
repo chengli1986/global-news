@@ -135,3 +135,23 @@ def test_promote_already_production(tmp_path):
     # Sources file must remain untouched
     sdata = _load_json(sources_file)
     assert sdata["news_sources"]["rss_feeds"] == []
+
+
+def test_promote_writes_production_config_on_promoted_entry(tmp_path):
+    """Same-name rejected entry listed first must not receive the production
+    config (2026-10-15: 界面新闻 has a rejected anyfeeder row before the
+    discovered official-RSS row)."""
+    old = {"name": "Dup", "url": "https://old.example.com/feed",
+           "status": "rejected", "reject_reason": "pool-cap"}
+    cand = {"name": "Dup", "url": "https://new.example.com/feed", "status": "discovered"}
+    reg = _make_registry(tmp_path, [old, cand])
+    src = _make_sources(tmp_path, [])
+    tuning = _make_tuning(tmp_path)
+
+    assert promote_candidate(name="Dup", limit=3, registry_file=reg,
+                             sources_file=src, tuning_file=tuning) is True
+
+    rows = _load_json(reg)["sources"]
+    assert "production" not in rows[0]
+    assert rows[1]["status"] == "production"
+    assert rows[1]["production"] == {"keywords": [], "limit": 3}
