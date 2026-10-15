@@ -6194,7 +6194,7 @@
         "uniqueness": 0.82,
         "final": 0.889
       },
-      "status": "production",
+      "status": "rejected",
       "trial": {
         "start_date": "2026-05-20",
         "end_date": "2026-05-23",
@@ -6224,7 +6224,8 @@
         "outcome": "auto-graduated",
         "auto_decided": true,
         "candidate_score": 0.889
-      }
+      },
+      "reject_reason": "anti-crawl: anyfeeder stale since 2026-10-09, thepaper.cn 403 WAF from EC2"
     },
     {
       "name": "Science Daily",
@@ -9394,7 +9395,11 @@
         "uniqueness": 0.55,
         "final": 0.787
       },
-      "status": "discovered"
+      "status": "production",
+      "production": {
+        "keywords": [],
+        "limit": 3
+      }
     },
     {
       "name": "Business Insider",

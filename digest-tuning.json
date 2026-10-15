@@ -40,7 +40,6 @@
       "RFI中文",
       "Politico Europe",
       "Foreign Policy",
-      "澎湃新闻",
       "端傳媒 Initium Media",
       "Philippine Daily Inquirer",
       "RFI English",
@@ -53,7 +52,8 @@
       "Science News",
       "Nautilus Magazine",
       "Korea Herald",
-      "CoinDesk"
+      "CoinDesk",
+      "界面新闻"
     ],
     "commodity": [
       "Solidot",

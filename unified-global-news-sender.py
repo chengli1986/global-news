@@ -1683,7 +1683,7 @@ class UnifiedNewsSender:
   <table width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;">
     <tr>
       <td style="font-size:11px;font-family:{FONT_SANS};color:{C_MUTED};text-align:center;letter-spacing:1px;">
-        共 __ARTICLE_COUNT__ 条要闻 &middot; 综合 Economist / BBC / NYT / Bloomberg / SCMP / 新浪 / 澎湃 等 {len(self.news_data)} 个源
+        共 __ARTICLE_COUNT__ 条要闻 &middot; 综合 Economist / BBC / NYT / Bloomberg / SCMP / 新浪 / 界面 等 {len(self.news_data)} 个源
       </td>
     </tr>
   </table>

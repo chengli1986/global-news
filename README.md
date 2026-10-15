@@ -83,7 +83,7 @@ python3 rss-health-check.py --email
 - **vertical** (6): Carbon Brief, Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica
 - **hk_sea** (5): CNA, Korea Herald, Philippine Daily Inquirer, Rappler, SCMP
 - **europe** (6): Al Jazeera English, BBC World, France24 English, Politico Europe, RFI English, The Guardian World
-- **china_depth** (5): BBC中文, RFI中文, 澎湃新闻, 端傳媒 Initium Media, 纽约时报中文
+- **china_depth** (5): BBC中文, RFI中文, 界面新闻, 端傳媒 Initium Media, 纽约时报中文
 - **north_america** (3): Globe & Mail, Politico US Politics, The New Yorker
 - **healthcare** (3): Endpoints News, Science News, STAT News
 - **global_south** (1): Daily Maverick
@@ -264,7 +264,7 @@ Rebalanced weights (Apr 2026): reliability 0.25→0.10, content_quality 0.20→0
 ### Tests
 
 ```bash
-python3 -m pytest tests/ -q   # 441 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + revival probe + region-rules liveness + contract defenses + rotation ratchet visibility + trial tier lifecycle + self-baseline rotation gate + config-context annotation + same-day run dedup + chronic laggards + no-op auto-swap guard)
+python3 -m pytest tests/ -q   # 443 tests (pipeline + trial manager + discovery + sender + rss_registry + demote + backfill + production-review + region-routing + science-health + revival probe + region-rules liveness + contract defenses + rotation ratchet visibility + trial tier lifecycle + self-baseline rotation gate + config-context annotation + same-day run dedup + chronic laggards + no-op auto-swap guard)
 ./scripts/check-deleted-state-refs.sh            # pre-commit check: no refs to deleted state files
 ./scripts/check-shell-prompt-assignments.sh      # pre-commit check: multi-line shell VAR="..." must have : "${VAR:?...}" guard
 ```

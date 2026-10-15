@@ -255,12 +255,6 @@
         "max_age_hours": 96
       },
       {
-        "name": "澎湃新闻",
-        "url": "https://plink.anyfeeder.com/thepaper",
-        "keywords": [],
-        "limit": 3
-      },
-      {
         "name": "端傳媒 Initium Media",
         "url": "https://theinitium.com/rss/",
         "keywords": [],
@@ -343,6 +337,12 @@
       {
         "name": "CoinDesk",
         "url": "https://www.coindesk.com/arc/outboundfeeds/rss",
+        "keywords": [],
+        "limit": 3
+      },
+      {
+        "name": "界面新闻",
+        "url": "https://a.jiemian.com/index.php?m=article&a=rss",
         "keywords": [],
         "limit": 3
       }
