@@ -46,7 +46,7 @@
       },
       {
         "name": "BBC中文",
-        "url": "https://rsshub.rssforever.com/bbc/chinese",
+        "url": "https://feeds.bbci.co.uk/zhongwen/trad/rss.xml",
         "keywords": [],
         "limit": 6
       },
