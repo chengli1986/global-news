@@ -1340,7 +1340,7 @@
       "url": "https://www.theguardian.com/world/rss",
       "language": "en",
       "category": "europe",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -1362,7 +1362,7 @@
         "uniqueness": 0.8,
         "final": 0.924
       },
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard: 30d 11/90 (12%) vs group median 51%; prev window 21%; GLOBAL POLITICS board full only 1/30 days; 4th listing (2026-10-18 weekly review)",
       "trial": {
         "start_date": "2026-04-12",
         "end_date": "2026-04-19",

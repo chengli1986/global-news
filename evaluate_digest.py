@@ -47,12 +47,11 @@ SOURCE_TO_REGION: dict[str, str] = {
     "Bloomberg": "市场/宏观 MACRO & MARKETS",
     "FT": "市场/宏观 MACRO & MARKETS",
     "CNBC": "市场/宏观 MACRO & MARKETS",
-    # 全球政治 GLOBAL POLITICS (6 sources)
+    # 全球政治 GLOBAL POLITICS (5 sources)
     "BBC World": "全球政治 GLOBAL POLITICS",
     "纽约时报中文": "全球政治 GLOBAL POLITICS",
     "BBC中文": "全球政治 GLOBAL POLITICS",
     "Bloomberg Politics": "全球政治 GLOBAL POLITICS",
-    "The Guardian World": "全球政治 GLOBAL POLITICS",
     "SCMP": "全球政治 GLOBAL POLITICS",
     # 公司/产业 CORPORATE & INDUSTRY (2 sources)
     "NYT Business": "公司/产业 CORPORATE & INDUSTRY",

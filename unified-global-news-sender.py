@@ -670,7 +670,7 @@ class UnifiedNewsSender:
         ]),
         (REGION_POLITICS, [
             "BBC World", "纽约时报中文", "BBC中文", "Bloomberg Politics",
-            "The Guardian World", "SCMP",
+            "SCMP",
         ]),
         (REGION_CHINA, [
             "中国财经要闻",
