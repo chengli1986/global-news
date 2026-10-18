@@ -48,6 +48,12 @@ CHRONIC_TRIGGER_LABELS = {"group_laggard": "组内垫底",
                           "below_floor": f"低于及格线 {CHRONIC_ABS_FLOOR:.0%}"}
 # 板块打满限额的天数占比达到它，就当「名额满」，长期低迷栏不给 demote 命令。
 CHRONIC_SATURATED_DAY_SHARE = 0.5
+# 配额观察期：源的 per-source limit 改动后，本窗/上一窗要各自整窗都落在新配额下才可比，
+# 所以观察期 = 两个窗口。期间不进建议轮换/长期低迷，单列一栏。2026-10-18 IEEE Spectrum
+# 10-12 limit 6→3，改后 6 天 12/18=67%，周报仍按混了旧配额的 30d 19% 建议 demote。
+QUOTA_HOLD_DAYS = ROTATION_WINDOW_DAYS * 2
+# 与 unified-global-news-sender.py 里 rss_feeds 的 source.get("limit", 5) 同口径。
+RSS_DEFAULT_LIMIT = 5
 
 # 复活探测：这些 reject_reason 关键词代表"质量不行被汰"，恢复了也不该回来。
 # 用排除法而非白名单——将来出现新的技术性下线原因（如 dns-fail）会自动纳入探测。
@@ -354,7 +360,8 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
                              min_group=3, min_active_days=7, grace_days=30,
                              zombie_max=1, min_margin=ROTATION_MIN_MARGIN,
                              region_map=None, exclude=(),
-                             min_self_decline=ROTATION_MIN_SELF_DECLINE) -> list:
+                             min_self_decline=ROTATION_MIN_SELF_DECLINE,
+                             hold=()) -> list:
     """组内实测优胜劣汰：每个 category 内**入选率**垫底且明显低于同类的源 → 建议轮换。
 
     口径为入选率(selected/fetched)而非绝对入选数：`fetched` 由 news-sources-config
@@ -372,9 +379,13 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
     "被挡住"变成 −7.11pp，而 ASIA-PACIFIC 只有 CNA 一个源）。被这条挡下的源不会消失，
     由 find_exempt_laggards 单列进报告。
     去重：selected <= zombie_max 的归 A 僵尸，不在此重复。低频保护沿用 active_days/在岗宽限。
+
+    hold（配额观察期的源）：**仍计入组中位**（它的入选率对同组是真实数据），只是不能被
+    选为垫底——与 exclude 的「模拟已 demote」不同。垫底在剩下的源里选。
     """
     import collections
     skip = set(exclude)
+    held = set(hold)
     sole_region_sources = find_sole_region_sources(registry, region_map, exclude=skip)
     agg = aggregate_by_source(filter_window(records, now, window_days))
     by_cat = collections.defaultdict(list)
@@ -395,7 +406,10 @@ def find_rotation_candidates(registry, records, now, *, window_days=30,
             continue
         rate_median = statistics.median(sorted(_rate(a) for _, a in live))
         median = statistics.median(sorted(a["selected"] for _, a in live))
-        s, a = min(live, key=lambda x: _rate(x[1]))        # 组内入选率最低
+        eligible = [x for x in live if x[0]["name"] not in held]
+        if not eligible:
+            continue
+        s, a = min(eligible, key=lambda x: _rate(x[1]))    # 组内入选率最低（观察期除外）
         sel, ad, rate = a["selected"], a["active_days"], _rate(a)
         if s["name"] in sole_region_sources:       # 板块唯一供给：没替代源不能淘汰
             continue
@@ -429,7 +443,7 @@ def find_chronic_laggards(registry, records, now, *, window_days=30,
                           min_group=3, min_active_days=7, grace_days=30,
                           zombie_max=1, min_margin=ROTATION_MIN_MARGIN,
                           floor=CHRONIC_ABS_FLOOR,
-                          region_map=None, exclude=()) -> list:
+                          region_map=None, exclude=(), hold=()) -> list:
     """长期低迷：当前窗**和**上一个同长窗口都低，且趋势平（在跌的归建议轮换）。
 
     两条触发，任一成立即列，行里 `triggers` 记是哪条（2026-10-12 用户定口径 3）：
@@ -443,9 +457,10 @@ def find_chronic_laggards(registry, records, now, *, window_days=30,
     这块盲区。不限每组 1 个。去重：僵尸归 A；板块唯一供给归豁免栏；exclude（已在建议
     轮换里的）只管不列，**不参与**唯一供给计算——与 find_rotation_candidates 的
     「模拟已 demote」语义不同，否则会把同板块邻居误算成唯一供给而藏掉。
+    hold（配额观察期）同理只管不列，照样计入组中位。
     """
     import collections
-    skip = set(exclude)
+    skip = set(exclude) | set(hold)
     sole_region_sources = find_sole_region_sources(registry, region_map)
     cur = aggregate_by_source(filter_window(records, now, window_days))
 
@@ -500,6 +515,88 @@ def find_chronic_laggards(registry, records, now, *, window_days=30,
                     "group_size": g[2] if g else None, "tenure_days": t,
                     "triggers": triggers})
     return out
+
+
+def _rss_limits(cfg: dict) -> dict:
+    """{源名: 生效 limit}，缺省值与 sender 同口径。"""
+    feeds = (cfg.get("news_sources") or {}).get("rss_feeds") or []
+    return {f["name"]: f.get("limit", RSS_DEFAULT_LIMIT) for f in feeds if f.get("name")}
+
+
+def load_config_history(now, *, days=QUOTA_HOLD_DAYS, sources_file: str = "") -> list:
+    """news-sources-config.json 的提交快照 [(提交时间, cfg)]，旧→新。
+
+    取 now-days 之后的提交，**外加之前最近的一个**作为起点——否则窗口内第一次改动
+    没有「改前」可比。只看已提交的版本：cron 直接跑仓库文件，未提交的改动看不见
+    （猜测影响小，未验证：配置改动都是随 commit 一起做的）。git 不可用时抛异常，
+    由调用方决定怎么在报告里说明。
+    """
+    path = os.path.realpath(sources_file or SOURCES_FILE)
+    repo, rel = os.path.dirname(path), os.path.basename(path)
+
+    def _git(*args) -> str:
+        return subprocess.run(["git", "-C", repo, *args], capture_output=True, text=True,
+                              timeout=30, check=True).stdout
+
+    cutoff = now - timedelta(days=days)
+    commits = []
+    for line in _git("log", "--format=%H %cI", "--", rel).splitlines():
+        sha, _, ts = line.strip().partition(" ")
+        if not sha:
+            continue
+        when = datetime.fromisoformat(ts)
+        commits.append((when, sha))
+        if when < cutoff:                          # git log 新→旧：拿到起点就停
+            break
+    out = []
+    for when, sha in reversed(commits):
+        try:
+            out.append((when, json.loads(_git("show", f"{sha}:{rel}"))))
+        except (json.JSONDecodeError, subprocess.CalledProcessError):
+            continue                               # 坏快照跳过，不连累整份历史
+    return out
+
+
+def find_quota_changes(history, now, *, hold_days=QUOTA_HOLD_DAYS) -> dict:
+    """{源名: {from, to, changed_at}}：hold_days 内 limit 改过的源，取最后一次改动。
+
+    只认「前后两版都在」的源——新加入的源由在岗宽限管，移除的源已不在池里。
+    """
+    cutoff = now - timedelta(days=hold_days)
+    out = {}
+    for (_, prev), (when, cur) in zip(history, history[1:]):
+        if when < cutoff:
+            continue
+        a, b = _rss_limits(prev), _rss_limits(cur)
+        for name in a.keys() & b.keys():
+            if a[name] != b[name]:
+                out[name] = {"from": a[name], "to": b[name], "changed_at": when}
+    return out
+
+
+def annotate_quota_hold(changes: dict, registry, records, now) -> list:
+    """观察期报告行：改动信息 + 改后入选率（只算 changed_at 之后的记录）。只列现役源。"""
+    live = {s.get("name"): s for s in _reg.get_by_status(registry, "production")}
+    rows = []
+    for name in sorted(changes):
+        if name not in live:
+            continue
+        c = changes[name]
+        f = sel = 0
+        for r in records:
+            if r.get("source") != name:
+                continue
+            try:
+                if parse_ts(r["ts"]) < c["changed_at"]:
+                    continue
+            except (KeyError, ValueError):
+                continue
+            f += int(r.get("fetched", 0) or 0)
+            sel += int(r.get("selected", 0) or 0)
+        rows.append(dict(c, name=name, category=live[name].get("category"),
+                         fetched_since=f, selected_since=sel,
+                         hold_until=c["changed_at"] + timedelta(days=QUOTA_HOLD_DAYS)))
+    return rows
 
 
 def annotate_board_saturation(rows, registry, records, now, *, window_days=30,
@@ -873,7 +970,8 @@ def _successor_cell(r: dict) -> str:
 
 
 def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation=None,
-                      revival_html_block="", exempt=None, chronic=None) -> str:
+                      revival_html_block="", exempt=None, chronic=None,
+                      quota_hold=None, quota_error="") -> str:
     """Full HTML report: A zombie candidates (with demote command), B warnings, pool snapshot."""
     ts = now.strftime("%Y-%m-%d %H:%M BJT")
 
@@ -993,6 +1091,34 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
     else:
         exempt_section = ""
 
+    if quota_hold:
+        def _since(q: dict) -> str:
+            f = q["fetched_since"]
+            return f"{q['selected_since']}/{f}（{q['selected_since'] / f:.0%}）" if f else "—"
+        q_rows = "".join(
+            f"<tr><td>{_esc(q['name'])}</td><td>{_esc(q.get('category') or '—')}</td>"
+            f"<td style='text-align:center'>{_esc(q['from'])} → {_esc(q['to'])}</td>"
+            f"<td style='text-align:center'>{q['changed_at'].astimezone(BJT):%Y-%m-%d}</td>"
+            f"<td style='text-align:center'>{q['hold_until'].astimezone(BJT):%Y-%m-%d}</td>"
+            f"<td style='text-align:center'>{_since(q)}</td></tr>"
+            for q in quota_hold)
+        quota_section = (
+            f"<h3>⏸ 配额调整观察期（{len(quota_hold)}）近 {QUOTA_HOLD_DAYS} 天改过 limit，暂不评</h3>"
+            "<p style='color:#666;font-size:13px;margin:4px 0'>改了每次抓取上限之后，30 天窗口会把"
+            "改前改后混在一起算，入选率和「自身趋势」都不可比。这些源到观察期结束前<b>不进建议轮换和"
+            "长期低迷</b>，也不给命令；仍计入同组中位。要提前判断，看最后一列改后的入选率。</p>"
+            "<table border='1' cellpadding='6' cellspacing='0' style='border-collapse:collapse'>"
+            "<tr style='background:#f3f4f6'><th>源</th><th>类别</th><th>limit</th>"
+            "<th>改动日</th><th>观察期至</th><th>改后 入选/抓取</th></tr>"
+            f"{q_rows}</table>")
+    else:
+        quota_section = ""
+    if quota_error:
+        quota_section += (
+            "<p style='background:#fff8e1;border-left:4px solid #f59e0b;padding:8px 12px;"
+            "margin:10px 0;font-size:13px'>⚠️ 读不到 news-sources-config.json 的配额变更历史"
+            f"（{_esc(quota_error)}），本期<b>没有配额观察期</b>：刚改过 limit 的源可能被误列。</p>")
+
     if degraded:
         d_rows = "".join(
             f"<tr><td>{_esc(d['name'])}</td><td>{_esc(d['signal'])}</td>"
@@ -1015,7 +1141,7 @@ def build_report_html(zombies, degraded, snapshot, now, plan_c_html="", rotation
 
     return (f"<h2>RSS Production 源在岗质量复查</h2><p>生成：{ts}</p>"
             f"{revival_html_block}{plan_c_html}{warn_section}{a_section}{rot_section}{chronic_section}{exempt_section}"
-            f"{b_section}{snap_section}")
+            f"{quota_section}{b_section}{snap_section}")
 
 
 def _plan_c_done(sender_path: str = SENDER_FILE) -> bool:
@@ -1156,21 +1282,31 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
     elif now.tzinfo is None:
         now = now.replace(tzinfo=BJT)   # guard: aware-vs-naive compare would raise in filter_window
     records = load_records(log_path)
+    quota_error = ""
+    try:
+        changes = find_quota_changes(load_config_history(now), now)
+    except Exception as e:
+        # 读不到历史就当没有观察期（= 改动前的行为），但报告里必须说出来。
+        changes, quota_error = {}, f"{type(e).__name__}: {e}"[:200]
+        print(f"[prod-review] quota history unavailable: {quota_error}")
+    hold = set(changes)
     zombies = find_zombies(registry, records, now)
     degraded = find_degraded(registry, records, now)
     snapshot = snapshot_rows(registry, records, now)
     rotation = annotate_config_context(
         annotate_successors(registry, records, now,
-                            find_rotation_candidates(registry, records, now)),
+                            find_rotation_candidates(registry, records, now, hold=hold),
+                            hold=hold),
         registry)
-    exempt = annotate_config_context(find_exempt_laggards(registry, records, now),
+    exempt = annotate_config_context(find_exempt_laggards(registry, records, now, hold=hold),
                                      registry)
     chronic = annotate_board_saturation(
         annotate_config_context(
             find_chronic_laggards(registry, records, now,
-                                  exclude=[r["name"] for r in rotation]),
+                                  exclude=[r["name"] for r in rotation], hold=hold),
             registry),
         registry, records, now)
+    quota_hold = annotate_quota_hold(changes, registry, records, now)
     plan_c_html = plan_c_reminder_html(registry, records, now)
     try:
         revived = probe_revivals(registry)
@@ -1181,13 +1317,14 @@ def cmd_run(registry_path=None, log_path: str = LOG_PATH, now=None, send: bool =
         revival_block = ""
         print("[prod-review] revival probe/render failed, skipping revival section")
     html = build_report_html(zombies, degraded, snapshot, now, plan_c_html, rotation,
-                             revival_block, exempt, chronic)
+                             revival_block, exempt, chronic, quota_hold, quota_error)
     subject = (f"[RSS Pool 复查] {len(zombies)} 僵尸 / {len(rotation)} 建议轮换 / "
                f"{len(chronic)} 长期低迷 / "
                f"{len(degraded)} 变质 — {now.strftime('%m月%d日')}")
     print(f"[prod-review] {len(zombies)} zombies, {len(degraded)} degraded, "
           f"{len(snapshot)} sources reviewed, {len(revived)} revived, "
-          f"{len(exempt)} exempt (sole source of a digest region).")
+          f"{len(exempt)} exempt (sole source of a digest region), "
+          f"{len(quota_hold)} on quota hold.")
     if send:
         if not send_report_email(html, subject):
             return 1

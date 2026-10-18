@@ -77,6 +77,17 @@ def _no_region_map(monkeypatch):
     monkeypatch.setattr(_mod, "_load_region_map", lambda: {})
 
 
+_REAL_LOAD_CONFIG_HISTORY = _mod.load_config_history
+
+
+@pytest.fixture(autouse=True)
+def _no_config_history(monkeypatch):
+    """默认没有配额变更历史：不隔离的话 cmd_run 会读真实仓库的 git log，测试里的假源名
+    一旦和真实改过 limit 的源重名，就变成在断言仓库历史。要验证真实读取路径的测试用
+    _REAL_LOAD_CONFIG_HISTORY 并传 sources_file。"""
+    monkeypatch.setattr(_mod, "load_config_history", lambda *a, **kw: [])
+
+
 def _write_log(tmp_path, lines: list) -> str:
     p = str(tmp_path / "prod-log.jsonl")
     with open(p, "w", encoding="utf-8") as f:
@@ -1858,3 +1869,182 @@ def test_cmd_run_wires_board_saturation(tmp_path, monkeypatch):
     assert "长期低迷" in captured["html"]
     assert '--name "Low"' not in captured["html"]
     assert "天打满" in captured["html"]
+
+
+# ---------- 配额观察期（2026-10-18）----------
+# 10-18 周报：IEEE Spectrum 10-12 limit 6→3，改后 6 天 12/18=67%，周报仍按混了旧配额的
+# 30d 19%、自身 32%→19% 建议 demote（不可逆）。
+
+def _cfg(**limits):
+    return {"news_sources": {"rss_feeds": [
+        ({"name": n} if v is None else {"name": n, "limit": v}) for n, v in limits.items()]}}
+
+
+def test_quota_changes_detects_limit_change():
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    t0, t1 = now - timedelta(days=90), now - timedelta(days=6)
+    hist = [(t0, _cfg(IEEE=6, Other=3)), (t1, _cfg(IEEE=3, Other=3))]
+    out = _mod.find_quota_changes(hist, now)
+    assert out == {"IEEE": {"from": 6, "to": 3, "changed_at": t1}}
+
+
+def test_quota_changes_ignores_add_remove_and_old_changes():
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    hist = [(now - timedelta(days=200), _cfg(Old=6, Gone=3)),
+            (now - timedelta(days=61), _cfg(Old=3, Gone=3)),     # 改在观察期之外
+            (now - timedelta(days=5), _cfg(Old=3, New=3))]       # Gone 移除、New 新加
+    assert _mod.find_quota_changes(hist, now) == {}
+
+
+def test_quota_changes_missing_limit_uses_sender_default():
+    """config 里不写 limit = sender 的默认 5；显式改成 5 不算改动，改成 3 才算。"""
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    t1, t2 = now - timedelta(days=20), now - timedelta(days=10)
+    hist = [(now - timedelta(days=90), _cfg(A=None, B=None)),
+            (t1, _cfg(A=5, B=None)), (t2, _cfg(A=5, B=3))]
+    assert _mod.find_quota_changes(hist, now) == {
+        "B": {"from": 5, "to": 3, "changed_at": t2}}
+
+
+def test_quota_changes_keeps_last_change():
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    t1, t2 = now - timedelta(days=40), now - timedelta(days=10)
+    hist = [(now - timedelta(days=90), _cfg(A=6)), (t1, _cfg(A=3)), (t2, _cfg(A=4))]
+    assert _mod.find_quota_changes(hist, now)["A"] == {"from": 3, "to": 4, "changed_at": t2}
+
+
+def test_load_config_history_reads_real_git_repo(tmp_path):
+    """走真实 git，不是假历史：测试和被测代码共用同一个读取抽象。"""
+    import subprocess
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    cfg = repo / "news-sources-config.json"
+
+    def git(*a, date=None):
+        env = dict(os.environ, GIT_AUTHOR_NAME="t", GIT_AUTHOR_EMAIL="t@t",
+                   GIT_COMMITTER_NAME="t", GIT_COMMITTER_EMAIL="t@t")
+        if date:
+            env.update(GIT_AUTHOR_DATE=date, GIT_COMMITTER_DATE=date)
+        subprocess.run(["git", "-C", str(repo), *a], check=True, capture_output=True, env=env)
+
+    git("init", "-q")
+    for date, lim in (("2026-07-01T00:00:00+00:00", 6), ("2026-08-01T00:00:00+00:00", 5),
+                      ("2026-10-12T06:37:02+00:00", 3)):
+        cfg.write_text(json.dumps(_cfg(IEEE=lim)), encoding="utf-8")
+        git("add", "news-sources-config.json")
+        git("commit", "-q", "-m", f"limit {lim}", date=date)
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    hist = _REAL_LOAD_CONFIG_HISTORY(now, sources_file=str(cfg))
+    # 7-01 在 60 天之前且不是最近的起点 → 不取；8-01 是窗口前最近一个 → 作起点
+    assert [h[0].date().isoformat() for h in hist] == ["2026-08-01", "2026-10-12"]
+    out = _mod.find_quota_changes(hist, now)
+    assert out["IEEE"]["from"] == 5 and out["IEEE"]["to"] == 3
+
+
+def test_load_config_history_raises_outside_git(tmp_path):
+    cfg = tmp_path / "news-sources-config.json"
+    cfg.write_text("{}", encoding="utf-8")
+    with pytest.raises(Exception):
+        _REAL_LOAD_CONFIG_HISTORY(datetime(2026, 10, 18, tzinfo=BJT), sources_file=str(cfg))
+
+
+def _ieee_fixture(now):
+    """tech_ai 组 5 源：四个 67%，IEEE 前两窗低且在跌（不 hold 就会被点名）。"""
+    reg = _registry([_prod_cat(n, "tech_ai") for n in ("A", "B", "C", "D", "IEEE")])
+    recs = []
+    for n in ("A", "B", "C", "D"):
+        recs += _two_windows(now, n, 2, 2)
+    recs += _series(now, 61, 31, "IEEE", 6, 3) + _series(now, 30, 0, "IEEE", 6, 1)
+    return reg, recs
+
+
+def test_rotation_hold_skips_held_laggard():
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    reg, recs = _ieee_fixture(now)
+    assert [x["name"] for x in _mod.find_rotation_candidates(reg, recs, now)] == ["IEEE"]
+    assert _mod.find_rotation_candidates(reg, recs, now, hold={"IEEE"}) == []
+
+
+def test_rotation_hold_keeps_source_in_group_median():
+    """hold ≠ exclude：观察期的源仍计入组中位，只是不能被选为垫底。"""
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    reg = _registry([_prod_cat(n, "tech_ai") for n in ("A", "B", "C", "D", "Held", "Lag")])
+    recs = []
+    for n in ("A", "B"):
+        recs += _two_windows(now, n, 1, 1)                          # 33%
+    for n in ("C", "D", "Held"):
+        recs += _two_windows(now, n, 3, 3)                          # 100%
+    recs += _series(now, 61, 31, "Lag", 10, 5) + _series(now, 30, 0, "Lag", 10, 1)  # 50%→10%
+    held = _mod.find_rotation_candidates(reg, recs, now, hold={"Held"})
+    excl = _mod.find_rotation_candidates(reg, recs, now, exclude={"Held"})
+    assert [x["name"] for x in held] == ["Lag"]
+    assert held[0]["group_rate_median"] == pytest.approx(2 / 3)     # 6 源：(33%+100%)/2
+    assert excl[0]["group_rate_median"] == pytest.approx(1 / 3)     # exclude＝当它已走
+
+
+def test_chronic_hold_skips_source():
+    now = datetime(2026, 10, 11, 9, 30, tzinfo=BJT)
+    reg, recs = _chronic_fixture(now)
+    recs += _low_series(now, "Low", 30, 0) + _low_series(now, "Low", 60, 30)
+    assert [x["name"] for x in _mod.find_chronic_laggards(reg, recs, now)] == ["Low"]
+    assert _mod.find_chronic_laggards(reg, recs, now, hold={"Low"}) == []
+
+
+def test_annotate_quota_hold_counts_only_after_change():
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    reg, recs = _ieee_fixture(now)
+    changed = now - timedelta(days=6, hours=1)
+    recs = [r for r in recs if not (r["source"] == "IEEE" and _mod.parse_ts(r["ts"]) >= changed)]
+    recs += _series(now, 6, 0, "IEEE", 3, 2)
+    rows = _mod.annotate_quota_hold(
+        {"IEEE": {"from": 6, "to": 3, "changed_at": changed},
+         "NotLive": {"from": 6, "to": 3, "changed_at": changed}}, reg, recs, now)
+    assert [r["name"] for r in rows] == ["IEEE"]                    # 非现役不列
+    assert (rows[0]["selected_since"], rows[0]["fetched_since"]) == (12, 18)
+    assert rows[0]["hold_until"] == changed + timedelta(days=60)
+
+
+def _run_capture(tmp_path, monkeypatch, reg, recs, now):
+    reg_path = str(tmp_path / "registry.json")
+    with open(reg_path, "w", encoding="utf-8") as f:
+        json.dump(reg, f)
+    log_path = _write_log(tmp_path, recs)
+    monkeypatch.setattr(_reg, "REGISTRY_FILE", reg_path)
+    captured = {}
+
+    def fake_send(html, subject, env_path=_mod.ENV_FILE):
+        captured.update(html=html, subject=subject)
+        return True
+    monkeypatch.setattr(_mod, "send_report_email", fake_send)
+    assert _mod.cmd_run(registry_path=reg_path, log_path=log_path, now=now, send=True) == 0
+    return captured
+
+
+def test_cmd_run_wires_quota_hold(tmp_path, monkeypatch):
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    reg, recs = _ieee_fixture(now)
+    changed = now - timedelta(days=6)
+    monkeypatch.setattr(_mod, "load_config_history", lambda *a, **kw: [
+        (now - timedelta(days=90), _cfg(IEEE=6, A=3)), (changed, _cfg(IEEE=3, A=3))])
+    html = _run_capture(tmp_path, monkeypatch, reg, recs, now)["html"]
+    assert '--name "IEEE"' not in html                              # 不给 demote 命令
+    assert "配额调整观察期" in html and "6 → 3" in html
+    assert (changed + timedelta(days=60)).strftime("%Y-%m-%d") in html
+
+
+def test_cmd_run_reports_history_failure(tmp_path, monkeypatch):
+    """读不到历史 → 退回改动前的行为（照常点名），但报告必须说出来。"""
+    now = datetime(2026, 10, 18, 9, 30, tzinfo=BJT)
+    reg, recs = _ieee_fixture(now)
+
+    def boom(*a, **kw):
+        raise FileNotFoundError("git")
+    monkeypatch.setattr(_mod, "load_config_history", boom)
+    html = _run_capture(tmp_path, monkeypatch, reg, recs, now)["html"]
+    assert "读不到" in html and "配额变更历史" in html
+    assert '--name "IEEE"' in html
+
+
+def test_build_report_no_quota_section_when_empty():
+    html = _mod.build_report_html([], [], [], datetime(2026, 10, 18, tzinfo=BJT))
+    assert "配额调整观察期" not in html and "配额变更历史" not in html
