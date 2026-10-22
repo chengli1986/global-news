@@ -10248,7 +10248,8 @@
         "uniqueness": 0.72,
         "final": 0.771
       },
-      "status": "discovered"
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     },
     {
       "name": "Times of India World",
@@ -10979,6 +10980,63 @@
         "authority": 0.5,
         "uniqueness": 0.7,
         "final": 0.77
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "The Express Tribune",
+      "url": "https://tribune.com.pk/feed/home",
+      "language": "en",
+      "category": "global_south",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 73,
+        "newest_age_hours": 5.92,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 85,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.3,
+        "authority": 0.65,
+        "uniqueness": 0.75,
+        "final": 0.845
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "TheJournal.ie",
+      "url": "https://www.thejournal.ie/feed/",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 0.95,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 101,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.62,
+        "uniqueness": 0.7,
+        "final": 0.826
       },
       "status": "discovered"
     }
