@@ -2510,7 +2510,7 @@
       "url": "https://www.carbonbrief.org/feed/",
       "language": "en",
       "category": "vertical",
-      "status": "production",
+      "status": "rejected",
       "discovered_via": "ai_search",
       "validation": {
         "http_status": 200,
@@ -2532,7 +2532,7 @@
         "uniqueness": 0.9,
         "final": 0.864
       },
-      "reject_reason": null,
+      "reject_reason": "rotation-group-laggard (chronic)",
       "trial": {
         "start_date": "2026-06-06",
         "end_date": "2026-06-09",
