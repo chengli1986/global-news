@@ -5,7 +5,6 @@ set -eo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
-WORKSPACE="$HOME/.openclaw/workspace"
 LOG_PREFIX="[$(TZ='Asia/Shanghai' date '+%Y-%m-%d %H:%M:%S')]"
 
 # Load SMTP credentials
@@ -22,7 +21,7 @@ RESULTS_TSV="$REPO_DIR/autoresearch/results.tsv"
 echo "$LOG_PREFIX Sending preview email with pipeline enabled..."
 
 # --- 1. Send the pipeline-enabled email ---
-cd "$WORKSPACE"
+cd "$REPO_DIR"
 python3 unified-global-news-sender.py email "$RECIPIENT" --pipeline 2>&1
 SEND_EXIT=$?
 

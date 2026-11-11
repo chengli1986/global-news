@@ -33,7 +33,7 @@ from typing import Any
 HOME = Path.home()
 SENDER_PATH = HOME / "global-news/unified-global-news-sender.py"
 FIXTURES_DIR = HOME / "global-news/fixtures"
-LOGS_DIR = HOME / ".openclaw/workspace/logs"
+LOGS_DIR = HOME / "global-news/logs"
 
 # Load sender module (handles dashed filename)
 spec = importlib.util.spec_from_file_location("sender_mod", SENDER_PATH)
