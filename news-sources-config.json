@@ -332,6 +332,13 @@
         "url": "https://a.jiemian.com/index.php?m=article&a=rss",
         "keywords": [],
         "limit": 3
+      },
+      {
+        "name": "澎湃新闻",
+        "url": "https://plink.anyfeeder.com/thepaper",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [

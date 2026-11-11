@@ -11212,7 +11212,16 @@
         "uniqueness": 0.7,
         "final": 0.865
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-11-12",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.865
+      }
     }
   ]
 }
