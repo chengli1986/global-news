@@ -165,11 +165,13 @@ Current recipients (4 TO + 1 BCC):
 
 ```cron
 # News digest: 1x daily at 12:15 BJT (04:15 UTC, via cron-wrapper)
-15 4 * * * ~/cron-wrapper.sh --name global-news-12 --timeout 720 --lock -- ~/.openclaw/workspace/global-news-cron-wrapper.sh email
+15 4 * * * ~/cron-wrapper.sh --name global-news-12 --timeout 720 --retry 2 --retry-delay 30 --lock -- /home/ubuntu/global-news/global-news-cron-wrapper.sh email
 
 # RSS health check: 1x daily at 12:05 BJT (04:05 UTC)
-5 4 * * * ~/cron-wrapper.sh --name rss-health-12 --timeout 120 -- python3 ~/.openclaw/workspace/rss-health-check.py
+5 4 * * * ~/cron-wrapper.sh --name rss-health-12 --timeout 120 -- python3 /home/ubuntu/global-news/rss-health-check.py
 ```
+
+Since 2026-11-11 cron runs both scripts straight from the repo (it used to go through `~/.openclaw/workspace` symlinks). Every log and state file is under `logs/`: `news-sender-YYYYMMDD.log`, `rss-health.json`, `sent-today-*.json`, and the history copied over from the workspace (`news-sender-20260310.openclaw.log` is the one renamed on a name clash).
 
 ## AutoResearch — Digest Quality Pipeline
 
