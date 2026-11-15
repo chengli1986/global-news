@@ -74,7 +74,7 @@ python3 rss-health-check.py --email
 
 ## News Sources (54)
 
-> Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-10-25 (rebuilt by script from config + registry, not hand-counted; both agree at 50 RSS with zero drift).
+> Authoritative list lives in `news-sources-config.json` (RSS) + `config/rss-registry.json` (categories/status). Trial-promoted feeds rotate, so this list may drift ±1–2 between README updates. Snapshot: 2026-11-15 (config 50 RSS = registry 49 production + 1 trialing, zero drift).
 
 **RSS/Atom (50)**, grouped by registry category:
 
@@ -82,7 +82,7 @@ python3 rss-health-check.py --email
 - **global_finance** (11): BBC Business, Bloomberg, Bloomberg Econ, Bloomberg Politics, CNBC, CoinDesk, Economist Business, Economist Finance, Economist Leaders, FT, NYT Business
 - **vertical** (5): Economist Science, Foreign Policy, IPS News, Nautilus Magazine, ProPublica
 - **hk_sea** (5): CNA, Korea Herald, Philippine Daily Inquirer, Rappler, SCMP
-- **europe** (5): Al Jazeera English, BBC World, France24 English, Politico Europe, RFI English
+- **europe** (4): Al Jazeera English, BBC World, France24 English, Politico Europe (RFI English demoted 2026-11-15: lowest in group for 13 weeks, avg ~24% selected vs 50–90%)
 - **china_depth** (5): BBC中文, RFI中文, 界面新闻, 端傳媒 Initium Media, 纽约时报中文
 - **north_america** (3): Globe & Mail, Politico US Politics, The New Yorker
 - **healthcare** (3): Endpoints News, Science News, STAT News

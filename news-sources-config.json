@@ -261,12 +261,6 @@
         "limit": 3
       },
       {
-        "name": "RFI English",
-        "url": "https://www.rfi.fr/en/rss",
-        "keywords": [],
-        "limit": 3
-      },
-      {
         "name": "Rappler",
         "url": "https://www.rappler.com/feed/",
         "keywords": [],
