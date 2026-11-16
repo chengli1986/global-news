@@ -11240,6 +11240,11 @@
           },
           {
             "date": "2026-11-16",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-11-17",
             "fetched": 0,
             "selected": 0
           }
