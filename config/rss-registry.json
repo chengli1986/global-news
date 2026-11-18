@@ -11212,10 +11212,10 @@
         "uniqueness": 0.7,
         "final": 0.865
       },
-      "status": "trialing",
+      "status": "rejected",
       "trial": {
         "start_date": "2026-11-12",
-        "end_date": null,
+        "end_date": "2026-11-19",
         "report_sent": false,
         "daily_stats": [
           {
@@ -11250,12 +11250,17 @@
           },
           {
             "date": "2026-11-18",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-11-19",
             "fetched": 0,
             "selected": 0
           }
         ],
-        "outcome": null,
-        "auto_decided": false,
+        "outcome": "auto-removed",
+        "auto_decided": true,
         "candidate_score": 0.865
       }
     },
