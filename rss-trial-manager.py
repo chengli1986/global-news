@@ -33,16 +33,11 @@ import rss_registry as _reg
 TRIAL_LOG_FILE = os.path.join(LOGS_DIR, "trial-source-log.jsonl")
 HEALTH_STATE_FILE = os.path.join(LOGS_DIR, "rss-health.json")  # the live copy
 
-# Historical (fixed 2026-08-05): rss-health-check.py is invoked through its
-# *workspace* symlink and used to build SCRIPT_DIR with os.path.abspath(__file__),
-# which does not resolve symlinks — so it read/wrote a SECOND state file under the
-# workspace while this manager (not symlinked) wrote the repo copy. It now uses
-# realpath, so both land on HEALTH_STATE_FILE. The workspace path is kept below
-# only to scrub any leftover pre-migration file; entries are deduped by realpath,
-# so listing both costs nothing once the leftover is gone.
+# Kept as a list (the scrub loop and tests patch it). It used to also list a
+# leftover copy under ~/.openclaw/workspace/logs (a pre-2026-08-05 symlink bug
+# wrote a second state file there); ~/.openclaw was deleted 2026-11-24.
 HEALTH_STATE_FILES = [
     HEALTH_STATE_FILE,
-    os.path.expanduser("~/.openclaw/workspace/logs/rss-health.json"),
 ]
 ENV_FILE = os.path.expanduser("~/.stock-monitor.env")
 
