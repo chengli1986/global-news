@@ -333,6 +333,13 @@
         "keywords": [],
         "limit": 3,
         "trial": true
+      },
+      {
+        "name": "The Irrawaddy",
+        "url": "https://www.irrawaddy.com/feed",
+        "keywords": [],
+        "limit": 3,
+        "trial": true
       }
     ],
     "hn_api": [

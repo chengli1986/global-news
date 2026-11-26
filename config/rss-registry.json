@@ -11532,7 +11532,18 @@
         "start_date": "2026-11-26",
         "end_date": null,
         "report_sent": false,
-        "daily_stats": [],
+        "daily_stats": [
+          {
+            "date": "2026-11-26",
+            "fetched": 3,
+            "selected": 0
+          },
+          {
+            "date": "2026-11-27",
+            "fetched": 0,
+            "selected": 0
+          }
+        ],
         "outcome": null,
         "auto_decided": false,
         "candidate_score": 0.865
@@ -11706,7 +11717,16 @@
         "uniqueness": 0.85,
         "final": 0.866
       },
-      "status": "discovered"
+      "status": "trialing",
+      "trial": {
+        "start_date": "2026-11-27",
+        "end_date": null,
+        "report_sent": false,
+        "daily_stats": [],
+        "outcome": null,
+        "auto_decided": false,
+        "candidate_score": 0.866
+      }
     },
     {
       "name": "Antara News English",
