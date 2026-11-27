@@ -11957,6 +11957,266 @@
       },
       "status": "rejected",
       "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Liberty Street Economics (NY Fed)",
+      "url": "https://libertystreeteconomics.newyorkfed.org/feed/",
+      "language": "en",
+      "category": "global_finance",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 100,
+        "newest_age_hours": 78.26,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 738,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 0.69,
+        "content_depth": 1.0,
+        "authority": 0.8,
+        "uniqueness": 0.7,
+        "final": 0.682
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Stratechery",
+      "url": "https://stratechery.com/feed/",
+      "language": "en",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 81.26,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 149,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 0.5,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.72,
+        "uniqueness": 0.65,
+        "final": 0.751
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "雷峰网",
+      "url": "https://www.leiphone.com/feed",
+      "language": "cn",
+      "category": "tech_ai",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 7.86,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": true,
+        "avg_description_length": 3575,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.69,
+        "content_depth": 1.0,
+        "authority": 0.68,
+        "uniqueness": 0.55,
+        "final": 0.707
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "New Mandala",
+      "url": "https://www.newmandala.org/feed/",
+      "language": "en",
+      "category": "hk_sea",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 15.89,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 139,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 1.0,
+        "content_depth": 0.6,
+        "authority": 0.62,
+        "uniqueness": 0.75,
+        "final": 0.816
+      },
+      "status": "discovered"
+    },
+    {
+      "name": "Sky News World",
+      "url": "https://feeds.skynews.com/feeds/rss/world.xml",
+      "language": "en",
+      "category": "europe",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 9,
+        "newest_age_hours": 5.76,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 156,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "content_depth": 0.6,
+        "authority": 0.82,
+        "uniqueness": 0.45,
+        "final": 0.691
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "CBS News",
+      "url": "https://www.cbsnews.com/latest/rss/main",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 30,
+        "newest_age_hours": 0.12,
+        "has_descriptions": true,
+        "has_authors": false,
+        "has_categories": false,
+        "avg_description_length": 163,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 1.0,
+        "content_quality": 0.5,
+        "content_depth": 0.6,
+        "authority": 0.82,
+        "uniqueness": 0.5,
+        "final": 0.721
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "The 19th",
+      "url": "https://19thnews.org/feed/",
+      "language": "en",
+      "category": "north_america",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 81.26,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": true,
+        "avg_description_length": 353,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.2,
+        "content_quality": 1.0,
+        "content_depth": 1.0,
+        "authority": 0.68,
+        "uniqueness": 0.65,
+        "final": 0.714
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Pharmaphorum",
+      "url": "https://pharmaphorum.com/rss.xml",
+      "language": "en",
+      "category": "healthcare",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 10,
+        "newest_age_hours": 4.28,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 108,
+        "error": null
+      },
+      "scores": {
+        "reliability": 0.8,
+        "freshness": 1.0,
+        "content_quality": 0.81,
+        "content_depth": 0.6,
+        "authority": 0.62,
+        "uniqueness": 0.55,
+        "final": 0.729
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
+    },
+    {
+      "name": "Chartbook (Adam Tooze)",
+      "url": "https://adamtooze.substack.com/feed",
+      "language": "en",
+      "category": "vertical",
+      "discovered_via": "ai_search",
+      "validation": {
+        "http_status": 200,
+        "parse_ok": true,
+        "article_count": 20,
+        "newest_age_hours": 9.52,
+        "has_descriptions": true,
+        "has_authors": true,
+        "has_categories": false,
+        "avg_description_length": 76,
+        "error": null
+      },
+      "scores": {
+        "reliability": 1.0,
+        "freshness": 0.8,
+        "content_quality": 0.81,
+        "content_depth": 0.3,
+        "authority": 0.7,
+        "uniqueness": 0.6,
+        "final": 0.752
+      },
+      "status": "rejected",
+      "reject_reason": "pool-cap"
     }
   ]
 }
